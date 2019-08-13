@@ -406,6 +406,75 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
             addLinks(first_switch, last_switch, next_index)
 
 
+class FaucetStackTopo(FaucetSwitchTopo):
+
+    def dpid_peer_links(self, dpid):
+        name = self.dpid_names[dpid]
+        links = [self.hw_remap_peer_link(dpid, link) for link in self.switch_peer_links[name]]
+        return links
+
+    def build(self, ovs_type, ports_sock, test_name, dpids, n_hosts,
+              dp_links, hw_dpid=None, switch_map=None, start_port=SWITCH_START_PORT,
+              port_order=None, get_serialno=mininet_test_util.get_serialno):
+        """ 
+        Args:
+            ovs_type:
+            ports_sock:
+            test_name:
+            dpids:  List of the DPIDs
+            n_hosts: Number of hosts on each switch
+            dp_links: The switch to switch links
+            hw_dpid:
+            switch_map:
+            start_port:
+            port_order:
+            get_serialno:
+        """
+        def addLinks(src, dst, num_links, next_index):
+            self.switch_peer_links.setdefault(src, [])
+            self.switch_peer_links.setdefault(dst, [])
+            dpid1, dpid2 = self.switch_dpids[src], self.switch_dpids[dst]
+            for _ in range(num_links):
+                index1, index2 = next_index[src], next_index[dst]
+                port1, port2 = [self.start_port + self.port_order[i] for i in (index1, index2)]
+                self.addLink(src, dst, port1=port1, port2=port2)
+                # Update port and link lists
+                self.switch_ports[src].append(port1)
+                self.switch_ports[dst].append(port2)
+                self.switch_peer_links[src].append(self.peer_link(port1, dpid2, port2))
+                self.switch_peer_links[dst].append(self.peer_link(port2, dpid1, port1))
+                # Update next indices on src and dest
+                next_index[src] += 1
+                next_index[dst] += 1
+
+        self.hw_dpid = hw_dpid
+        self.hw_ports = sorted(switch_map) if switch_map else []
+        self.start_port = start_port
+        switch_to_switch_links = 0
+        for dplink in dp_links:
+            switch_to_switch_links += dplink[2]
+        self.switch_to_switch_links = switch_to_switch_links
+        max_ports = n_hosts + 2 * switch_to_switch_links
+        self.port_order = self.extend_port_order(port_order, max_ports)
+        self.switch_peer_links = {}
+        next_index = {}
+        dpid_to_switch = {}
+        for dpid in dpids:
+            serialno = get_serialno(ports_sock, test_name)
+            sid_prefix = self._get_sid_prefix(serialno)
+            untagged = [self._add_untagged_host(sid_prefix, host_n) for host_n in range(n_hosts)]
+            switch = self._add_faucet_switch(sid_prefix, dpid, hw_dpid, ovs_type)
+            next_index[switch] = self._add_links(switch, untagged, 1)
+            dpid_to_switch[dpid] = switch
+        for index in range(len(dpids)):
+            for dplink in dp_links:
+                src_index, dst_index, num_links = dplink
+                if src_index == index:
+                    src = dpid_to_switch[dpids[src_index]]
+                    dst = dpid_to_switch[dpids[dst_index]]
+                    addLinks(src, dst, num_links, next_index)
+
+
 class BaseFAUCET(Controller):
     """Base class for FAUCET and Gauge controllers."""
 
