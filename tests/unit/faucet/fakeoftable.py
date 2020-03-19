@@ -289,14 +289,15 @@ class FakeOFTable:
 
         import copy
         return_match = copy.copy(match)
+        out_port = None
 
-        def _output_result(action, vid_stack):
-            out_port = None
-            if action.port == ofp.OFPP_IN_PORT:
-                out_port = match.get('in_port')
-            else:
-                out_port = action.port
-            return out_port
+        #def _output_result(action, vid_stack):
+        #    out_port = None
+        #    if action.port == ofp.OFPP_IN_PORT:
+        #        out_port = match.get('in_port')
+        #    else:
+        #        out_port = action.port
+        #    return out_port
 
         def _process_vid_stack(action, vid_stack):
             if action.type == ofp.OFPAT_PUSH_VLAN:
@@ -308,28 +309,34 @@ class FakeOFTable:
                     vid_stack[-1] = action.value
             return vid_stack
 
-        if trace:
-            sys.stderr.write('tracing packet flow %s\n' % match)
-            sys.stderr.write(str(self) + '\n')
+        #if trace:
+        #    sys.stderr.write('tracing packet flow %s\n' % match)
+        #    sys.stderr.write(str(self) + '\n')
 
         # vid_stack represents the packet's vlan stack, innermost label listed
-        # first
+        #   first
         match_vid = match.get('vlan_vid', 0)
         vid_stack = []
         if match_vid & ofp.OFPVID_PRESENT != 0:
             vid_stack.append(match_vid)
+
+        # Obtain all instructions that match the incoming packet
         instructions, _ = self.lookup(match, trace=trace)
 
         for instruction in instructions:
             if instruction.type != ofp.OFPIT_APPLY_ACTIONS:
+                # No actions to apply, so ignore
                 continue
             for action in instruction.actions:
+                # Foreach action in the instruction
                 vid_stack = _process_vid_stack(action, vid_stack)
                 if action.type == ofp.OFPAT_OUTPUT:
                     output_result = _output_result(
                         action, vid_stack, port, vid)
                     if output_result is not None:
                         return output_result
+
+
                 elif action.type == ofp.OFPAT_GROUP:
                     if action.group_id not in self.groups:
                         raise FakeOFTableException(
@@ -345,7 +352,8 @@ class FakeOFTable:
                                     bucket_action, vid_stack, port, vid)
                                 if output_result is not None:
                                     return output_result
-        return False
+
+        return out_port, return_match
 
     def is_output(self, match, port=None, vid=None, trace=False):
         """Return true if packets with match fields is output to port with
