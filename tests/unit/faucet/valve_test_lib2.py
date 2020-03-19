@@ -57,34 +57,33 @@ from fakeoftable import FakeOFTable
 class ValveTestBases:
     """Insulate test base classes from unittest so we can reuse base clases."""
 
-    class ValveTestBase(unittest.TestCase):
-        """ """
-
-
-
-    class ValveTestSmall(unittest.TestCase):  # pytype: disable=module-attr
+    class ValveTestBase(unittest.TestCase):  # pytype: disable=module-attr
         """Base class for all Valve unit tests."""
 
-        #DP = 's1'
-        #DP_ID = 1
+        DP_NAME = 's1'
 
-        NUM_PORTS = 5
+        @staticmethod
+        def create_dp_name(i):
+            return 's%s' % i
+
+        DP_ID = 1
+
         NUM_TABLES = 10
 
-        P1_V100_MAC = '00:00:00:01:00:01'
-        P2_V100_MAC = '00:00:00:01:00:02'
-        P3_V100_MAC = '00:00:00:01:00:03'
-        P1_V200_MAC = '00:00:00:02:00:01'
-        P2_V200_MAC = '00:00:00:02:00:02'
-        P3_V200_MAC = '00:00:00:02:00:03'
-        P1_V300_MAC = '00:00:00:03:00:01'
+        @staticmethod
+        def create_mac_str(i, j):
+            return '00:00:00:%02x:00:%02x' % (i, j)
 
-        UNKNOWN_MAC = '00:00:00:04:00:04'
+        @staticmethod
+        def create_ip_str(i, j):
+            return '10.%s.0.%s' % (i, j)
+
         BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
+        FAUCET_MAC = '0e:00:00:00:00:01'
 
-        V100 = 0x100 | ofp.OFPVID_PRESENT
-        V200 = 0x200 | ofp.OFPVID_PRESENT
-        V300 = 0x300 | ofp.OFPVID_PRESENT
+        @staticmethod
+        def create_vid(i):
+            return 0x100 * i | ofp.OFPVID_PRESENT
 
         LOGNAME = 'faucet'
         ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')  # must support 64b payload.
@@ -97,10 +96,8 @@ class ValveTestBases:
             self.metrics = None
             self.bgp = None
             self.logger = None
-            
             self.last_flows_to_dp = {}
             self.tables = {}
-
             self.tmpdir = None
             self.faucet_event_sock = None
             self.registry = None
@@ -109,20 +106,20 @@ class ValveTestBases:
             self.config_file = None
             self.up_ports = {}
             self.mock_now_sec = 100
-            super(ValveTestBases.ValveTestSmall, self).__init__(*args, **kwargs)
+            super(ValveTestBases.ValveTestBase, self).__init__(*args, **kwargs)
 
         def mock_time(self, increment_sec=1):
             """
             Manage a mock timer for better unit test control
             Args:
-                increment_sec: Amount to increment current mock time
+                increment_sec (int): Amount to increment current mock time
             Returns:
                 current mock time
             """
             self.mock_now_sec += increment_sec
             return self.mock_now_sec
 
-        def setup_valves(self, config, error_expected=0, log_stdout=False):
+        def setup_valves(self, config, error_expected=0, log_stdout=False, start_network=False):
             """
             Set up test DP with config.
             Args:
@@ -180,11 +177,11 @@ class ValveTestBases:
         def connect_dp(self, dp_id):
             """Call DP connect and wth all ports up."""
             valve = self.valves_manager.valves[dp_id]
-            discovered_up_ports = set(list(valve.dp.ports.keys())[:self.NUM_PORTS])
+            discovered_up_ports = set(valve.dp.ports.keys())
             connect_msgs = (
                 valve.switch_features(None) +
                 valve.datapath_connect(self.mock_time(10), discovered_up_ports))
-            self.apply_ofmsgs(connect_msgs)
+            self.apply_ofmsgs(connect_msgs, dp_id)
             self.valves_manager.update_config_applied(sent={dp_id: True})
             self.assertEqual(1, int(self.get_prom('dp_status')))
             self.assertTrue(valve.dp.to_conf())
@@ -228,7 +225,7 @@ class ValveTestBases:
                 labels = {}
             if not bare:
                 labels.update({
-                    'dp_name': dp,
+                    'dp_name': dp_name,
                     'dp_id': '0x%x' % dp_id})
             val = self.registry.get_sample_value(var, labels)
             if val is None:
@@ -269,7 +266,6 @@ class ValveTestBases:
             reload_func = partial(
                 self.valves_manager.request_reload_configs,
                 self.mock_time(10), self.config_file)
-
             if error_expected:
                 reload_func()
             else:
@@ -338,7 +334,6 @@ class ValveTestBases:
                 for port in valve.dp.stack_ports:
                     port.stack_up()
 
-        # TODO: What to do with this...
         def up_stack_port(self, port, dp_id=None):
             """Bring up a single stack port"""
             peer_dp = port.stack['dp']
@@ -347,6 +342,7 @@ class ValveTestBases:
                 state_func()
                 self.rcv_lldp(port, peer_dp, peer_port, dp_id)
             self.assertTrue(port.is_stack_up())
+
         def down_stack_port(self, port):
             """Bring down a single stack port"""
             self.up_stack_port(port)
@@ -465,7 +461,7 @@ class ValveTestBases:
             tlvs = []
             tlvs.extend(valve_packet.faucet_lldp_tlvs(other_dp))
             tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(other_dp, other_port))
-            dp_mac = other_dp.faucet_dp_mac if other_dp.faucet_dp_mac else FAUCET_MAC
+            dp_mac = other_dp.faucet_dp_mac if other_dp.faucet_dp_mac else self.FAUCET_MAC
             self.rcv_packet(port.number, 0, {
                 'eth_src': dp_mac,
                 'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
@@ -493,52 +489,57 @@ class ValveTestBases:
             """Set stack port up recalculating topology as necessary."""
             self.set_stack_port_status(port_no, 2, dp_id)
 
-        # TODO: Past this point is verification stuff...
-
         def learn_hosts(self):
             """Learn some hosts."""
             # TODO: verify learn caching.
             for _ in range(2):
-                self.rcv_packet(1, 0x100, {
-                    'eth_src': self.P1_V100_MAC,
-                    'eth_dst': self.UNKNOWN_MAC,
-                    'ipv4_src': '10.0.0.1',
-                    'ipv4_dst': '10.0.0.4'})
+                self.rcv_packet(1, self.create_vid(1), {
+                    'etc_src': self.create_mac_str(1, 1),
+                    'eth_dst': self.create_mac_str(4, 4),
+                    'ipv4_src': self.create_ip_str(1, 1),
+                    'ipv4_dst': self.create_ip_str(4, 4)})
                 # TODO: verify host learning banned
-                self.rcv_packet(1, 0x100, {
-                    'eth_src': self.UNKNOWN_MAC,
-                    'eth_dst': self.P1_V100_MAC,
-                    'ipv4_src': '10.0.0.4',
-                    'ipv4_dst': '10.0.0.1'})
-                self.rcv_packet(3, 0x100, {
-                    'eth_src': self.P3_V100_MAC,
-                    'eth_dst': self.P2_V100_MAC,
-                    'ipv4_src': '10.0.0.3',
-                    'ipv4_dst': '10.0.0.2',
-                    'vid': 0x100})
-                self.rcv_packet(2, 0x200, {
-                    'eth_src': self.P2_V200_MAC,
-                    'eth_dst': self.P3_V200_MAC,
-                    'ipv4_src': '10.0.0.2',
-                    'ipv4_dst': '10.0.0.3',
-                    'vid': 0x200})
-                self.rcv_packet(3, 0x200, {
-                    'eth_src': self.P3_V200_MAC,
-                    'eth_dst': self.P2_V200_MAC,
-                    'ipv4_src': '10.0.0.3',
-                    'ipv4_dst': '10.0.0.2',
-                    'vid': 0x200})
+                self.rcv_packet(1, self.create_vid(1), {
+                    'eth_src': self.create_mac_str(4, 4),
+                    'eth_dst': self.create_mac_str(1, 1),
+                    'ipv4_src': self.create_ip_str(4, 4),
+                    'ipv4_dst': self.create_ip_str(1, 1)})
+                self.rcv_packet(3, self.create_vid(1), {
+                    'eth_src': self.create_mac_str(1, 3),
+                    'eth_dst': self.create_mac_str(1, 2),
+                    'ipv4_src': self.create_ip_str(1, 3),
+                    'ipv4_dst': self.create_ip_str(1, 2),
+                    'vid': self.create_vid(1)})
+                self.rcv_packet(2, self.create_vid(2), {
+                    'eth_src': self.create_mac_str(2, 2),
+                    'eth_dst': self.create_mac_str(2, 3),
+                    'ipv4_src': self.create_ip_str(2, 2),
+                    'ipv4_dst': self.create_ip_str(2, 3),
+                    'vid': self.create_vid(2)})
+                self.rcv_packet(3, self.create_vid(2), {
+                    'eth_src': self.create_mac_str(2, 3),
+                    'eth_dst': self.create_mac_str(2, 2),
+                    'ipv4_src': self.create_ip_str(2, 3),
+                    'ipv4_dst': self.create_ip_str(2, 2),
+                    'vid': self.create_vid(2)})
 
-        def verify_expiry(self):
+        def verify_expiry(self, dp_id=None):
             """Verify FIB resolution attempts expire."""
-            for _ in range(self.valve.dp.max_host_fib_retry_count + 1):
-                now = self.mock_time(self.valve.dp.timeout * 2)
-                self.valve.state_expire(now, None)
-                self.valve.resolve_gateways(now, None)
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            for _ in range(valve.dp.max_host_fib_retry_count + 1):
+                now = self.mock_time(valve.dp.timeout * 2)
+                valve.state_expire(now, None)
+                valve.resolve_gateways(now, None)
             # TODO: verify state expired
 
-        def verify_flooding(self, matches):
+        def verify_flooding(self, matches, dp_id=None):
             """Verify flooding for a packet, depending on the DP implementation."""
+
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
 
             def _verify_flood_to_port(match, port, valve_vlan, port_number=None):
                 if valve_vlan.port_is_tagged(port):
@@ -547,20 +548,21 @@ class ValveTestBases:
                     vid = 0
                 if port_number is None:
                     port_number = port.number
-                return self.table.is_output(match, port=port_number, vid=vid)
+                return self.tables[dp_id].is_output(match, port=port_number, vid=vid)
 
             for match in matches:
                 in_port_number = match['in_port']
-                in_port = self.valve.dp.ports[in_port_number]
+                in_port = valve.dp.ports[in_port_number]
 
                 if ('vlan_vid' in match and
                         match['vlan_vid'] & ofp.OFPVID_PRESENT != 0):
-                    valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
+                    # TODO: Tagged VLAN??
+                    valve_vlan = valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
                 else:
                     valve_vlan = in_port.native_vlan
 
                 all_ports = {
-                    port for port in self.valve.dp.ports.values() if port.running()}
+                    port for port in valve.dp.ports.values() if port.running()}
                 remaining_ports = all_ports - {
                     port for port in valve_vlan.get_ports() if port.running}
 
@@ -573,7 +575,7 @@ class ValveTestBases:
 
                 for port in valve_vlan.get_ports():
                     output = _verify_flood_to_port(match, port, valve_vlan)
-                    if self.valve.floods_to_root():
+                    if valve.floods_to_root():
                         # Packet should only be flooded to root.
                         self.assertEqual(False, output, 'unexpected non-root flood')
                     else:
@@ -587,20 +589,22 @@ class ValveTestBases:
                                 output,
                                 msg=('%s with unknown eth_dst not flooded'
                                      ' on VLAN %u to port %u\n%s' % (
-                                         match, valve_vlan.vid, port.number, self.table)))
+                                         match, valve_vlan.vid, port.number, self.tables[dp_id])))
 
                 # Packet must not be flooded to ports not on the VLAN.
                 for port in remaining_ports:
                     if port.stack:
                         self.assertTrue(
-                            self.table.is_output(match, port=port.number),
+                            self.tables[dp_id].is_output(match, port=port.number),
                             msg=('Unknown eth_dst not flooded to stack port %s' % port))
                     elif not port.mirror:
                         self.assertFalse(
-                            self.table.is_output(match, port=port.number),
+                            self.tables[dp_id].is_output(match, port=port.number),
                             msg=('Unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
 
-        def validate_flood(self, in_port, vlan_vid, out_port, expected, msg):
+        def validate_flood(self, in_port, vlan_vid, out_port, expected, msg, dp_id=None):
+            if dp_id is None:
+                dp_id = self.DP_ID
             bcast_match = {
                 'in_port': in_port,
                 'eth_dst': mac.BROADCAST_STR,
@@ -608,21 +612,33 @@ class ValveTestBases:
                 'eth_type': 0x800,
             }
             if expected:
-                self.assertTrue(self.table.is_output(bcast_match, port=out_port), msg=msg)
+                self.assertTrue(self.tables[dp_id].is_output(bcast_match, port=out_port), msg=msg)
             else:
-                self.assertFalse(self.table.is_output(bcast_match, port=out_port), msg=msg)
+                self.assertFalse(self.tables[dp_id].is_output(bcast_match, port=out_port), msg=msg)
 
-        def pkt_match(self, src, dst):
+        def pkt_match(self, src, dst, vlan):
             """Make a unicast packet match dict for the given src & dst"""
             return {
-                'eth_src': '00:00:00:01:00:%02x' % src,
-                'eth_dst': '00:00:00:01:00:%02x' % dst,
-                'ipv4_src': '10.0.0.%d' % src,
-                'ipv4_dst': '10.0.0.%d' % dst,
-                'vid': self.V100
+                'eth_src': self.create_mac_str(vlan, src),
+                'eth_dst': self.create_mac_str(vlan, dst),
+                'ipv4_src': self.create_ip_str(vlan, src),
+                'ipv4_dst': self.create_ip_str(vlan, dst),
+                'vid': self.create_vid(vlan)
             }
 
         def _config_edge_learn_stack_root(self, new_value):
             config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
             config['vlans']['v100']['edge_learn_stack_root'] = new_value
             return yaml.dump(config)
+        
+        def _next_table(self, dp_id, out_port):
+            """Returns the FakeOFTable of the switch on that is connected to the DP via out_port"""
+            valve = self.valves_manager.valves[dp_id]
+            port = valve.dp.ports[out_port]
+            if port.stack:
+                adj_dp = port.stack['dp']
+                return self.tables[adj_dp.dp_id]
+            return None
+
+        def multidp_packet_output(self, match, src_dpid, dst_dpid, port=None, vid=None):
+            """ """
