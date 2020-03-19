@@ -287,23 +287,16 @@ class FakeOFTable:
             an input match into the FakeOFTable
         """
 
-        def _output_result(action, vid_stack, port, vid):
-            if port is None:
-                return True
-            in_port = match.get('in_port')
-            result = None
-            if action.port == port:
-                if port == in_port:
-                    result = None
-                elif vid is None:
-                    result = True
-                elif vid & ofp.OFPVID_PRESENT == 0:
-                    result = not vid_stack
-                else:
-                    result = vid_stack and vid == vid_stack[-1]
-            elif action.port == ofp.OFPP_IN_PORT and port == in_port:
-                result = True
-            return result
+        import copy
+        return_match = copy.copy(match)
+
+        def _output_result(action, vid_stack):
+            out_port = None
+            if action.port == ofp.OFPP_IN_PORT:
+                out_port = match.get('in_port')
+            else:
+                out_port = action.port
+            return out_port
 
         def _process_vid_stack(action, vid_stack):
             if action.type == ofp.OFPAT_PUSH_VLAN:
@@ -370,6 +363,7 @@ class FakeOFTable:
         Arguments:
         Match: a dictionary keyed by header field names with values.
         """
+
         def _output_result(action, vid_stack, port, vid):
             if port is None:
                 return True

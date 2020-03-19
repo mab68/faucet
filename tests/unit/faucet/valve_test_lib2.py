@@ -639,6 +639,3 @@ class ValveTestBases:
                 adj_dp = port.stack['dp']
                 return self.tables[adj_dp.dp_id]
             return None
-
-        def multidp_packet_output(self, match, src_dpid, dst_dpid, port=None, vid=None):
-            """ """
