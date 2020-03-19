@@ -17,6 +17,7 @@ import sys
 import argparse
 import json
 import ast
+from collections import OrderedDict
 from bitstring import Bits
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
@@ -249,13 +250,13 @@ class FakeOFTable:
             goto_table = False
             table = self.tables[table_id]
             matching_fte = None
-            # find a matching flowmod
+            # Find a matching flowmod
             for fte in table:
                 if fte.pkt_matches(packet_dict):
                     matching_fte = fte
                     break
-            # if a flowmod is found, make modifications to the match values and
-            # determine if another lookup is necessary
+            # If a flowmod is found, make modifications to the match values and
+            #   determine if another lookup is necessary
             if trace:
                 sys.stderr.write('%d: %s\n' % (table_id, matching_fte))
             if matching_fte:
@@ -277,83 +278,80 @@ class FakeOFTable:
                             | (instruction.metadata & mask)
         return (instructions, packet_dict)
 
+    def single_table_lookup(self, match, table_id):
+        """
+        Searches through a single table with `table_id` for entries
+            that will be applied to the packet with fields represented by match
+
+        Args:
+            match (dict): A dictionary keyed by header field names with values
+            table_id (int): The table ID to send the match packet through
+
+        Returns:
+            matching_flowmod
+        """
+        instructions = []
+        packet_dict = match.copy()
+        table = self.tables[table_id]
+        matching_fte = None
+        # Find matching flowmods
+        for fte in table:
+            if fte.pkt_matches(packet_dict):
+                matching_fte = fte
+                break
+        return matching_fte
+    
+    def get_table_output(self, match, table_id, trace=False):
+        """
+        Send a packet through a single table and return the output
+            ports mapped to the output packet
+
+        Args:
+            match (dict): A dictionary keyed by header field names with values
+            table_id (int): The table ID to send the packet match through
+
+        Returns:
+            outputs: OrderedDict of an output port to output packet map
+            packet_dict: The last version of the packet
+            next_table: Table ID of the next table
+        """
+        next_table = None
+        packet_dict = match.copy()
+        outputs = OrderedDict()
+        matching_fte = self.single_table_lookup(match, table_id)
+        for instruction in matching_fte.instructions:
+            if instruction.type == ofp.OFPIT_GOTO_TABLE:
+                if table_id < instruction.table_id:
+                    next_table = instruction.table_id
+            elif instruction.type == ofp.OFPIT_APPLY_ACTIONS:
+                for action in instruction.actions:
+                    if action.type == ofp.OFPAT_SET_FIELD:
+                        # Set field, modify a packet header
+                        packet_dict[action.key] = action.value
+                    elif action.type == ofp.OFPAT_PUSH_VLAN:
+                        if 'vlan_vid' in packet_dict:
+                            # Pushing on another tag, so create another
+                            #   field for the encapsulated VID
+                            packet_dict['encap_vid'] = packet_dict['vlan_vid']
+                            packet_dict['vlan_vid'] = action.value
+                        else:
+                            # Push the VLAN header to the packet
+                            packet_dict['vlan_vid'] = action.value
+                    elif action.type == ofp.OFPAT_POP_VLAN:
+                        # Remove VLAN header from the packet
+                        packet_dict.pop('vlan_vid')
+                        if 'encap_vid' in packet_dict:
+                            # Move the encapsulated VID to the front
+                            packet_dict['vlan_vid'] = packet_dict['encap_vid']
+                            packet_dict.pop('encap_vid')
+                    elif action.type == ofp.OFPAT_OUTPUT:
+                        # Save the packet that is output to a port
+                        outputs[action.port] = packet_dict.copy()
+        return outputs, packet_dict, next_table
+
     def flow_count(self):
         """Return number of flow tables rules"""
         return sum(map(len, self.tables))
-    
-    def get_output(self, match, trace=False):
-        """
-        Returns the output port/ports and the modified match of
-            an input match into the FakeOFTable
-        """
-
-        import copy
-        return_match = copy.copy(match)
-        out_port = None
-
-        #def _output_result(action, vid_stack):
-        #    out_port = None
-        #    if action.port == ofp.OFPP_IN_PORT:
-        #        out_port = match.get('in_port')
-        #    else:
-        #        out_port = action.port
-        #    return out_port
-
-        def _process_vid_stack(action, vid_stack):
-            if action.type == ofp.OFPAT_PUSH_VLAN:
-                vid_stack.append(ofp.OFPVID_PRESENT)
-            elif action.type == ofp.OFPAT_POP_VLAN:
-                vid_stack.pop()
-            elif action.type == ofp.OFPAT_SET_FIELD:
-                if action.key == 'vlan_vid':
-                    vid_stack[-1] = action.value
-            return vid_stack
-
-        #if trace:
-        #    sys.stderr.write('tracing packet flow %s\n' % match)
-        #    sys.stderr.write(str(self) + '\n')
-
-        # vid_stack represents the packet's vlan stack, innermost label listed
-        #   first
-        match_vid = match.get('vlan_vid', 0)
-        vid_stack = []
-        if match_vid & ofp.OFPVID_PRESENT != 0:
-            vid_stack.append(match_vid)
-
-        # Obtain all instructions that match the incoming packet
-        instructions, _ = self.lookup(match, trace=trace)
-
-        for instruction in instructions:
-            if instruction.type != ofp.OFPIT_APPLY_ACTIONS:
-                # No actions to apply, so ignore
-                continue
-            for action in instruction.actions:
-                # Foreach action in the instruction
-                vid_stack = _process_vid_stack(action, vid_stack)
-                if action.type == ofp.OFPAT_OUTPUT:
-                    output_result = _output_result(
-                        action, vid_stack, port, vid)
-                    if output_result is not None:
-                        return output_result
-
-
-                elif action.type == ofp.OFPAT_GROUP:
-                    if action.group_id not in self.groups:
-                        raise FakeOFTableException(
-                            'output group not in group table: %s' % action)
-                    buckets = self.groups[action.group_id].buckets
-                    for bucket in buckets:
-                        bucket_vid_stack = vid_stack
-                        for bucket_action in bucket.actions:
-                            bucket_vid_stack = _process_vid_stack(
-                                bucket_action, bucket_vid_stack)
-                            if bucket_action.type == ofp.OFPAT_OUTPUT:
-                                output_result = _output_result(
-                                    bucket_action, vid_stack, port, vid)
-                                if output_result is not None:
-                                    return output_result
-
-        return out_port, return_match
 
     def is_output(self, match, port=None, vid=None, trace=False):
         """Return true if packets with match fields is output to port with
@@ -533,7 +531,6 @@ class FlowMod:
         if an element is included in the flow table entry match fields but not
         in the pkt_dict that is assumed to indicate a failed match
         """
-
         # TODO: add cookie and out_group
         for key, val in self.match_values.items():
             if key not in pkt_dict:
