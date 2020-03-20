@@ -877,8 +877,6 @@ class ValveTestBases:
             valve = self.valves_manager.valves[dp_id]
             pkt = build_pkt(match)
             vlan_pkt = pkt
-            # TODO: VLAN packet submitted to packet in always has VID
-            # Fake OF switch implementation should do this by applying actions.
             if vid and vid not in match:
                 vlan_match = match
                 vlan_match['vid'] = vid

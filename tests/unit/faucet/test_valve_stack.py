@@ -1506,15 +1506,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
             'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -1644,14 +1644,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
+            'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -1743,15 +1744,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
             'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -1874,15 +1875,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
             'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -2012,14 +2013,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
+            'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -2111,15 +2113,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
             'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
