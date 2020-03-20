@@ -278,7 +278,7 @@ class FakeOFTable:
                             | (instruction.metadata & mask)
         return (instructions, packet_dict)
 
-    def single_table_lookup(self, match, table_id):
+    def single_table_lookup(self, match, table_id, trace=False):
         """
         Searches through a single table with `table_id` for entries
             that will be applied to the packet with fields represented by match
@@ -286,9 +286,10 @@ class FakeOFTable:
         Args:
             match (dict): A dictionary keyed by header field names with values
             table_id (int): The table ID to send the match packet through
+            trace (bool): Print the trace of traversing the table
 
         Returns:
-            matching_flowmod
+            matching_fte: First matching flowmod in the table
         """
         instructions = []
         packet_dict = match.copy()
@@ -309,6 +310,7 @@ class FakeOFTable:
         Args:
             match (dict): A dictionary keyed by header field names with values
             table_id (int): The table ID to send the packet match through
+            trace (bool): Print the trace of traversing the table
 
         Returns:
             outputs: OrderedDict of an output port to output packet map
@@ -348,6 +350,9 @@ class FakeOFTable:
                         # Save the packet that is output to a port
                         outputs[action.port] = packet_dict.copy()
         return outputs, packet_dict, next_table
+    
+    def get_output(self, match, trace=False):
+        """ """
 
     def flow_count(self):
         """Return number of flow tables rules"""
