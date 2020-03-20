@@ -1429,15 +1429,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
             'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -1567,14 +1567,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
+            'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -1666,15 +1667,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
             'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -1797,15 +1798,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
             'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -1935,14 +1936,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
+            'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -2034,15 +2036,15 @@ dps:
                     self.set_stack_port_up(port.number, valve)
 
     def validate_tunnel(self, in_port, in_vid, out_port, out_vid, expected, msg):
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
         bcast_match = {
             'in_port': in_port,
             'eth_dst': mac.BROADCAST_STR,
-            'vlan_vid': in_vid,
             'eth_type': 0x0800,
             'ip_proto': 1
         }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
         if expected:
@@ -2153,6 +2155,120 @@ dps:
         dp_obj = self.valves_manager.valves[self.DP_ID].dp
         self.assertFalse(dp_obj.is_stack_root())
         self.assertTrue(dp_obj.is_stack_edge())
+
+
+class ValveNetworkTest(ValveTestBases.ValveTestNetwork):
+    """Test a simple topology with the ValveTestNetwork base"""
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s2, port: 2}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s1, port: 2}
+"""
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve.dp.dp_id)
+
+    def test_network(self):
+        """Test packet output to the adjacent switch"""
+        bcast_match = {
+            'in_port': 1,
+            'eth_src': '00:00:00:00:00:12',
+            'eth_dst': mac.BROADCAST_STR,
+            'ipv4_src': '10.1.0.1',
+            'ipv4_dst': '10.1.0.2',
+            'vlan_vid': 0
+        }
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+
+
+class ValveLoopNetworkTest(ValveTestBases.ValveTestNetwork):
+    """Test a simple topology with the ValveTestNetwork base"""
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s2, port: 2}
+            3:
+                stack: {dp: s3, port: 3}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s1, port: 2}
+            3:
+                stack: {dp: s3, port: 2}
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s2, port: 3}
+            3:
+                stack: {dp: s1, port: 3}
+"""
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve.dp.dp_id)
+
+    def test_network(self):
+        """Test packet output to the adjacent switch in a loop topology"""
+        bcast_match = {
+            'in_port': 1,
+            'eth_src': '00:00:00:00:00:12',
+            'eth_dst': mac.BROADCAST_STR,
+            'ipv4_src': '10.1.0.1',
+            'ipv4_dst': '10.1.0.2',
+            'vlan_vid': 0
+        }
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+        self.set_stack_port_down(3, 0x1)
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
 
 
 if __name__ == "__main__":
