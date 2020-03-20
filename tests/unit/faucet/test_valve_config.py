@@ -217,7 +217,7 @@ dps:
 
     def _inport_flows(self, in_port, ofmsgs):
         return [
-            ofmsg for ofmsg in self.flowmods_from_flows(ofmsgs)
+            ofmsg for ofmsg in ValveTestBases.flowmods_from_flows(ofmsgs)
             if ofmsg.match.get('in_port') == in_port]
 
     def setUp(self):
