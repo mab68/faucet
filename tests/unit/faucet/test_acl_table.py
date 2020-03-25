@@ -90,6 +90,7 @@ dps:
         interfaces:
             1:
                 native_vlan: vlan100
+                acls_in: [group-acl]
             2:
                 native_vlan: vlan100
             3:
@@ -101,4 +102,8 @@ dps:
 
     def test_groupdel_exists(self):
         """ """
-        
+        valve = self.valves_manager.valves[0x1]
+        port = valve.dp.ports[1]
+        ofmsgs = valve.acl_manager.add_port(port)
+        import pprint
+        pprint.pprint(ofmsgs)
