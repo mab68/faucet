@@ -2156,6 +2156,81 @@ dps:
             'Did not encapsulate and forward out re-calculated port')
 
 
+class ValveTestTunnelEncapsulation(ValveTestBases.ValveTestSmall):
+    """Test tunnel correctly encapsulates with ordered ACL output actions"""
+
+    TUNNEL_ID = 2
+
+    CONFIG = """
+acls:
+    tunnel_acl:
+        - rule:
+            dl_type: 0x0800
+            ip_proto: 1
+            actions:
+                output:
+                    - port: 2
+                    - tunnel: {dp: s2, port: 1}
+                    - port: 5
+vlans:
+    vlan100:
+        vid: 1
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+                acls_in: [tunnel_acl]
+            2:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s2, port: 3}
+            4:
+                stack: {dp: s2, port: 4}
+            5:
+                native_vlan: vlan100
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            3:
+                stack: {dp: s1, port: 3}
+            4:
+                stack: {dp: s1, port: 4}
+"""
+
+    def setUp(self):
+        """Create a stacking config file."""
+        self.setup_valve(self.CONFIG)
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
+
+    def test_ordered_tunnel_encapsulation(self):
+        """Test packet is correctly encapsulated and then decapsulated with a tunnel rule"""
+        match = {
+            'in_port': 1,
+            'eth_dst': mac.BROADCAST_STR,
+            'eth_type': 0x0800,
+            'ip_proto': 1
+        }
+        acl_outputs, _, _ = self.table.get_table_output(match, 0)
+        self.assertEqual(list(acl_outputs.keys()), [2, 3, 5])
+        self.assertEqual(acl_outputs[2][0], match)
+        match['vlan_vid'] = self.TUNNEL_ID | ofp.OFPVID_PRESENT
+        self.assertEqual(acl_outputs[3][0], match)
+        match.pop('vlan_vid')
+        self.assertEqual(acl_outputs[5][0], match)
+
+
 class ValveTwoDpRoot(ValveTestBases.ValveTestSmall):
     """Test simple stack topology from root."""
 
