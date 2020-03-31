@@ -17,6 +17,7 @@ import sys
 import argparse
 import json
 import ast
+import heapq
 import pprint
 from collections import OrderedDict
 from bitstring import Bits
@@ -31,6 +32,153 @@ CONTROLLER_PORT = 4294967293
 
 class FakeOFTableException(Exception):
     """Indicates an erroneous flow or group mod"""
+
+
+class DFS:
+    """Provides a way of tracking the depth first search for the FakeOFNetwork"""
+
+    visited = None
+    heap = None
+
+    def __init__(self):
+        self.visited = {}
+        self.heap = []
+
+    def visit(self, dp_id, pkt):
+        """
+        Notifies the DFS that a packet has visited the dp_id
+
+        Args:
+            dp_id: The DP ID for the node that is being visited
+            pkt: The packet that is visiting the node
+        """
+        self.visited.setdefault(dp_id, [])
+        if pkt not in self.visited[dp_id]:
+            self.visited.append(pkt)
+
+    def has_visited(self, dp_id, pkt):
+        """
+        Returns true if the packet has visited the node DP ID before
+
+        Args:
+            dp_id: The DP ID for the node is being visited
+            pkt: The packet that is visiting the node
+        """
+        if dp_id in self.visited:
+            if pkt in self.visited[dp_id]:
+                return True
+        return False
+
+    def peek(self):
+        """
+        Returns the first item in the heap (with the highest priority (smallest value))
+        with popping from the heap
+
+        Returns:
+            dp_id, pkt
+        """
+        item = self.heap[0]
+        return item[1][0], item[1][1]
+
+    def push(self, dp_id, pkt, priority):
+        """
+        Pushes the dp_id and pkt onto the heap with priority
+
+        Args:
+            dp_id:
+            pkt:
+            priority:
+        """
+        heapq.heappush(self.heap, (priority, (dp_id, pkt)))
+
+    def pop(self):
+        """
+        Obtains the item with the highest priority
+
+        Returns:
+            dp_id, pkt
+        """
+        item = heapq.heappop(self.heap)
+        return item[1][0], item[1][1]
+
+
+class FakeOFNetwork:
+    """
+    FakeOFNetwork is a virtual openflow pipeline used for testing openflow controllers
+
+    The network contains multiple FakeOFTables to represent multiple switches in a network
+    """
+
+    def __init__(self, dp_ids, num_tables, valves_manager, requires_tfm=True):
+        """ """
+        self.tables = {}
+        for dp_id in dp_ids:
+            self.tables[dp_id] = FakeOFTable(num_tables, requires_tfm)
+        self.valves_manager = valves_manager
+
+    def apply_ofmsgs(self, dp_id, ofmsgs):
+        """Applies ofmsgs to a FakeOFTable for DP ID"""
+        self.tables[dp_id].apply_ofmsgs(ofmsgs)
+
+    def shortest_path_len(self, src_dpid, dst_dpid):
+        """Returns the length of the shortest path from the source to the destination"""
+        src_valve = self.valves_manager.valves[src_dpid]
+        dst_valve = self.valves_manager.valves[dst_dpid]
+        return len(src_valve.dp.shortest_path(dst_valve.dp.name)) 
+
+    def is_output(self, match, src_dpid, dst_dpid, port=None, vid=None, trace=False):
+        """
+        TODO: This won't work, need to be able to resolve for the output Port object
+            from valve and get the adjacent Port/Dp objects to get the next input addresses
+
+        Args:
+            match (dict): A dictionary keyed by header field names with values
+            src_dpid: The source DP ID of the match packet entering the Fake OF network
+            dst_dpid: The expected destination DP ID of the packet match
+            port: The expected output port on the destination DP
+            vid: The expected output vid on the destination DP
+            trace (bool): Print the trace of traversing the tables
+
+        Returns:
+            true if packets with match fields is output to port with correct VLAN
+        """
+        found = False
+
+        dfs = DFS()
+        priority = self.shortest_path_len(src_dpid, dst_dpid)
+        dfs.push(match.copy(), src_dpid, priority)
+
+        while not found:
+            dp_id, pkt = dfs.pop()
+            dfs.visit(dp_id, pkt)
+            if dpid == dst_dpid:
+                # A packet has reached the destination, so test for the output
+                found = self.tables[dp_id].is_output(pkt, port, vid, trace)
+                if trace:
+                    sys.stderr.write('We have found a path that leads to the destination')
+            else:
+                # Packet not reached destination, so continue traversing
+                port_outputs = self.tables[dp_id].get_port_outputs(pkt, trace)
+                valve = self.valves_manager.valves[dp_id]
+                for out_port, out_pkts in port_outputs.items():
+                    port = valve.dp.ports[out_port]
+                    if port.stack:
+                        # Need to continue traversing through the FakeOFNetwork
+                        adj_port = port.stack['port']
+                        adj_dpid = port.stack['dp'].dp_id
+                        new_pkt = pkt.copy()
+                        new_pkt['in_port'] = adj_port
+                        if not dfs.has_visited(adj_dpid, new_pkt):
+                            # Add packet to the heap if we have not visited the node with
+                            #   this packet before
+                            priority = self.shortest_path_len(adj_dpid, dst_dpid)
+                            dfs.push(new_pkt, adj_dpid, priority)
+                    else:
+                        # Output to non-stack port, can ignore this output
+                        if trace:
+                            sys.stderr.write(
+                                'Ignoring non-stack output %s:%s' % (valve.dp.name, out_port))
+        return found
 
 
 class FakeOFTable:
@@ -363,6 +511,36 @@ class FakeOFTable:
             table_id = next_table_id
         return table_outputs
 
+    def get_port_output(self, match, trace=False):
+        """
+        Get all of the outputs of the tables with the output packets
+        for each table in the FakeOFTable that match progresses through
+
+        Args:
+            match (dict): A dictionary keyed by header field names with value
+            trace (bool): Print the trace of traversing the table
+
+        Returns:
+            table_outputs: Map from output port number to a list of unique output packets
+        """
+        port_outputs = {}
+        table_id = 0
+        next_table = True
+        packet_dict = match.copy()
+        while next_table:
+            next_table = False
+            outputs, packet_dict, next_table_id = self.get_table_output(
+                packet_dict, table_id, trace)
+            for out_port, out_pkts in outputs:
+                port_outputs.setdefault(out_port, [])
+                # Remove duplicate entries from the list
+                for out_pkt in out_pkts:
+                    if out_pkt not in port_outputs[out_port]:
+                        port_outputs[out_port].append(out_pkt)
+            next_table = next_table_id is not None
+            table_id = next_table_id
+        return port_outputs
+
     def is_full_output(self, match, port=None, vid=None, trace=False):
         """
         If port is None return True if output to any port (including special ports)
@@ -375,6 +553,9 @@ class FakeOFTable:
 
         Args:
             match (dict): A dictionary keyed by header field names with values
+            port: The expected output port
+            vid: The expected output vid
+            trace (bool): Print the trace of traversing the tables
 
         Returns:
             true if packets with match fields is output to port with correct VLAN
