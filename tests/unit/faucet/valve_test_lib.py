@@ -52,7 +52,7 @@ from faucet import valve_packet
 from faucet import valve_util
 from faucet.valve import TfmValve
 
-from fakeoftable import FakeOFTable
+from fakeoftable import FakeOFTable, FakeOFNetwork
 
 
 def build_pkt(pkt):
@@ -548,10 +548,6 @@ class ValveTestBases:
                 self.bgp, self.dot1x, self.CONFIG_AUTO_REVERT, self.send_flows_to_dp_by_id)
 
             self.notifier.start()
-            
-            for dp_id in self.valves_manager.valves:
-                self.last_flows_to_dp[dp_id] = []
-            self.network = FakeOFNetwork(self.valves_manager, self.NUM_TABLES)
 
             initial_ofmsgs = self.update_config(config, reload_expected=False, error_expected=error_expected)
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -592,8 +588,15 @@ class ValveTestBases:
             flows = valve.prepare_send_flows(flows)
             self.last_flows_to_dp[valve.dp.dp_id] = flows
 
+        def configure_network(self):
+            """ """
+            for dp_id in self.valves_manager.valves:
+                self.last_flows_to_dp[dp_id] = []
+            self.network = FakeOFNetwork(self.valves_manager, self.NUM_TABLES)
+
         def update_config(self, config, reload_type='cold',
-                          reload_expected=True, error_expected=0):
+                          reload_expected=True, error_expected=0,
+                          configure_network=False):
             """
             Updates the Faucet config and reloads Faucet
 
@@ -622,11 +625,15 @@ class ValveTestBases:
                 self.mock_time(10), self.config_file)
             if error_expected:
                 reload_func()
+                if configure_network:
+                    self.configure_network()
             else:
                 var = 'faucet_config_reload_%s_total' % reload_type
                 self.prom_inc(reload_func, var=var, inc_expected=reload_expected)
+                if configure_network:
+                    self.configure_network()
                 for dp_id, valve in self.valves_manager.valves.items():
-                    reload_ofmsgs = self.last_flows_to_dp[dp_id]
+                    reload_ofmsgs = self.last_flows_to_dp.get(dp_id, [])
                     if reload_ofmsgs is None:
                         reload_ofmsgs = self.connect_dp(dp_id)
                     else:
