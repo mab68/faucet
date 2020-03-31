@@ -498,7 +498,7 @@ class ValveTestBases:
             self.sock = None
             self.notifier = None
 
-            self.tables = {}
+            self.network = None
             self.last_flows_to_dp = {}
 
             self.tmpdir = None
@@ -551,7 +551,7 @@ class ValveTestBases:
             
             for dp_id in self.valves_manager.valves:
                 self.last_flows_to_dp[dp_id] = []
-                self.tables[dp_id] = FakeOFTable(self.NUM_TABLES)
+            self.network = FakeOFNetwork(self.valves_manager, self.NUM_TABLES)
 
             initial_ofmsgs = self.update_config(config, reload_expected=False, error_expected=error_expected)
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -573,7 +573,7 @@ class ValveTestBases:
             """Tear down the test"""
             self.teardown_valves()
 
-        def apply_ofmsgs(self, ofmsgs, dp_id):
+        def apply_ofmsgs(self, ofmsgs, dp_id=None):
             """
             Prepare and apply ofmsgs to a DP FakeOFTable
 
@@ -584,7 +584,7 @@ class ValveTestBases:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
             final_ofmsgs = valve.prepare_send_flows(ofmsgs)
-            self.table[dp_id].apply_ofmsgs(final_ofmsgs)
+            self.network.apply_ofmsgs(dp_id, ofmsgs)
             return final_ofmsgs
 
         def send_flows_to_dp_by_id(self, valve, flows):
@@ -638,7 +638,7 @@ class ValveTestBases:
         def connect_dp(self, dp_id=None):
             """
             Call to connect DP with all ports up
-            
+
             Args:
                 dp_id: ID for the DP that will be connected
 
@@ -746,6 +746,9 @@ class ValveTestBases:
                 'chassis_id': dp_mac,
                 'system_name': other_dp.name,
                 'org_tlvs': tlvs}, dp_id=dp_id)
+
+
+
 
         def get_prom(self, var, labels=None, bare=False, dp_name=None, dp_id=None):
             """Return a Prometheus variable value."""

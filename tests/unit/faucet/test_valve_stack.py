@@ -2157,5 +2157,45 @@ dps:
         self.assertTrue(dp_obj.is_stack_edge())
 
 
+class ValveNetworkTest(ValveTestBases.ValveTestNetwork):
+    """Test a simple topology with the ValveTestNetwork base"""
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s1, port: 2}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s1, port: 2}
+"""
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+
+    def test_network(self):
+        """Test packet output to the adjacent switch"""
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'eth_type': 0x0800,
+            'ip_proto': 1,
+        }
+        self.network.is_output(bcast_match, 0x1, 0x2, 1, 100 | ofp.OFPVID_PRESENT)
+
+
 if __name__ == "__main__":
     unittest.main()  # pytype: disable=module-attr

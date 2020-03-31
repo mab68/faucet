@@ -109,12 +109,17 @@ class FakeOFNetwork:
     The network contains multiple FakeOFTables to represent multiple switches in a network
     """
 
-    def __init__(self, dp_ids, num_tables, valves_manager, requires_tfm=True):
-        """ """
-        self.tables = {}
-        for dp_id in dp_ids:
-            self.tables[dp_id] = FakeOFTable(num_tables, requires_tfm)
+    def __init__(self, valves_manager, num_tables, requires_tfm=True):
+        """
+        Args:
+            valves_manager (ValvesManager): Valves manager class to resolve stack traversals
+            num_tables (int): The number of tables to configure in each FakeOFTable
+            requires_tfm (bool): Whether TFMs are required
+        """
         self.valves_manager = valves_manager
+        self.tables = {}
+        for dp_id in self.valves_manager.valves:
+            self.tables[dp_id] = FakeOFTable(num_tables, requires_tfm)
 
     def apply_ofmsgs(self, dp_id, ofmsgs):
         """Applies ofmsgs to a FakeOFTable for DP ID"""
@@ -128,8 +133,16 @@ class FakeOFNetwork:
 
     def is_output(self, match, src_dpid, dst_dpid, port=None, vid=None, trace=False):
         """
-        TODO: This won't work, need to be able to resolve for the output Port object
-            from valve and get the adjacent Port/Dp objects to get the next input addresses
+        Traverses a packet through the network until we have searched everything
+        or successfully output a packet to the destination with expected port and vid
+
+        If port is None return True if output to any port (including special ports)
+        regardless of VLAN tag.
+
+        If vid is None return True if output to specified port regardless of VLAN tag.
+
+        If vid OFPVID_PRESENT bit is 0, return True if output packet does not have
+        a VLAN tag OR packet OFPVID_PRESENT is 0
 
         Args:
             match (dict): A dictionary keyed by header field names with values
@@ -149,13 +162,13 @@ class FakeOFNetwork:
         dfs.push(match.copy(), src_dpid, priority)
 
         while not found:
+            # Search through the packet paths until we have searched everything or
+            #   successfully output the packet to the destination in the expected format
             dp_id, pkt = dfs.pop()
             dfs.visit(dp_id, pkt)
             if dpid == dst_dpid:
                 # A packet has reached the destination, so test for the output
                 found = self.tables[dp_id].is_output(pkt, port, vid, trace)
-                if trace:
-                    sys.stderr.write('We have found a path that leads to the destination')
             else:
                 # Packet not reached destination, so continue traversing
                 port_outputs = self.tables[dp_id].get_port_outputs(pkt, trace)
