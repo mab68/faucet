@@ -549,7 +549,9 @@ class ValveTestBases:
 
             self.notifier.start()
 
-            initial_ofmsgs = self.update_config(config, reload_expected=False, error_expected=error_expected)
+            initial_ofmsgs = self.update_config(
+                config, reload_expected=False,
+                error_expected=error_expected, configure_network=True)
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self.sock.connect(self.faucet_event_sock)
             if not error_expected:
@@ -655,10 +657,10 @@ class ValveTestBases:
             if dp_id is None:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
-            discovered_up_ports = set(self.valve.dp.ports.keys())
+            discovered_up_ports = set(valve.dp.ports.keys())
             connect_msgs = (
-                self.valve.switch_features(None) +
-                self.valve.datapath_connect(self.mock_time(10), discovered_up_ports))
+                valve.switch_features(None) +
+                valve.datapath_connect(self.mock_time(10), discovered_up_ports))
             self.apply_ofmsgs(connect_msgs, dp_id)
             self.valves_manager.update_config_applied(sent={dp_id: True})
             self.assertEqual(1, int(self.get_prom('dp_status')))

@@ -54,7 +54,7 @@ class DFS:
         """
         self.visited.setdefault(dp_id, [])
         if pkt not in self.visited[dp_id]:
-            self.visited.append(pkt)
+            self.visited[dp_id].append(pkt)
 
     def has_visited(self, dp_id, pkt):
         """
@@ -98,6 +98,8 @@ class DFS:
         Returns:
             dp_id, pkt
         """
+        if not self.heap:
+            return None, None
         item = heapq.heappop(self.heap)
         return item[1][0], item[1][1]
 
@@ -159,14 +161,16 @@ class FakeOFNetwork:
 
         dfs = DFS()
         priority = self.shortest_path_len(src_dpid, dst_dpid)
-        dfs.push(match.copy(), src_dpid, priority)
+        dfs.push(src_dpid, match.copy(), priority)
 
         while not found:
             # Search through the packet paths until we have searched everything or
             #   successfully output the packet to the destination in the expected format
             dp_id, pkt = dfs.pop()
+            if dp_id is None or pkt is None:
+                break
             dfs.visit(dp_id, pkt)
-            if dpid == dst_dpid:
+            if dp_id == dst_dpid:
                 # A packet has reached the destination, so test for the output
                 found = self.tables[dp_id].is_output(pkt, port, vid, trace)
             else:
@@ -174,6 +178,10 @@ class FakeOFNetwork:
                 port_outputs = self.tables[dp_id].get_port_outputs(pkt, trace)
                 valve = self.valves_manager.valves[dp_id]
                 for out_port, out_pkts in port_outputs.items():
+                    if out_port not in valve.dp.ports:
+                        # Ignore controller & other outputs
+                        # TODO: handle IN_PORT
+                        continue
                     port = valve.dp.ports[out_port]
                     if port.stack:
                         # Need to continue traversing through the FakeOFNetwork
@@ -185,7 +193,7 @@ class FakeOFNetwork:
                             # Add packet to the heap if we have not visited the node with
                             #   this packet before
                             priority = self.shortest_path_len(adj_dpid, dst_dpid)
-                            dfs.push(new_pkt, adj_dpid, priority)
+                            dfs.push(adj_dpid, new_pkt, priority)
                     else:
                         # Output to non-stack port, can ignore this output
                         if trace:
@@ -524,7 +532,7 @@ class FakeOFTable:
             table_id = next_table_id
         return table_outputs
 
-    def get_port_output(self, match, trace=False):
+    def get_port_outputs(self, match, trace=False):
         """
         Get all of the outputs of the tables with the output packets
         for each table in the FakeOFTable that match progresses through
@@ -544,7 +552,7 @@ class FakeOFTable:
             next_table = False
             outputs, packet_dict, next_table_id = self.get_table_output(
                 packet_dict, table_id, trace)
-            for out_port, out_pkts in outputs:
+            for out_port, out_pkts in outputs.items():
                 port_outputs.setdefault(out_port, [])
                 # Remove duplicate entries from the list
                 for out_pkt in out_pkts:

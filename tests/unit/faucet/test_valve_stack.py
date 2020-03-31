@@ -2188,9 +2188,13 @@ dps:
 
     def test_network(self):
         """Test packet output to the adjacent switch"""
+        # TODO: Setup stack properly
         bcast_match = {
-            'in_port': in_port,
+            'in_port': 1,
+            'eth_src': '00:00:00:00:00:12',
             'eth_dst': mac.BROADCAST_STR,
+            'ipv4_src': '10.1.0.1',
+            'ipv4_dst': '10.1.0.2',
             'eth_type': 0x0800,
             'ip_proto': 1,
         }
