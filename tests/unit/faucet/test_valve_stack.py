@@ -2185,6 +2185,11 @@ dps:
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
 
     def test_network(self):
         """Test packet output to the adjacent switch"""
