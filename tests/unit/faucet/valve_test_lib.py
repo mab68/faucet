@@ -696,7 +696,6 @@ class ValveTestBases:
             if labels is None:
                 labels = {}
             if not bare:
-                # TODO: Get a better way of doing this
                 if dp_id is None:
                     dp_id = self.DP_ID
                 if dp_id not in self.valves_manager:
@@ -845,7 +844,6 @@ class ValveTestBases:
         def set_stack_port_down(self, port_no, dp_id=None):
             """Set stack port up recalculating topology as necessary."""
             self.set_stack_port_status(port_no, 2, dp_id)
-
 
 
     class ValveTestSmall(unittest.TestCase):  # pytype: disable=module-attr
@@ -1150,16 +1148,6 @@ class ValveTestBases:
             """Deactivate a given stack port"""
             self._update_port_map(port, True)
             self.trigger_all_ports(packets=packets)
-
-        @staticmethod
-        def packet_outs_from_flows(flows):
-            """Return flows that are packetout actions."""
-            return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
-
-        @staticmethod
-        def flowmods_from_flows(flows):
-            """Return flows that are flowmods actions."""
-            return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPFlowMod)]
 
         def learn_hosts(self):
             """Learn some hosts."""

@@ -2200,8 +2200,74 @@ dps:
             'eth_dst': mac.BROADCAST_STR,
             'ipv4_src': '10.1.0.1',
             'ipv4_dst': '10.1.0.2',
-            'vlan_vid': 100
+            'vlan_vid': 0
         }
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+
+
+class ValveLoopNetworkTest(ValveTestBases.ValveTestNetwork):
+    """Test a simple topology with the ValveTestNetwork base"""
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s2, port: 2}
+            3:
+                stack: {dp: s3, port: 3}
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s1, port: 2}
+            3:
+                stack: {dp: s3, port: 2}
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: s2, port: 3}
+            3:
+                stack: {dp: s1, port: 3}
+"""
+
+    def setUp(self):
+        self.setup_valves(self.CONFIG)
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve.dp.dp_id)
+
+    def test_network(self):
+        """Test packet output to the adjacent switch in a loop topology"""
+        bcast_match = {
+            'in_port': 1,
+            'eth_src': '00:00:00:00:00:12',
+            'eth_dst': mac.BROADCAST_STR,
+            'ipv4_src': '10.1.0.1',
+            'ipv4_dst': '10.1.0.2',
+            'vlan_vid': 0
+        }
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+        self.set_stack_port_down(3, 0x1)
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
         self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
 
 

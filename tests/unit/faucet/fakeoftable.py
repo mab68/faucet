@@ -77,6 +77,8 @@ class DFS:
         Returns:
             dp_id, pkt
         """
+        if not self.heap:
+            return None, None
         item = self.heap[0]
         return item[1][0], item[1][1]
 
@@ -764,10 +766,6 @@ class FakeOFTable:
         if full_output != False:
             raise FakeOFTableException('Output functions do not match')
         return False
-
-    def flow_count(self):
-        """Return number of flow tables rules"""
-        return sum(map(len, self.tables))
 
     def __str__(self):
         string = ''
