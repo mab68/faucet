@@ -698,7 +698,7 @@ class ValveTestBases:
             if not bare:
                 if dp_id is None:
                     dp_id = self.DP_ID
-                if dp_id not in self.valves_manager:
+                if dp_id not in self.valves_manager.valves:
                     dp_name = self.DP_NAME
                 else:
                     valve = self.valves_manager.valves[dp_id]
