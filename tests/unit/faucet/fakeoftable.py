@@ -127,6 +127,12 @@ class FakeOFNetwork:
         """Applies ofmsgs to a FakeOFTable for DP ID"""
         self.tables[dp_id].apply_ofmsgs(ofmsgs)
 
+    def print_table(self, dp_id):
+        """Prints the table in string format to STDERR"""
+        sys.stderr.write('TABLE %x' % dp_id)
+        sys.stderr.write(self.tables[dp_id] + '\n')
+        sys.stderr.write('======================\n\n')
+
     def shortest_path_len(self, src_dpid, dst_dpid):
         """Returns the length of the shortest path from the source to the destination"""
         src_valve = self.valves_manager.valves[src_dpid]
@@ -158,47 +164,47 @@ class FakeOFNetwork:
             true if packets with match fields is output to port with correct VLAN
         """
         found = False
-
         dfs = DFS()
         priority = self.shortest_path_len(src_dpid, dst_dpid)
-        dfs.push(src_dpid, match.copy(), priority)
-
+        pkt = match.copy()
+        dfs.push(src_dpid, pkt, priority)
+        dfs.visit(src_dpid, pkt)
         while not found:
             # Search through the packet paths until we have searched everything or
             #   successfully output the packet to the destination in the expected format
             dp_id, pkt = dfs.pop()
             if dp_id is None or pkt is None:
                 break
-            dfs.visit(dp_id, pkt)
             if dp_id == dst_dpid:
                 # A packet has reached the destination, so test for the output
-                found = self.tables[dp_id].is_output(pkt, port, vid, trace)
+                found = self.tables[dp_id].is_output(pkt, port, vid, trace=trace)
             else:
                 # Packet not reached destination, so continue traversing
-                port_outputs = self.tables[dp_id].get_port_outputs(pkt, trace)
+                port_outputs = self.tables[dp_id].get_port_outputs(pkt, trace=trace)
                 valve = self.valves_manager.valves[dp_id]
                 for out_port, out_pkts in port_outputs.items():
-                    if out_port not in valve.dp.ports:
-                        # Ignore controller & other outputs
-                        # TODO: handle IN_PORT
-                        continue
-                    port = valve.dp.ports[out_port]
-                    if port.stack:
-                        # Need to continue traversing through the FakeOFNetwork
-                        adj_port = port.stack['port']
-                        adj_dpid = port.stack['dp'].dp_id
-                        new_pkt = pkt.copy()
-                        new_pkt['in_port'] = adj_port
-                        if not dfs.has_visited(adj_dpid, new_pkt):
-                            # Add packet to the heap if we have not visited the node with
-                            #   this packet before
-                            priority = self.shortest_path_len(adj_dpid, dst_dpid)
-                            dfs.push(adj_dpid, new_pkt, priority)
-                    else:
-                        # Output to non-stack port, can ignore this output
-                        if trace:
-                            sys.stderr.write(
-                                'Ignoring non-stack output %s:%s' % (valve.dp.name, out_port))
+                    for out_pkt in out_pkts:
+                        if out_port not in valve.dp.ports:
+                            # Ignore controller & other outputs
+                            continue
+                        port_obj = valve.dp.ports[out_port]
+                        if port_obj.stack:
+                            # Need to continue traversing through the FakeOFNetwork
+                            adj_port = port_obj.stack['port']
+                            adj_dpid = port_obj.stack['dp'].dp_id
+                            new_pkt = out_pkt.copy()
+                            new_pkt['in_port'] = adj_port.number
+                            if not dfs.has_visited(adj_dpid, new_pkt):
+                                # Add packet to the heap if we have not visited the node with
+                                #   this packet before
+                                priority = self.shortest_path_len(adj_dpid, dst_dpid)
+                                dfs.push(adj_dpid, new_pkt, priority)
+                                dfs.visit(adj_dpid, new_pkt)
+                        else:
+                            # Output to non-stack port, can ignore this output
+                            if trace:
+                                sys.stderr.write(
+                                    'Ignoring non-stack output %s:%s' % (valve.dp.name, out_port))
         return found
 
 
@@ -442,7 +448,7 @@ class FakeOFTable:
                 # Set field, modify a packet header
                 packet_dict[action.key] = action.value
             elif action.type == ofp.OFPAT_PUSH_VLAN:
-                if 'vlan_vid' in packet_dict:
+                if 'vlan_vid' in packet_dict and packet_dict['vlan_vid'] & ofp.OFPVID_PRESENT:
                     # Pushing on another tag, so create another
                     #   field for the encapsulated VID
                     packet_dict['encap_vid'] = packet_dict['vlan_vid']
@@ -455,6 +461,8 @@ class FakeOFTable:
                     # Move the encapsulated VID to the front
                     packet_dict['vlan_vid'] = packet_dict['encap_vid']
                     packet_dict.pop('encap_vid')
+                else:
+                    packet_dict['vlan_vid'] = 0
             elif action.type == ofp.OFPAT_GROUP:
                 # Group mod so make sure that we process the group buckets
                 if action.group_id not in self.groups:
@@ -698,7 +706,7 @@ class FakeOFTable:
                 elif vid & ofp.OFPVID_PRESENT == 0:
                     result = not vid_stack
                 else:
-                    result = vid_stack and vid == vid_stack[-1]
+                    result = bool(vid_stack and vid == vid_stack[-1])
             elif action.port == ofp.OFPP_IN_PORT and port == in_port:
                 result = True
             return result
@@ -714,7 +722,7 @@ class FakeOFTable:
             return vid_stack
 
         if trace:
-            sys.stderr.write('tracing packet flow %s\n' % match)
+            sys.stderr.write('tracing packet flow %s matching to port %s, vid %s\n' % (match, port, vid))
             sys.stderr.write(str(self) + '\n')
 
         # vid_stack represents the packet's vlan stack, innermost label listed

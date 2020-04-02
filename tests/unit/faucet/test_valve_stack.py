@@ -2168,11 +2168,13 @@ dps:
     s1:
         dp_id: 0x1
         hardware: 'GenericTFM'
+        stack:
+            priority: 1
         interfaces:
             1:
                 native_vlan: vlan100
             2:
-                stack: {dp: s1, port: 2}
+                stack: {dp: s2, port: 2}
     s2:
         dp_id: 0x2
         hardware: 'GenericTFM'
@@ -2193,17 +2195,15 @@ dps:
 
     def test_network(self):
         """Test packet output to the adjacent switch"""
-        # TODO: Setup stack properly
         bcast_match = {
             'in_port': 1,
             'eth_src': '00:00:00:00:00:12',
             'eth_dst': mac.BROADCAST_STR,
             'ipv4_src': '10.1.0.1',
             'ipv4_dst': '10.1.0.2',
-            'eth_type': 0x0800,
-            'ip_proto': 1,
+            'vlan_vid': 100
         }
-        self.network.is_output(bcast_match, 0x1, 0x2, 1, 100 | ofp.OFPVID_PRESENT)
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
 
 
 if __name__ == "__main__":

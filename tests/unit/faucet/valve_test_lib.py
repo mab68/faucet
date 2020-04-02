@@ -691,6 +691,38 @@ class ValveTestBases:
             valve.datapath_disconnect()
             return self.connect_dp(dp_id)
 
+        def get_prom(self, var, labels=None, bare=False, dp_id=None):
+            """Return a Prometheus variable value."""
+            if labels is None:
+                labels = {}
+            if not bare:
+                # TODO: Get a better way of doing this
+                if dp_id is None:
+                    dp_id = self.DP_ID
+                if dp_id not in self.valves_manager:
+                    dp_name = self.DP_NAME
+                else:
+                    valve = self.valves_manager.valves[dp_id]
+                    dp_name = valve.dp.name
+                labels.update({
+                    'dp_name': dp_name,
+                    'dp_id': '0x%x' % dp_id})
+            val = self.registry.get_sample_value(var, labels)
+            if val is None:
+                val = 0
+            return val
+
+        def prom_inc(self, func, var, labels=None, inc_expected=True, dp_id=None):
+            """Check Prometheus variable increments by 1 after calling a function."""
+            before = self.get_prom(var, labels, dp_id)
+            func()
+            after = self.get_prom(var, labels, dp_id)
+            msg = '%s %s before %f after %f' % (var, labels, before, after)
+            if inc_expected:
+                self.assertEqual(before + 1, after, msg=msg)
+            else:
+                self.assertEqual(before, after, msg=msg)
+
         def rcv_packet(self, port, vid, match, dp_id=None):
             """
             Receives a packet by calling for the valve packet_in methods
@@ -761,33 +793,6 @@ class ValveTestBases:
                 'system_name': other_dp.name,
                 'org_tlvs': tlvs}, dp_id=dp_id)
             return rcv_ofmsgs
-
-        def get_prom(self, var, labels=None, bare=False, dp_id=None):
-            """Return a Prometheus variable value."""
-            if dp_id is None:
-                dp_id = self.DP_ID
-            valve = self.valves_manager.valves[dp_id]
-            if labels is None:
-                labels = {}
-            if not bare:
-                labels.update({
-                    'dp_name': valve.dp.name,
-                    'dp_id': '0x%x' % valve.dp.dp_id})
-            val = self.registry.get_sample_value(var, labels)
-            if val is None:
-                val = 0
-            return val
-
-        def prom_inc(self, func, var, labels=None, inc_expected=True, dp_id=None):
-            """Check Prometheus variable increments by 1 after calling a function."""
-            before = self.get_prom(var, labels, dp_id)
-            func()
-            after = self.get_prom(var, labels, dp_id)
-            msg = '%s %s before %f after %f' % (var, labels, before, after)
-            if inc_expected:
-                self.assertEqual(before + 1, after, msg=msg)
-            else:
-                self.assertEqual(before, after, msg=msg)
 
         def port_labels(self, port_no, dp_id=None):
             """Get port labels"""
@@ -868,6 +873,9 @@ class ValveTestBases:
 
 
 
+
+
+
         # Changes the state of the stack port to INIT then UP, and receives a LLDP packet in
         # TODO: Need to apply the ofmsgs that are returned
         def up_stack_port(self, port):
@@ -940,8 +948,31 @@ class ValveTestBases:
         def trigger_all_ports(self, packets=10):
             """
             Do the needful to trigger any pending state changes
-
+????
             """
+            for _ in range(0, packets):
+                resolved_dps = []
+                for valve in self.valves_manager.valves.values():
+                    # Loop through each stack port, sending a LLDP packet between each
+                    interval = valve.dp.lldp_beacon['send_interval']
+                    dp_id = valve.dp.dp_id
+                    for port in valve.dp.stack_ports:
+                        peer_dp = port.stack['dp']
+                        if peer_dp.dp_id in resolved_dps:
+                            continue
+                        peer_port = port.stack['port']
+                        self.rcv_lldp(port, peer_dp, peer_port, dp_id)
+                        self.rcv_lldp(peer_port, valve.dp, port, peer_dp.dp_id)
+                    # TODO: Store resolved DPs as pairs then check all permutations
+                    resolved_dps.append()
+                for dp_id in self.valves_manager.valves:
+                    self.last_flows_to_dp[dp_id] = []
+                    now = self.mock_time(interval)
+                    self.valves_manager.valve_flow_services(now, 'fast_state_expire')
+                    self.apply_ofmsgs(self.last_flows_to_dp[dp_id], dp_id)
+
+
+            # TODO: By DP
             interval = self.valve.dp.lldp_beacon['send_interval']
             for _ in range(0, packets):
                 for port in self.up_ports.values():
@@ -1155,7 +1186,6 @@ class ValveTestBases:
             reload_func = partial(
                 self.valves_manager.request_reload_configs,
                 self.mock_time(10), self.config_file)
-
             if error_expected:
                 reload_func()
             else:
@@ -1465,24 +1495,23 @@ class ValveTestBases:
                 'system_name': other_dp.name,
                 'org_tlvs': tlvs}, dp_id=dp_id)
 
-        def set_stack_port_status(self, port_no, status, dp_id=None):
+        def set_stack_port_status(self, port_no, status, valve=None):
             """Set stack port up recalculating topology as necessary."""
-            if dp_id is None:
-                dp_id = self.DP_ID
-            valve = self.valves_manager.valves[dp_id]
+            if valve is None:
+                valve = self.valve
             port = valve.dp.ports[port_no]
             port.dyn_stack_current_state = status
             valve.flood_manager.update_stack_topo(True, valve.dp, port)
             for valve_vlan in valve.dp.vlans.values():
                 self.apply_ofmsgs(valve.flood_manager.add_vlan(valve_vlan))
 
-        def set_stack_port_up(self, port_no, dp_id=None):
+        def set_stack_port_up(self, port_no, valve=None):
             """Set stack port up recalculating topology as necessary."""
-            self.set_stack_port_status(port_no, 3, dp_id)
+            self.set_stack_port_status(port_no, 3, valve)
 
-        def set_stack_port_down(self, port_no, dp_id=None):
+        def set_stack_port_down(self, port_no, valve=None):
             """Set stack port up recalculating topology as necessary."""
-            self.set_stack_port_status(port_no, 2, dp_id)
+            self.set_stack_port_status(port_no, 2, valve)
 
         def validate_flood(self, in_port, vlan_vid, out_port, expected, msg):
             bcast_match = {
