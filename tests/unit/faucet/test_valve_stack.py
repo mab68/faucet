@@ -1305,7 +1305,7 @@ vlans:
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
         ofmsgs = self.route_manager_ofmsgs(route_manager, vlan)
-        self.assertTrue(self.packet_outs_from_flows(ofmsgs))
+        self.assertTrue(ValveTestBases.packet_outs_from_flows(ofmsgs))
 
     def test_flood_away_from_root(self):
         """Test intervlan flooding goes away from the root"""
@@ -1316,7 +1316,7 @@ vlans:
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
         ofmsgs = self.route_manager_ofmsgs(route_manager, vlan)
-        self.assertTrue(self.packet_outs_from_flows(ofmsgs))
+        self.assertTrue(ValveTestBases.packet_outs_from_flows(ofmsgs))
 
     def test_flood_towards_root_from_s3(self):
         """Test intervlan flooding only goes towards the root (s4 will get the reflection)"""
@@ -1327,7 +1327,7 @@ vlans:
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
         ofmsgs = self.route_manager_ofmsgs(route_manager, vlan)
-        self.assertTrue(self.packet_outs_from_flows(ofmsgs))
+        self.assertTrue(ValveTestBases.packet_outs_from_flows(ofmsgs))
 
     def test_flood_towards_root_from_s4(self):
         """Test intervlan flooding goes towards the root (through s3)"""
@@ -1338,7 +1338,7 @@ vlans:
         route_manager = valve._route_manager_by_ipv.get(4, None)
         vlan = valve.dp.vlans[100]
         ofmsgs = self.route_manager_ofmsgs(route_manager, vlan)
-        self.assertTrue(self.packet_outs_from_flows(ofmsgs))
+        self.assertTrue(ValveTestBases.packet_outs_from_flows(ofmsgs))
 
 
 class ValveTestTunnel2DP(ValveTestBases.ValveTestSmall):

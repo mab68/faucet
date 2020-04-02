@@ -1447,7 +1447,7 @@ class ValveTestBases:
                 'arp_source_ip': '8.8.8.8',
                 'arp_target_ip': '10.0.0.254'})
             # Must be no ARP reply to an ARP request not in our subnet.
-            self.assertFalse(self.packet_outs_from_flows(replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(replies))
 
         def test_arp_for_controller(self):
             """ARP request for controller VIP."""
@@ -1460,7 +1460,7 @@ class ValveTestBases:
                         'arp_source_ip': '10.0.0.1',
                         'arp_target_ip': '10.0.0.254'})
                     # TODO: check ARP reply is valid
-                    self.assertTrue(self.packet_outs_from_flows(arp_replies), msg=arp_mac)
+                    self.assertTrue(ValveTestBases.packet_outs_from_flows(arp_replies), msg=arp_mac)
 
         def test_arp_reply_from_host(self):
             """ARP reply for host."""
@@ -1472,7 +1472,7 @@ class ValveTestBases:
                 'arp_target_ip': '10.0.0.254'})
             # TODO: check ARP reply is valid
             self.assertTrue(arp_replies)
-            self.assertFalse(self.packet_outs_from_flows(arp_replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(arp_replies))
 
         def test_nd_for_controller(self):
             """IPv6 ND for controller VIP."""
@@ -1490,7 +1490,7 @@ class ValveTestBases:
                         'ipv6_dst': str(ip_gw_mcast),
                         'neighbor_solicit_ip': str(dst_ip)})
                     # TODO: check reply NA is valid
-                    packet_outs = self.packet_outs_from_flows(nd_replies)
+                    packet_outs = ValveTestBases.packet_outs_from_flows(nd_replies)
                     self.assertTrue(packet_outs)
 
         def test_nd_from_host(self):
@@ -1504,7 +1504,7 @@ class ValveTestBases:
                 'neighbor_advert_ip': 'fc00::1:1'})
             # TODO: check NA response flows are valid
             self.assertTrue(na_replies)
-            self.assertFalse(self.packet_outs_from_flows(na_replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(na_replies))
 
         def test_ra_for_controller(self):
             """IPv6 RA for controller."""
@@ -1517,7 +1517,7 @@ class ValveTestBases:
                 'ipv6_dst': router_solicit_ip,
                 'router_solicit_ip': router_solicit_ip})
             # TODO: check RA is valid
-            self.assertTrue(self.packet_outs_from_flows(ra_replies))
+            self.assertTrue(ValveTestBases.packet_outs_from_flows(ra_replies))
 
         def test_icmp_ping_controller(self):
             """IPv4 ping controller VIP."""
@@ -1528,7 +1528,7 @@ class ValveTestBases:
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.254',
                 'echo_request_data': self.ICMP_PAYLOAD})
-            packet_outs = self.packet_outs_from_flows(echo_replies)
+            packet_outs = ValveTestBases.packet_outs_from_flows(echo_replies)
             self.assertTrue(packet_outs)
             data = packet_outs[0].data
             self.assertTrue(data.endswith(self.ICMP_PAYLOAD), msg=data)
@@ -1557,7 +1557,7 @@ class ValveTestBases:
                 'arp_source_ip': '10.0.0.1',
                 'arp_target_ip': '10.0.0.254'})
             # TODO: check ARP reply is valid
-            self.assertTrue(self.packet_outs_from_flows(arp_replies))
+            self.assertTrue(ValveTestBases.packet_outs_from_flows(arp_replies))
             valve_vlan = self.valve.dp.vlans[0x100]
             ip_dst = ipaddress.IPv4Network('10.100.100.0/24')
             ip_gw = ipaddress.IPv4Address('10.0.0.1')
@@ -1588,7 +1588,7 @@ class ValveTestBases:
                 self.valve.dp.vlans[0x100],
                 ipaddress.IPv4Address('10.0.0.2'),
                 ipaddress.IPv4Network('0.0.0.0/0'))))
-            self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
             self.verify_expiry()
 
         def test_host_ipv6_fib_route(self):
@@ -1603,7 +1603,7 @@ class ValveTestBases:
             # TODO: verify learning rule contents
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
-            self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
             self.verify_expiry()
 
         def test_ping_unknown_neighbor(self):
@@ -1616,7 +1616,7 @@ class ValveTestBases:
                 'ipv4_dst': '10.0.0.99',
                 'echo_request_data': self.ICMP_PAYLOAD})
             # TODO: check proactive neighbor resolution
-            self.assertTrue(self.packet_outs_from_flows(echo_replies))
+            self.assertTrue(ValveTestBases.packet_outs_from_flows(echo_replies))
 
         def test_ping6_unknown_neighbor(self):
             """IPv6 ping unknown host on same subnet, causing proactive learning."""
@@ -1628,7 +1628,7 @@ class ValveTestBases:
                 'ipv6_dst': 'fc00::1:4',
                 'echo_request_data': self.ICMP_PAYLOAD})
             # TODO: check proactive neighbor resolution
-            self.assertTrue(self.packet_outs_from_flows(echo_replies))
+            self.assertTrue(ValveTestBases.packet_outs_from_flows(echo_replies))
 
         def test_icmpv6_ping_controller(self):
             """IPv6 ping controller VIP."""
@@ -1639,7 +1639,7 @@ class ValveTestBases:
                 'ipv6_src': 'fc00::1:1',
                 'ipv6_dst': 'fc00::1:254',
                 'echo_request_data': self.ICMP_PAYLOAD})
-            packet_outs = self.packet_outs_from_flows(echo_replies)
+            packet_outs = ValveTestBases.packet_outs_from_flows(echo_replies)
             self.assertTrue(packet_outs)
             data = packet_outs[0].data
             self.assertTrue(data.endswith(self.ICMP_PAYLOAD), msg=data)

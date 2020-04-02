@@ -569,7 +569,7 @@ vlans:
             1, int(self.get_prom('port_lacp_state', labels=labels)))
         # Ensure LACP packet sent.
         ofmsgs = self.valve.fast_advertise(self.mock_time(), None)[self.valve]
-        self.assertTrue(self.packet_outs_from_flows(ofmsgs))
+        self.assertTrue(ValveTestBases.packet_outs_from_flows(ofmsgs))
         self.rcv_packet(test_port, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
