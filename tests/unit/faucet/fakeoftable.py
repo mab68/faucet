@@ -183,10 +183,10 @@ class FakeOFNetwork:
                 port_outputs = self.tables[dp_id].get_port_outputs(pkt, trace=trace)
                 valve = self.valves_manager.valves[dp_id]
                 for out_port, out_pkts in port_outputs.items():
+                    if out_port not in valve.dp.ports:
+                        # Ignore controller & other outputs
+                        continue
                     for out_pkt in out_pkts:
-                        if out_port not in valve.dp.ports:
-                            # Ignore controller & other outputs
-                            continue
                         port_obj = valve.dp.ports[out_port]
                         if port_obj.stack:
                             # Need to continue traversing through the FakeOFNetwork
@@ -200,11 +200,10 @@ class FakeOFNetwork:
                                 priority = self.shortest_path_len(adj_dpid, dst_dpid)
                                 dfs.push(adj_dpid, new_pkt, priority)
                                 dfs.visit(adj_dpid, new_pkt)
-                        else:
+                        elif trace:
                             # Output to non-stack port, can ignore this output
-                            if trace:
-                                sys.stderr.write(
-                                    'Ignoring non-stack output %s:%s' % (valve.dp.name, out_port))
+                            sys.stderr.write(
+                                'Ignoring non-stack output %s:%s' % (valve.dp.name, out_port))
         return found
 
 
