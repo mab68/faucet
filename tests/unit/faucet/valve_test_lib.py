@@ -603,7 +603,7 @@ class ValveTestBases:
             """Creates the FakeOFNetwork"""
             for dp_id in self.valves_manager.valves:
                 self.last_flows_to_dp[dp_id] = []
-            self.network = FakeOFNetwork(self.valves_manager, self.NUM_TABLES)
+            self.network = FakeOFNetwork(self.valves_manager, self.NUM_TABLES, self.REQUIRE_TFM)
 
         def update_config(self, config, reload_type='cold',
                           reload_expected=True, error_expected=0,
@@ -857,10 +857,10 @@ class ValveTestBases:
                         self.apply_ofmsgs(self.rcv_lldp(
                             port, peer_dp, peer_port, dp_id), dp_id)
             # Verify stack ports are in the correct state
-            for valve in self.valves_manager.valves.items():
+            for valve in self.valves_manager.valves.values():
                 for port in valve.dp.ports.values():
                     if port.stack:
-                    exp_state = 3
+                        exp_state = 3
                         if port in ignore_ports:
                             exp_state = 4
                         self.assertEqual(

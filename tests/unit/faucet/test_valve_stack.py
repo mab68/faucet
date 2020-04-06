@@ -2187,10 +2187,7 @@ dps:
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
-        for valve in self.valves_manager.valves.values():
-            for port in valve.dp.ports.values():
-                if port.stack:
-                    self.set_stack_port_up(port.number, valve.dp.dp_id)
+        self.trigger_stack_ports()
 
     def test_network(self):
         """Test packet output to the adjacent switch"""
@@ -2799,6 +2796,8 @@ vlans:
   vlan-1:
     vid: 100
 """
+
+    REQUIRE_TFM = False
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
