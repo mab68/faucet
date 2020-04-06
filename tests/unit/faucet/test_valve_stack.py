@@ -2797,14 +2797,12 @@ vlans:
     vid: 100
 """
 
-    REQUIRE_TFM = False
-
     def setUp(self):
         self.setup_valves(self.CONFIG)
         self.trigger_stack_ports()
 
     def test_flooding(self):
-        """Test we can output a packet from a host on each switch in X to a host in each Y"""
+        """Test we can output a packet between hosts on each switch"""
         dps = [i for i in range(1, 13)]
         bcast_match = {
             'in_port': 5,

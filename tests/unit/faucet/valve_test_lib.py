@@ -595,7 +595,6 @@ class ValveTestBases:
 
         def send_flows_to_dp_by_id(self, valve, flows):
             """Callback function for ValvesManager to simulate sending flows to a DP"""
-            # TODO: Is it better to just call self.apply_ofmsgs(flows, valve.dp.dp_id) here???
             flows = valve.prepare_send_flows(flows)
             self.last_flows_to_dp[valve.dp.dp_id] = flows
 
@@ -759,12 +758,15 @@ class ValveTestBases:
             else:
                 packet_in_func()
             rcv_packet_ofmsgs = self.last_flows_to_dp[dp_id]
+            # TODO: We are applying the openflow messages here
+            #   and then later when we call rcv_lldp in trigger_stack_ports()
             self.last_flows_to_dp[dp_id] = []
             self.apply_ofmsgs(rcv_packet_ofmsgs, dp_id)
             for valve_service in (
                     'resolve_gateways', 'advertise', 'fast_advertise', 'state_expire'):
                 self.valves_manager.valve_flow_services(now, valve_service)
             self.valves_manager.update_metrics(now)
+            # TODO: Don't need to return ofmsgs
             return rcv_packet_ofmsgs
 
         def rcv_lldp(self, port, other_dp, other_port, dp_id=None):
@@ -793,6 +795,7 @@ class ValveTestBases:
                 'chassis_id': dp_mac,
                 'system_name': other_dp.name,
                 'org_tlvs': tlvs}, dp_id=dp_id)
+            # TODO: Don't need to return ofmsgs
             return rcv_ofmsgs
 
         def port_labels(self, port_no, dp_id=None):
