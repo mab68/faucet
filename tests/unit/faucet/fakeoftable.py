@@ -28,6 +28,7 @@ from ryu.lib import addrconv
 
 
 CONTROLLER_PORT = 4294967293
+IN_PORT = 4294967288
 
 
 class FakeOFTableException(Exception):
@@ -180,14 +181,23 @@ class FakeOFNetwork:
             if dp_id == dst_dpid:
                 # A packet has reached the destination, so test for the output
                 found = self.tables[dp_id].is_output(pkt, port, vid, trace=trace)
-            else:
+                if not found and trace:
+                    # A packet on the destination DP is not output in the expected state so
+                    #   continue searching
+                    sys.stderr.write('Output is away from destination\n')
+            if not found:
                 # Packet not reached destination, so continue traversing
+                if trace:
+                    sys.stderr.write('FakeOFTable %s: %s\n' % (dp_id, pkt))
                 port_outputs = self.tables[dp_id].get_port_outputs(pkt, trace=trace)
                 valve = self.valves_manager.valves[dp_id]
                 for out_port, out_pkts in port_outputs.items():
                     if out_port not in valve.dp.ports:
-                        # Ignore controller & other outputs
+                        # Ignore controller output
                         continue
+                    if out_port == IN_PORT:
+                        # Rebind output to the packet in_port value
+                        out_port = pkt['in_port']
                     for out_pkt in out_pkts:
                         port_obj = valve.dp.ports[out_port]
                         if port_obj.stack:
@@ -205,7 +215,9 @@ class FakeOFNetwork:
                         elif trace:
                             # Output to non-stack port, can ignore this output
                             sys.stderr.write(
-                                'Ignoring non-stack output %s:%s' % (valve.dp.name, out_port))
+                                'Ignoring non-stack output %s:%s\n' % (valve.dp.name, out_port))
+            if trace:
+                sys.stderr.write('\n')
         return found
 
 
@@ -992,7 +1004,9 @@ class FlowMod:
         if isinstance(action, parser.OFPActionOutput):
             name = 'output'
             if action.port == CONTROLLER_PORT:
-                value = 'controller'
+                value = 'CONTROLLER'
+            elif action.port == IN_PORT:
+                value = 'IN_PORT'
             else:
                 value = str(action.port)
         elif isinstance(action, parser.OFPActionSetField):

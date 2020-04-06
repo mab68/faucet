@@ -595,6 +595,7 @@ class ValveTestBases:
 
         def send_flows_to_dp_by_id(self, valve, flows):
             """Callback function for ValvesManager to simulate sending flows to a DP"""
+            # TODO: Is it better to just call self.apply_ofmsgs(flows, valve.dp.dp_id) here???
             flows = valve.prepare_send_flows(flows)
             self.last_flows_to_dp[valve.dp.dp_id] = flows
 
@@ -699,6 +700,7 @@ class ValveTestBases:
                 if dp_id is None:
                     dp_id = self.DP_ID
                 if dp_id not in self.valves_manager.valves:
+                    dp_id = self.DP_ID
                     dp_name = self.DP_NAME
                 else:
                     valve = self.valves_manager.valves[dp_id]
@@ -826,24 +828,45 @@ class ValveTestBases:
             """Return other running valves"""
             return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
 
-        def set_stack_port_status(self, port_no, status, dp_id=None):
-            """Set stack port up recalculating topology as necessary."""
-            if dp_id is None:
-                dp_id = self.DP_ID
-            valve = self.valves_manager.valves[dp_id]
-            port = valve.dp.ports[port_no]
-            port.dyn_stack_current_state = status
-            valve.flood_manager.update_stack_topo(True, valve.dp, port)
-            for valve_vlan in valve.dp.vlans.values():
-                self.apply_ofmsgs(valve.flood_manager.add_vlan(valve_vlan))
+        def trigger_stack_ports(self, ignore_ports=[]):
+            """
+            Trigger a stack port by receiving an LLDP packet
 
-        def set_stack_port_up(self, port_no, dp_id=None):
-            """Set stack port up recalculating topology as necessary."""
-            self.set_stack_port_status(port_no, 3, dp_id)
-
-        def set_stack_port_down(self, port_no, dp_id=None):
-            """Set stack port up recalculating topology as necessary."""
-            self.set_stack_port_status(port_no, 2, dp_id)
+            Args:
+                ignore_ports (list): List of port objects to ignore when sending LLDP
+                    packets, this effectively takes the stack port down
+            """
+            # Expire all of the stack ports
+            for port in ignore_ports:
+                dp_id = port.dp_id
+                valve = self.valves_manager.valves[dp_id]
+                interval = valve.dp.lldp_beacon['send_interval']
+                self.last_flows_to_dp[dp_id] = []
+                now = self.mock_time(interval * port.max_lldp_lost + 1)
+                self.valves_manager.valve_flow_services(now, 'fast_state_expire')
+                self.apply_ofmsgs(self.last_flows_to_dp[dp_id], dp_id)
+            # Send LLDP packets to reset the stack ports that we want to be up
+            for dp_id, valve in self.valves_manager.valves.items():
+                interval = valve.dp.lldp_beacon['send_interval']
+                for port in valve.dp.ports.values():
+                    if port in ignore_ports:
+                        continue
+                    if port.stack:
+                        peer_dp = port.stack['dp']
+                        peer_port = port.stack['port']
+                        self.apply_ofmsgs(self.rcv_lldp(
+                            port, peer_dp, peer_port, dp_id), dp_id)
+            # Verify stack ports are in the correct state
+            for valve in self.valves_manager.valves.items():
+                for port in valve.dp.ports.values():
+                    if port.stack:
+                    exp_state = 3
+                        if port in ignore_ports:
+                            exp_state = 4
+                        self.assertEqual(
+                            port.dyn_stack_current_state, exp_state,
+                            '%s stack state %s != %s' % (
+                                port, port.dyn_stack_current_state, exp_state))
 
 
     class ValveTestSmall(unittest.TestCase):  # pytype: disable=module-attr
