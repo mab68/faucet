@@ -588,8 +588,7 @@ configuration.
             tables[table_name] = ValveTable(
                 table_name, table_config, self.cookie,
                 notify_flow_removed=self.use_idle_timeout,
-                next_tables=next_table_ids
-                )
+                next_tables=next_table_ids)
         self.tables = tables
 
     def set_defaults(self):

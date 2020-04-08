@@ -748,16 +748,18 @@ class ValveTestBases:
                 ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))(
                     {'in_port': port}, port, vlan_pkt.data, len(vlan_pkt.data),
                     valve.dp.cookie, valve_of.ofp.OFPR_ACTION)
-            self.last_flows_to_dp[dp_id] = []
+            for i in self.valves_manager.valves:
+                self.last_flows_to_dp[i] = []
             now = self.mock_time(0)
             packet_in_func = partial(self.valves_manager.valve_packet_in, now, valve, msg)
             if dp_id == self.DP_ID:
                 self.prom_inc(packet_in_func, 'of_packet_ins_total')
             else:
                 packet_in_func()
-            rcv_packet_ofmsgs = self.last_flows_to_dp[dp_id]
-            self.last_flows_to_dp[dp_id] = []
-            self.apply_ofmsgs(rcv_packet_ofmsgs, dp_id)
+            for i in self.valves_manager.valves:
+                rcv_packet_ofmsgs = self.last_flows_to_dp[i]
+                self.last_flows_to_dp[i] = []
+                self.apply_ofmsgs(rcv_packet_ofmsgs, i)
             for valve_service in (
                     'resolve_gateways', 'advertise', 'fast_advertise', 'state_expire'):
                 self.valves_manager.valve_flow_services(now, valve_service)
@@ -837,7 +839,7 @@ class ValveTestBases:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
             self.apply_ofmsgs(valve.port_status_handler(
-                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, [], self.mock_time()).get(valve, []))
+                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, [], self.mock_time(0)).get(valve, []))
             self.port_expected_status(port_no, 0)
 
         def set_port_up(self, port_no, dp_id=None):
@@ -852,7 +854,7 @@ class ValveTestBases:
                 dp_id = self.DP_ID
             valve = self.valves_manager.valves[dp_id]
             self.apply_ofmsgs(valve.port_status_handler(
-                port_no, ofp.OFPPR_ADD, 0, [], self.mock_time()).get(valve, []))
+                port_no, ofp.OFPPR_ADD, 0, [], self.mock_time(0)).get(valve, []))
             self.port_expected_status(port_no, 1)
 
         def trigger_stack_ports(self, ignore_ports=[]):
@@ -864,14 +866,25 @@ class ValveTestBases:
                     packets, this effectively takes the stack port down
             """
             # Expire all of the stack ports
-            for port in ignore_ports:
-                dp_id = port.dp_id
-                valve = self.valves_manager.valves[dp_id]
-                interval = valve.dp.lldp_beacon['send_interval']
-                self.last_flows_to_dp[dp_id] = []
-                now = self.mock_time(interval * port.max_lldp_lost + 1)
+            if ignore_ports:
+                valves = [self.valves_manager.valves[port.dp_id] for port in ignore_ports]
+                max_interval = max([valve.dp.lldp_beacon['send_interval'] for valve in valves])
+                max_lost = max([port.max_lldp_lost for port in ignore_ports])
+                now = self.mock_time((max_interval * max_lost) + 1)
+                for dp_id in self.valves_manager.valves:
+                    self.last_flows_to_dp[dp_id] = []
                 self.valves_manager.valve_flow_services(now, 'fast_state_expire')
-                self.apply_ofmsgs(self.last_flows_to_dp[dp_id], dp_id)
+                for dp_id in self.valves_manager.valves:
+                    self.apply_ofmsgs(self.last_flows_to_dp[dp_id], dp_id)
+                    self.last_flows_to_dp[dp_id] = []
+                for valve in self.valves_manager.valves.values():
+                    for port in valve.dp.ports.values():
+                        if port.stack:
+                            exp_state = 4
+                            self.assertEqual(
+                                port.dyn_stack_current_state, exp_state,
+                                '%s stack state %s != %s' % (
+                                    port, port.dyn_stack_current_state, exp_state))
             # Send LLDP packets to reset the stack ports that we want to be up
             for dp_id, valve in self.valves_manager.valves.items():
                 interval = valve.dp.lldp_beacon['send_interval']
@@ -881,7 +894,7 @@ class ValveTestBases:
                     if port.stack:
                         peer_dp = port.stack['dp']
                         peer_port = port.stack['port']
-                        self.rcv_lldp(port, peer_dp, peer_port, dp_id), dp_id)
+                        self.rcv_lldp(port, peer_dp, peer_port, dp_id)
             # Verify stack ports are in the correct state
             for valve in self.valves_manager.valves.values():
                 for port in valve.dp.ports.values():
