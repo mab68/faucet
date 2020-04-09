@@ -70,7 +70,9 @@ def build_dict(pkt):
     icmpv6_pkt = pkt.get_protocol(icmpv6.icmpv6)
     if icmpv6_pkt:
         type_ = icmpv6_pkt.type_
-        if type_ == icmpv6.ND_ROUTER_SOLICIT:
+        if type_ == icmpv6.ND_ROUTER_ADVERT:
+            pkt_dict['']
+        elif type_ == icmpv6.ND_ROUTER_SOLICIT:
             pkt_dict['router_solicit_ip'] = None
         elif type_ == icmpv6.ND_NEIGHBOR_ADVERT:
             pkt_dict['neighbor_advert_ip'] = icmpv6_pkt.data.dst
@@ -81,7 +83,7 @@ def build_dict(pkt):
         elif type_ == icmpv6.ICMPV6_ECHO_REQUEST:
             pkt_dict['echo_request_data'] = icmpv6_pkt.data.data
         else:
-            raise ValueError('Unknown packet type %s \n' icmpv6_pkt)
+            raise ValueError('Unknown packet type %s \n' % icmpv6_pkt)
     ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
     if ipv4_pkt:
         pkt_dict['ipv4_src'] = ipv4_pkt.src
@@ -92,7 +94,7 @@ def build_dict(pkt):
         if type_ == icmp.ICMP_ECHO_REQUEST:
             pkt_dict['echo_request_data'] = icmp_pkt.data.data
         else:
-            raise ValueError('Unknown packet type %s \n' icmp_pkt)
+            raise ValueError('Unknown packet type %s \n' % icmp_pkt)
     lacp_pkt = pkt.get_protocol(slow.lacp)
     if lacp_pkt:
         pkt_dict['actor_system'] = lacp_pkt.actor_system
@@ -111,8 +113,8 @@ def build_dict(pkt):
         pkt_dict['vid'] = vlan_pkt.vid
     eth_pkt = pkt.get_protocol(ethernet.ethernet)
     if eth_pkt:
-        pkt_dict['eth_src'] = pkt.src
-        pkt_dict['eth_dst'] = pkt.dst
+        pkt_dict['eth_src'] = eth_pkt.src
+        pkt_dict['eth_dst'] = eth_pkt.dst
     return pkt_dict
 
 
@@ -1481,7 +1483,9 @@ class ValveTestBases:
             pkt_dict = build_dict(pkt)
             for key in expected_pkt:
                 self.assertTrue(key in pkt_dict)
-                self.assertEqual(expected_pkt[key], pkt_dict[key])
+                self.assertEqual(
+                    expected_pkt[key], pkt_dict[key]
+                    'Key: %s not matching (%s != %s)' % (key, expected_pkt[key], pkt_dict[key]))
 
 
     class ValveTestBig(ValveTestSmall):
@@ -1597,7 +1601,7 @@ class ValveTestBases:
                         'arp_source_ip': '10.0.0.1',
                         'arp_target_ip': '10.0.0.254'})
                     packet_outs = ValveTestBases.packet_outs_from_flows(arp_replies)
-                    self.assertTrue(packet_outs, msg=arp_mac)
+                    self.assertTrue(packet_outs)
                     for arp_pktout in packet_outs:
                         pkt = packet.Packet(arp_pktout.data)
                         exp_pkt = {
@@ -1638,10 +1642,11 @@ class ValveTestBases:
                     for nd_packetout in packet_outs:
                         pkt = packet.Packet(nd_packetout.data)
                         exp_pkt = {
-                            'eth_src': nd_mac,
+                            'eth_src': FAUCET_MAC,
                             'eth_dst': self.P2_V200_MAC,
-                            'neighbor_advert_ip': None, # TODO: Value
-                        }
+                            'ipv6_src': str(dst_ip),
+                            'ipv6_dst': 'fc00::1:1',
+                            'neighbor_advert_ip': str(dst_ip)}
                         self.verify_pkt(pkt, exp_pkt)
 
         def test_nd_from_host(self):
@@ -1672,7 +1677,7 @@ class ValveTestBases:
             for ra_packetout in packet_outs:
                 pkt = packet.Packet(ra_packetout.data)
                 exp_pkt = {
-
+                    ''
                 }
                 self.verify_pkt(pkt, exp_pkt)
 
@@ -1714,7 +1719,7 @@ class ValveTestBases:
                 'arp_source_ip': '10.0.0.1',
                 'arp_target_ip': '10.0.0.254'})
             packet_outs = ValveTestBases.packet_outs_from_flows(arp_replies)
-            self.assertTrue(packet_outs, msg=arp_mac)
+            self.assertTrue(packet_outs)
             for arp_pktout in packet_outs:
                 pkt = packet.Packet(arp_pktout.data)
                 exp_pkt = {
