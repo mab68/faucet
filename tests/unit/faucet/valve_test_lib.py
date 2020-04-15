@@ -71,7 +71,11 @@ def build_dict(pkt):
     if icmpv6_pkt:
         type_ = icmpv6_pkt.type_
         if type_ == icmpv6.ND_ROUTER_ADVERT:
-            pkt_dict['']
+            for option in icmpv6_pkt.options:
+                if hasattr(option, 'hw_src'):
+                    pkt_dict['eth_src'] = option.hw_src
+                if hasattr(option, 'prefix'):
+                    pkt_dict['router_advert_ip'] = option.prefix
         elif type_ == icmpv6.ND_ROUTER_SOLICIT:
             pkt_dict['router_solicit_ip'] = None
         elif type_ == icmpv6.ND_NEIGHBOR_ADVERT:
@@ -83,7 +87,7 @@ def build_dict(pkt):
         elif type_ == icmpv6.ICMPV6_ECHO_REQUEST:
             pkt_dict['echo_request_data'] = icmpv6_pkt.data.data
         else:
-            raise ValueError('Unknown packet type %s \n' % icmpv6_pkt)
+            raise NotImplementedError('Unknown packet type %s \n' % icmpv6_pkt)
     ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
     if ipv4_pkt:
         pkt_dict['ipv4_src'] = ipv4_pkt.src
@@ -94,26 +98,39 @@ def build_dict(pkt):
         if type_ == icmp.ICMP_ECHO_REQUEST:
             pkt_dict['echo_request_data'] = icmp_pkt.data.data
         else:
-            raise ValueError('Unknown packet type %s \n' % icmp_pkt)
+            raise NotImplementedError('Unknown packet type %s \n' % icmp_pkt)
     lacp_pkt = pkt.get_protocol(slow.lacp)
     if lacp_pkt:
         pkt_dict['actor_system'] = lacp_pkt.actor_system
         pkt_dict['partner_system'] = lacp_pkt.partner_system
         pkt_dict['actor_state_synchronization'] = lacp_pkt.actor_state_synchronization
-    # TODO: LLDP
-    #       chassis_id, port_id, org_tlvs/None, system_name/None
     lldp_pkt = pkt.get_protocol(lldp_pkt)
-    #if lldp_pkt:
-        #pkt_dict['chassis_id']
-        #pkt_dict['port_id']
-        #pkt_dict['org_tlvs']
-        #pkt_dict['system_name']
+    if lldp_pkt:
+        def faucet_lldp_tlvs(dp_mac, tlv_type, value):
+            oui = valve_packet.faucet_oui(dp_mac)
+            valve = str(value).encode('utf-8')
+            return (oui, tlv_type, value)
+        chassis_tlv = valve_packet.tlvs_by_type(lldp_pkt.tlvs, lldp.LLDP_TLV_CHASSIS_ID)[0]
+        chassis_id = valve_packet.addrconv.mac.bin_to_text(chassis_tlv.chassis_id)
+        pkt_dict['chassis_id'] = chassis_id
+        faucet_tlvs = tuple(valve_packet.parse_faucet_lldp(lldp_pkt, chassis_id))
+        remote_dp_id, remote_dp_name, remote_port_id, remote_port_state = faucet_tlvs
+        pkt_dict['system_name'] = remote_dp_name
+        pkt_dict['port_id'] = remote_port_id
+        pkt_dict['eth_dst'] = lldp.LLDP_MAC_NEAREST_BRIDGE
+        tlvs = [
+            faucet_lldp_tlvs(chassis_id, valve_packet.LLDP_FAUCET_DP_ID, remote_dp_id),
+            faucet_lldp_tlvs(chassis_id, valve_packet.LLDP_FAUCET_STACK_STATE, remote_port_state)
+        ]
+        pkt_dict['tlvs'] = tlvs
     vlan_pkt = pkt.get_protocol(vlan.vlan)
     if vlan_pkt:
         pkt_dict['vid'] = vlan_pkt.vid
     eth_pkt = pkt.get_protocol(ethernet.ethernet)
     if eth_pkt:
         pkt_dict['eth_src'] = eth_pkt.src
+        if 'eth_dst' in pkt_dict and pkt_dict['eth_dst'] != eth_pkt.dst:
+            raise NotImplementedError('Previous allocation of eth_dst does not match ethernet dst\n')
         pkt_dict['eth_dst'] = eth_pkt.dst
     return pkt_dict
 
@@ -1482,7 +1499,13 @@ class ValveTestBases:
             """
             pkt_dict = build_dict(pkt)
             for key in expected_pkt:
-                self.assertTrue(key in pkt_dict)
+                self.assertTrue(key in pkt_dict,
+                    'key %s not in pkt %s' % (key, pkt_dict))
+                if expected_pkt[key] is None:
+                    # Sometimes we may not know that correct value but want
+                    #   to ensure that there exists a value so use the None value
+                    #   for a packet key
+                    continue
                 self.assertEqual(
                     expected_pkt[key], pkt_dict[key]
                     'Key: %s not matching (%s != %s)' % (key, expected_pkt[key], pkt_dict[key]))
@@ -1671,13 +1694,16 @@ class ValveTestBases:
                 'ipv6_src': 'fe80::1:1',
                 'ipv6_dst': router_solicit_ip,
                 'router_solicit_ip': router_solicit_ip})
-            # TODO: check RA is valid
             packet_outs = ValveTestBases.packet_outs_from_flows(ra_replies)
             self.assertTrue(packet_outs)
             for ra_packetout in packet_outs:
                 pkt = packet.Packet(ra_packetout.data)
                 exp_pkt = {
-                    ''
+                    'ipv6_src': 'fe80::1:254',
+                    'ipv6_dst': 'fe80::1:1',
+                    'eth_src': FAUCET_MAC,
+                    'eth_dst': self.P2_V200_MAC,
+                    'router_advert_ip': 'fc00::1:0'
                 }
                 self.verify_pkt(pkt, exp_pkt)
 
@@ -1735,10 +1761,14 @@ class ValveTestBases:
                 valve_vlan, ip_gw, ip_dst)
             # TODO: check add flows.
             self.assertTrue(route_add_replies)
+            for flowmod in route_add_replies:
+                self.assertTrue(valve_of.is_flowmod(flowmod))
             route_del_replies = self.valve.del_route(
                 valve_vlan, ip_dst)
             # TODO: check del flows.
             self.assertTrue(route_del_replies)
+            for flowdel in route_del_replies:
+                self.assertTrue(valve_of.is_flowdel(flowdel))
 
         def test_host_ipv4_fib_route(self):
             """Test learning a FIB rule for an IPv4 host."""
@@ -1785,8 +1815,19 @@ class ValveTestBases:
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.99',
                 'echo_request_data': self.ICMP_PAYLOAD})
-            # TODO: check proactive neighbor resolution
-            self.assertTrue(ValveTestBases.packet_outs_from_flows(echo_replies))
+            self.assertTrue(echo_replies)
+            out_pkts = ValveTestBases.packet_outs_from_flows(echo_replies)
+            self.assertTrue(out_pkts)
+            for out_pkt in out_pkts:
+                pkt = packet.Packet(out_pkt.data)
+                exp_pkt = {
+                    'arp_source_ip': '10.0.0.254',
+                    'arp_target_ip': '10.0.0.99',
+                    'opcode': 1,
+                    'eth_src': FAUCET_MAC,
+                    'eth_dst': self.BROADCAST_MAC
+                }
+                self.verify_pkt(pkt, exp_pkt)
 
         def test_ping6_unknown_neighbor(self):
             """IPv6 ping unknown host on same subnet, causing proactive learning."""
@@ -1797,8 +1838,19 @@ class ValveTestBases:
                 'ipv6_src': 'fc00::1:2',
                 'ipv6_dst': 'fc00::1:4',
                 'echo_request_data': self.ICMP_PAYLOAD})
-            # TODO: check proactive neighbor resolution
-            self.assertTrue(ValveTestBases.packet_outs_from_flows(echo_replies))
+            self.assertTrue(echo_replies)
+            out_pkts = ValveTestBases.packet_outs_from_flows(echo_replies)
+            self.assertTrue(out_pkts)
+            for out_pkt in out_pkts:
+                pkt = packet.Packet(out_pkt.data)
+                exp_pkt = {
+                    'ipv6_src': 'fc00::1:254',
+                    'ipv6_dst': 'ff02::1:ff01:4',
+                    'neighbor_solicit_ip': 'fc00::1:4',
+                    'eth_src': FAUCET_MAC,
+                    'eth_dst': '33:33:ff:01:00:04'
+                }
+                self.verify_pkt(pkt, exp_pkt)
 
         def test_icmpv6_ping_controller(self):
             """IPv6 ping controller VIP."""
@@ -2275,6 +2327,21 @@ meters:
         def test_lldp_beacon(self):
             """Test LLDP beacon service."""
             # TODO: verify LLDP packet content.
+            lldp_pkts = self.valves.fast_advertise(self.mock_time(10), None)
+            self.assertTrue(lldp_pkts)
+            out_pkts = ValveTestBases.packet_outs_from_flows(lldp_pkts[self.valve])
+            self.assertTrue(out_pkts)
+            for out_pkt in out_pkts:
+                pkt = packet.Packet(out_pkt.data)
+                exp_pkt = {
+                    'chassis_id': FAUCET_MAC,
+                    'system_name': 'faucet',
+                    'port_id' None,
+                    'eth_src': FAUCET_MAC,
+                    'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
+                    'tlvs': None
+                }
+                self.verify_pkt(pkt, exp_pkt)
             self.assertTrue(self.valve.fast_advertise(self.mock_time(10), None))
 
         def test_unknown_port(self):
