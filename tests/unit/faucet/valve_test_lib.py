@@ -56,7 +56,11 @@ from fakeoftable import FakeOFTable, FakeOFNetwork
 
 
 def build_dict(pkt):
-    """Build and return a dictionary from a pkt"""
+    """
+    Build and return a dictionary from a pkt
+    This function is supposed to be in duality with build_pkt
+    i.e. build_dict(build_pkt(dict)) == dict && build_pkt(build_dict(pkt)) == pkt
+    """
     pkt_dict = {}
     arp_pkt = pkt.get_protocol(arp.arp)
     if arp_pkt:
@@ -104,7 +108,7 @@ def build_dict(pkt):
         pkt_dict['actor_system'] = lacp_pkt.actor_system
         pkt_dict['partner_system'] = lacp_pkt.partner_system
         pkt_dict['actor_state_synchronization'] = lacp_pkt.actor_state_synchronization
-    lldp_pkt = pkt.get_protocol(lldp_pkt)
+    lldp_pkt = pkt.get_protocol(lldp.lldp)
     if lldp_pkt:
         def faucet_lldp_tlvs(dp_mac, tlv_type, value):
             oui = valve_packet.faucet_oui(dp_mac)
@@ -243,6 +247,14 @@ def build_pkt(pkt):
 
 FAUCET_MAC = '0e:00:00:00:00:01'
 
+BASE_DP_OPTIONS = {
+    'hardware': 'GenericTFM',
+    'ignore_learn_ins': 100,
+    'ofchannel_log': '/dev/null',
+    'packetin_pps': 99,
+    'slowpath_pps': 99,
+    'lldp_beacon': {'send_interval': 1, 'max_per_interval': 1}
+}
 BASE_DP_CONFIG = """
         hardware: 'GenericTFM'
         ignore_learn_ins: 100
@@ -254,22 +266,35 @@ BASE_DP_CONFIG = """
             max_per_interval: 1
 """
 
+BASE_DP1_OPTIONS = {'dp_id': 1}
 BASE_DP1_CONFIG = """
         dp_id: 1
 """ + BASE_DP_CONFIG
 
+DP1_OPTIONS = {'combinatorial_port_flood': True}
 DP1_CONFIG = """
         combinatorial_port_flood: True
 """ + BASE_DP1_CONFIG
 
+IDLE_DP1_OPTIONS = {'use_idle_timeout': True}
 IDLE_DP1_CONFIG = """
         use_idle_timeout: True
 """ + DP1_CONFIG
 
+GROUP_DP1_OPTIONS = {'group_table': True}
 GROUP_DP1_CONFIG = """
         group_table: True
 """ + BASE_DP1_CONFIG
 
+DOT1X_OPTIONS = {
+    'dot1x': {
+        'nfv_intf': 'lo',
+        'nfw_sw_port': 2,
+        'radius_ip': '127.0.0.1',
+        'radius_port': 1234,
+        'radius_secret': 'SECRET'
+    }
+}
 DOT1X_CONFIG = """
         dot1x:
             nfv_intf: lo
@@ -279,6 +304,17 @@ DOT1X_CONFIG = """
             radius_secret: SECRET
 """ + BASE_DP1_CONFIG
 
+DOT1X_ACL_OPTIONS = {
+    'dot1x': {
+        'nfv_intf': 'lo',
+        'nfw_sw_port': 2,
+        'radius_ip': '127.0.0.1',
+        'radius_port': 1234,
+        'radius_secret': 'SECRET',
+        'auth_acl': 'auth_acl',
+        'noauth_acl': 'noauth_acl'
+    }
+}
 DOT1X_ACL_CONFIG = """
         dot1x:
             nfv_intf: lo
@@ -560,8 +596,6 @@ class ValveTestBases:
         @staticmethod
         def create_mac_str(i, j):
             return '00:00:00:%02x:00:%02x' % (i, j)
-
-        BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 
         @staticmethod
         def create_vid(i):
@@ -1510,6 +1544,21 @@ class ValveTestBases:
                     expected_pkt[key], pkt_dict[key]
                     'Key: %s not matching (%s != %s)' % (key, expected_pkt[key], pkt_dict[key]))
 
+        def verify_table_additions(self, table_names, flowmods):
+            """
+            Verifies that the flowmods add new rules to the tables
+
+            Args:   
+                table_names (list): List of table names to verify additions
+                flowmods (list): The flowmods that create new rules the tables
+            """
+            before_count = {}
+            for table_name in table_names:
+                table_id = self.valve.dp.tables[table_name].table_id
+                before_count[table_id] = len(self.table.tables[table_id])
+            self.apply_ofmsgs(flowmods)
+            for table_id, count in before_count.items():
+                self.assertGreater(len(self.table.tables[table_id]), count)
 
     class ValveTestBig(ValveTestSmall):
         """Test basic switching/L2/L3 functions."""
@@ -1563,8 +1612,51 @@ class ValveTestBases:
             tfm_flows = [
                 flow for flow in flows if isinstance(
                     flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
-            # TODO: verify TFM content.
             self.assertTrue(tfm_flows)
+            for table_name, table in self.valve.dp.tables.items():
+                # Ensure the TFM generated for each table has the correct values
+                table_id = table.table_id
+                self.assertIn(table_id, self.table.tfm)
+                tfm_body = self.table.tfm[table_id]
+                tfm_oxm = [
+                    tfm for tfm in tfm_body.properties
+                        if isinstance(tfm, valve_of.parser.OFPTableFeaturePropOxm)]
+                tfm_setfields = []
+                tfm_matchfields = []
+                tfm_exactmatch = []
+                for oxm in tfm_oxm:
+                    if oxm.type == valve_of.ofp.OFPTFPT_MATCH:
+                        tfm_matchtypes.extend(oxm.oxm_ids)
+                    elif oxm.type = valve_of.ofp.OFPTFPT_WILDCARDS:
+                        tfm_exactmatch.extend(oxm.oxm_ids)
+                    elif oxm.type == valve_of.ofp.OFPTFPT_APPLY_SETFIELD:
+                        tfm_setfields.extend(oxm.oxm_ids)
+                for oxm_id in tfm_matchtypes:
+                    self.assertIn(oxm_id.type, table.match_types)
+                    self.assertEqual(oxm_id.hasmask, table.match_types[oxm_id.type])
+                for oxm_id in tfm_exactmatch:
+                    self.assertIn(oxm_id.type, table.match_types)
+                    self.assertEqual(oxm_id.hasmask, table.match_types[oxm_id.type])
+                for oxm_id in tfm_setfields:
+                    self.assertIn(oxm_id.type, table.set_fields)
+                    self.assertFalse(oxm_id.hasmask)
+                tfm_nexttables = [
+                    tfm for tfm in tfm_body.properties
+                        if isinstance(tfm, valve_of.parser.OFPTableFeaturePropNextTables)]
+                tfm_nexttable = []
+                tfm_misstable = []
+                for tfm_nt in tfm_nexttables:
+                    if tfm_nt.type == valve_of.ofp.OFPTFPT_NEXT_TABLES:
+                        tfm_nexttable.append(tfm_nt)
+                    elif tfm_nt.type == valve_of.ofp.OFPTFPT_NEXT_TABLES_MISS:
+                        tfm_misstable.append(tfm_nt)
+                if table.next_tables:
+                    self.assertEqual(len(tfm_nexttable), 1)
+                    self.assertEqual(tfm_nexttable[0].table_ids, table.next_tables)
+                if table.table_config.miss_goto:
+                    self.assertEqual(len(tfm_misstable), 1)
+                    miss_id = self.valve.dp.tables[table.table_config.miss_goto].table_id
+                    self.assertEqual(tfm_misstable[0].table_ids, [miss_id])
 
         def test_pkt_meta(self):
             """Test bad fields in OFPacketIn."""
@@ -1759,16 +1851,24 @@ class ValveTestBases:
             ip_gw = ipaddress.IPv4Address('10.0.0.1')
             route_add_replies = self.valve.add_route(
                 valve_vlan, ip_gw, ip_dst)
-            # TODO: check add flows.
+            table_id = self.valve.dp.tables.get['ipv4_fib'].table_id
+            table = self.table.tables[table_id]
+            orig_size = len(table)
+            orig_rules = '\n'.join(sorted([str(flowmod) for flowmod in table]))
             self.assertTrue(route_add_replies)
             for flowmod in route_add_replies:
                 self.assertTrue(valve_of.is_flowmod(flowmod))
+            self.apply_ofmsgs(route_add_replies)
+            self.assertGreater(len(table), orig_size)
             route_del_replies = self.valve.del_route(
                 valve_vlan, ip_dst)
-            # TODO: check del flows.
             self.assertTrue(route_del_replies)
             for flowdel in route_del_replies:
                 self.assertTrue(valve_of.is_flowdel(flowdel))
+            self.apply_ofmsgs(route_del_replies)
+            self.assertEqual(orig_size, len(table))
+            return_rules = '\n'.join(sorted([str(flowmod) for flowmod in table]))
+            self.assertEqual(orig_rules, return_rules)
 
         def test_host_ipv4_fib_route(self):
             """Test learning a FIB rule for an IPv4 host."""
@@ -1780,15 +1880,17 @@ class ValveTestBases:
                 'ipv4_dst': '10.0.0.4',
                 'echo_request_data': bytes(
                     'A'*8, encoding='UTF-8')})  # pytype: disable=wrong-keyword-args
-            # TODO: verify learning rule contents
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
+            self.verify_table_additions(['eth_src', 'eth_dst', 'flood', 'ipv4_fib'], fib_route_replies)
             # Verify adding default route via 10.0.0.2
-            self.assertTrue((self.valve.add_route(
+            route_add_replies = self.valve.add_route(
                 self.valve.dp.vlans[0x100],
                 ipaddress.IPv4Address('10.0.0.2'),
-                ipaddress.IPv4Network('0.0.0.0/0'))))
-            self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
+                ipaddress.IPv4Network('0.0.0.0/0'))
+            self.assertTrue(route_add_replies)
+            self.verify_table_additions(['ipv4_fib'], route_add_replies)
             self.verify_expiry()
 
         def test_host_ipv6_fib_route(self):
@@ -1800,10 +1902,9 @@ class ValveTestBases:
                 'ipv6_src': 'fc00::1:2',
                 'ipv6_dst': 'fc00::1:4',
                 'echo_request_data': self.ICMP_PAYLOAD})
-            # TODO: verify learning rule contents
-            # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
             self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
+            self.verify_table_additions(['eth_src', 'eth_dst', 'flood', 'ipv6_fib'], fib_route_replies)
             self.verify_expiry()
 
         def test_ping_unknown_neighbor(self):
@@ -2326,8 +2427,7 @@ meters:
 
         def test_lldp_beacon(self):
             """Test LLDP beacon service."""
-            # TODO: verify LLDP packet content.
-            lldp_pkts = self.valves.fast_advertise(self.mock_time(10), None)
+            lldp_pkts = self.valve.fast_advertise(self.mock_time(10), None)
             self.assertTrue(lldp_pkts)
             out_pkts = ValveTestBases.packet_outs_from_flows(lldp_pkts[self.valve])
             self.assertTrue(out_pkts)
@@ -2342,7 +2442,6 @@ meters:
                     'tlvs': None
                 }
                 self.verify_pkt(pkt, exp_pkt)
-            self.assertTrue(self.valve.fast_advertise(self.mock_time(10), None))
 
         def test_unknown_port(self):
             """Test port status change for unknown port handled."""

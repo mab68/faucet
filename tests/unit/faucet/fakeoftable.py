@@ -26,6 +26,7 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.ofproto import ofproto_parser as ofp_parser
 from ryu.lib import addrconv
 
+from clib.mininet_test_topo_generator import FaucetTopoGenerator
 
 CONTROLLER_PORT = 4294967293
 IN_PORT = 4294967288
@@ -33,6 +34,7 @@ IN_PORT = 4294967288
 
 class FakeOFTableException(Exception):
     """Indicates an erroneous flow or group mod"""
+    pass
 
 
 class DFS:
@@ -88,9 +90,9 @@ class DFS:
         Pushes the dp_id and pkt onto the heap with priority
 
         Args:
-            dp_id:
-            pkt:
-            priority:
+            dp_id: The DP ID for the node that is being pushed onto the heap
+            pkt: The packet that is being sent through the node
+            priority: The priority of the packet and the node in the DFS
         """
         heapq.heappush(self.heap, (priority, (dp_id, pkt)))
 
@@ -998,6 +1000,7 @@ class FlowMod:
             parser.OFPActionPushVlan.__name__: ('push_vlan', 'ethertype'),
             parser.OFPActionPopVlan.__name__: ('pop_vlan', None),
             parser.OFPActionGroup.__name__: ('group', 'group_id'),
+            parser.OFPActionDecNwTtl.__name__: ('dec_ttl', None),
             }
         value = None
         if isinstance(action, parser.OFPActionOutput):
