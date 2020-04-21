@@ -1376,6 +1376,9 @@ class ValveTestBases:
             state_expire_counts = {}
             resolve_gws_counts = {}
             state_expire, resolve_gws = expire()
+            # TODO: There seems to be a problem with the first call
+            #   not returning a VLAN encapsulated packet but subsequent calls
+            #   return the VLAN encapsulated packet...
             adjustment = False
             for valve, pkts in state_expire.items():
                 state_expire_counts[valve] = len(pkts)
