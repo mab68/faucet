@@ -245,6 +245,7 @@ def build_pkt(pkt):
     return result
 
 
+# TODO: This can be obtained elsewhere
 FAUCET_MAC = '0e:00:00:00:00:01'
 
 BASE_DP_OPTIONS = {
@@ -266,27 +267,27 @@ BASE_DP_CONFIG = """
             max_per_interval: 1
 """
 
-BASE_DP1_OPTIONS = {'dp_id': 1}
+BASE_DP1_OPTIONS = {'dp_id': 1} # TODO: Combine with BASE_DP_OPTIONS
 BASE_DP1_CONFIG = """
         dp_id: 1
 """ + BASE_DP_CONFIG
 
-DP1_OPTIONS = {'combinatorial_port_flood': True}
+DP1_OPTIONS = {'combinatorial_port_flood': True} # TODO: Combine with BASE_DP1_OPTIONS
 DP1_CONFIG = """
         combinatorial_port_flood: True
 """ + BASE_DP1_CONFIG
 
-IDLE_DP1_OPTIONS = {'use_idle_timeout': True}
+IDLE_DP1_OPTIONS = {'use_idle_timeout': True} # TODO: Combine with DP1_OPTIONS
 IDLE_DP1_CONFIG = """
         use_idle_timeout: True
 """ + DP1_CONFIG
 
-GROUP_DP1_OPTIONS = {'group_table': True}
+GROUP_DP1_OPTIONS = {'group_table': True} # TODO: Combine with BASE_DP1_OPTIONS
 GROUP_DP1_CONFIG = """
         group_table: True
 """ + BASE_DP1_CONFIG
 
-DOT1X_OPTIONS = {
+DOT1X_OPTIONS = { # TODO: Combine with BASE_DP1_OPTIONS
     'dot1x': {
         'nfv_intf': 'lo',
         'nfw_sw_port': 2,
@@ -1362,11 +1363,53 @@ class ValveTestBases:
 
         def verify_expiry(self):
             """Verify FIB resolution attempts expire."""
-            for _ in range(self.valve.dp.max_host_fib_retry_count + 1):
+            def expire():
                 now = self.mock_time(self.valve.dp.timeout * 2)
-                self.valve.state_expire(now, None)
-                self.valve.resolve_gateways(now, None)
-            # TODO: verify state expired
+                state_expire = self.valve.state_expire(now, None)
+                resolve_gws = self.valve.resolve_gateways(now, None)
+                return state_expire, resolve_gws
+            def verify_packetouts(pkts):
+                for pkt in pkts:
+                    self.assertIsInstance(pkt, valve_of.parser.OFPPacketOut)
+            # Gather counts of packetouts from resolution attempts
+            #   these should not change until expiry
+            state_expire_counts = {}
+            resolve_gws_counts = {}
+            state_expire, resolve_gws = expire()
+            adjustment = False
+            for valve, pkts in state_expire.items():
+                state_expire_counts[valve] = len(pkts)
+                if len(pkts):
+                    state_expire_counts[valve] += 1
+                    adjustment = True
+                verify_packetouts(pkts)
+            for valve, pkts in resolve_gws.items():
+                resolve_gws_counts[valve] = len(pkts)
+                if not adjustment:
+                    resolve_gws_count[valve] += 1
+                    adjustment = True
+                verify_packetouts(pkts)
+            for i in range(self.valve.dp.max_host_fib_retry_count):
+                # Continue checking resolution attempts each timeout until FIB expiry
+                state_expire, resolve_gws = expire()
+                for valve, pkts in state_expire.items():
+                    self.assertEqual(len(pkts), state_expire_counts[valve])
+                    if i < self.valve.dp.max_host_fib_retry_count - 1:
+                        verify_packetouts(pkts)
+                    else:
+                        # Check FIB resolution expiry deletes flowrules
+                        for pkt in pkts:
+                            self.assertTrue(valve_of.is_flowdel(pkt))
+                for valve, pkts in resolve_gws.items():
+                    self.assertEqual(len(pkts), resolve_gws_counts[valve])
+                    verify_packetouts(pkts)
+            # Check FIB resolution has completely expired (no more packets from state_expire)
+            state_expire, resolve_gws = expire()
+            for pkts in state_expire.values():
+                self.assertFalse(pkts)
+            for valve, pkts in resolve_gws.items():
+                verify_packetouts(pkts)
+                self.assertEqual(len(pkts), resolve_gws_counts[valve] + state_expire_counts[valve])
 
         def verify_flooding(self, matches):
             """Verify flooding for a packet, depending on the DP implementation."""
