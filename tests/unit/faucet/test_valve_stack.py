@@ -2267,555 +2267,555 @@ dps:
         self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
 
 
-class ValveLargeNetworkTest(ValveTestBases.ValveTestNetwork):
-    """Test a large topology with the ValveTestNetwork Base"""
-
-    DP_NAME = 'faucet-1'
-
-    CONFIG = """
-dps:
-  faucet-1:
-    dp_id: 0x1
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-7
-          port: 8
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-8
-          port: 8
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-6
-          port: 8
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-9
-          port: 8
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-10
-          port: 8
-      11:
-        description: b11
-        name: b11
-        stack:
-          dp: faucet-11
-          port: 8
-      12:
-        description: b12
-        name: b12
-        stack:
-          dp: faucet-12
-          port: 8
-    stack:
-      priority: 1
-  faucet-10:
-    dp_id: 0xA
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-2
-          port: 10
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-3
-          port: 10
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-1
-          port: 10
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-4
-          port: 10
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-5
-          port: 10
-  faucet-11:
-    dp_id: 0xB
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-2
-          port: 11
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-3
-          port: 11
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-1
-          port: 11
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-4
-          port: 11
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-5
-          port: 11
-  faucet-12:
-    dp_id: 0xC
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-2
-          port: 12
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-3
-          port: 12
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-1
-          port: 12
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-4
-          port: 12
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-5
-          port: 12
-  faucet-2:
-    dp_id: 0x2
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-7
-          port: 6
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-8
-          port: 6
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-6
-          port: 6
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-9
-          port: 6
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-10
-          port: 6
-      11:
-        description: b11
-        name: b11
-        stack:
-          dp: faucet-11
-          port: 6
-      12:
-        description: b12
-        name: b12
-        stack:
-          dp: faucet-12
-          port: 6
-  faucet-3:
-    dp_id: 0x3
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-7
-          port: 7
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-8
-          port: 7
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-6
-          port: 7
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-9
-          port: 7
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-10
-          port: 7
-      11:
-        description: b11
-        name: b11
-        stack:
-          dp: faucet-11
-          port: 7
-      12:
-        description: b12
-        name: b12
-        stack:
-          dp: faucet-12
-          port: 7
-  faucet-4:
-    dp_id: 0x4
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-7
-          port: 9
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-8
-          port: 9
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-6
-          port: 9
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-9
-          port: 9
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-10
-          port: 9
-      11:
-        description: b11
-        name: b11
-        stack:
-          dp: faucet-11
-          port: 9
-      12:
-        description: b12
-        name: b12
-        stack:
-          dp: faucet-12
-          port: 9
-  faucet-5:
-    dp_id: 0x5
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-7
-          port: 10
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-8
-          port: 10
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-6
-          port: 10
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-9
-          port: 10
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-10
-          port: 10
-      11:
-        description: b11
-        name: b11
-        stack:
-          dp: faucet-11
-          port: 10
-      12:
-        description: b12
-        name: b12
-        stack:
-          dp: faucet-12
-          port: 10
-  faucet-6:
-    dp_id: 0x6
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-2
-          port: 8
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-3
-          port: 8
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-1
-          port: 8
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-4
-          port: 8
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-5
-          port: 8
-  faucet-7:
-    dp_id: 0x7
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-2
-          port: 6
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-3
-          port: 6
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-1
-          port: 6
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-4
-          port: 6
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-5
-          port: 6
-  faucet-8:
-    dp_id: 0x8
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-2
-          port: 7
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-3
-          port: 7
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-1
-          port: 7
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-4
-          port: 7
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-5
-          port: 7
-  faucet-9:
-    dp_id: 0x9
-    hardware: 'GenericTFM'
-    interfaces:
-      5:
-        description: b5
-        name: b5
-        native_vlan: vlan-1
-      6:
-        description: b6
-        name: b6
-        stack:
-          dp: faucet-2
-          port: 9
-      7:
-        description: b7
-        name: b7
-        stack:
-          dp: faucet-3
-          port: 9
-      8:
-        description: b8
-        name: b8
-        stack:
-          dp: faucet-1
-          port: 9
-      9:
-        description: b9
-        name: b9
-        stack:
-          dp: faucet-4
-          port: 9
-      10:
-        description: b10
-        name: b10
-        stack:
-          dp: faucet-5
-          port: 9
-vlans:
-  vlan-1:
-    vid: 100
-"""
-
-    def setUp(self):
-        self.setup_valves(self.CONFIG)
-        self.trigger_stack_ports()
-
-    def test_flooding(self):
-        """Test we can output a packet between hosts on each switch"""
-        dps = [i for i in range(1, 13)]
-        bcast_match = {
-            'in_port': 5,
-            'eth_src': '00:00:00:00:00:12',
-            'eth_dst': mac.BROADCAST_STR,
-            'ipv4_src': '10.1.0.1',
-            'ipv4_dst': '10.1.0.2',
-            'vlan_vid': 0
-        }
-        for src in dps:
-            for dst in dps:
-                if src != dst:
-                    self.assertTrue(self.network.is_output(bcast_match, src, dst, 5, 0))
+#class ValveLargeNetworkTest(ValveTestBases.ValveTestNetwork):
+#    """Test a large topology with the ValveTestNetwork Base"""
+#
+#    DP_NAME = 'faucet-1'
+#
+#    CONFIG = """
+#dps:
+#  faucet-1:
+#    dp_id: 0x1
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-7
+#          port: 8
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-8
+#          port: 8
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-6
+#          port: 8
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-9
+#          port: 8
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-10
+#          port: 8
+#      11:
+#        description: b11
+#        name: b11
+#        stack:
+#          dp: faucet-11
+#          port: 8
+#      12:
+#        description: b12
+#        name: b12
+#        stack:
+#          dp: faucet-12
+#          port: 8
+#    stack:
+#      priority: 1
+#  faucet-10:
+#    dp_id: 0xA
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-2
+#          port: 10
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-3
+#          port: 10
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-1
+#          port: 10
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-4
+#          port: 10
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-5
+#          port: 10
+#  faucet-11:
+#    dp_id: 0xB
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-2
+#          port: 11
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-3
+#          port: 11
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-1
+#          port: 11
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-4
+#          port: 11
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-5
+#          port: 11
+#  faucet-12:
+#    dp_id: 0xC
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-2
+#          port: 12
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-3
+#          port: 12
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-1
+#          port: 12
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-4
+#          port: 12
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-5
+#          port: 12
+#  faucet-2:
+#    dp_id: 0x2
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-7
+#          port: 6
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-8
+#          port: 6
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-6
+#          port: 6
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-9
+#          port: 6
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-10
+#          port: 6
+#      11:
+#        description: b11
+#        name: b11
+#        stack:
+#          dp: faucet-11
+#          port: 6
+#      12:
+#        description: b12
+#        name: b12
+#        stack:
+#          dp: faucet-12
+#          port: 6
+#  faucet-3:
+#    dp_id: 0x3
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-7
+#          port: 7
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-8
+#          port: 7
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-6
+#          port: 7
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-9
+#          port: 7
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-10
+#          port: 7
+#      11:
+#        description: b11
+#        name: b11
+#        stack:
+#          dp: faucet-11
+#          port: 7
+#      12:
+#        description: b12
+#        name: b12
+#        stack:
+#          dp: faucet-12
+#          port: 7
+#  faucet-4:
+#    dp_id: 0x4
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-7
+#          port: 9
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-8
+#          port: 9
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-6
+#          port: 9
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-9
+#          port: 9
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-10
+#          port: 9
+#      11:
+#        description: b11
+#        name: b11
+#        stack:
+#          dp: faucet-11
+#          port: 9
+#      12:
+#        description: b12
+#        name: b12
+#        stack:
+#          dp: faucet-12
+#          port: 9
+#  faucet-5:
+#    dp_id: 0x5
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-7
+#          port: 10
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-8
+#          port: 10
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-6
+#          port: 10
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-9
+#          port: 10
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-10
+#          port: 10
+#      11:
+#        description: b11
+#        name: b11
+#        stack:
+#          dp: faucet-11
+#          port: 10
+#      12:
+#        description: b12
+#        name: b12
+#        stack:
+#          dp: faucet-12
+#          port: 10
+#  faucet-6:
+#    dp_id: 0x6
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-2
+#          port: 8
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-3
+#          port: 8
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-1
+#          port: 8
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-4
+#          port: 8
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-5
+#          port: 8
+#  faucet-7:
+#    dp_id: 0x7
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-2
+#          port: 6
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-3
+#          port: 6
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-1
+#          port: 6
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-4
+#          port: 6
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-5
+#          port: 6
+#  faucet-8:
+#    dp_id: 0x8
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-2
+#          port: 7
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-3
+#          port: 7
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-1
+#          port: 7
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-4
+#          port: 7
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-5
+#          port: 7
+#  faucet-9:
+#    dp_id: 0x9
+#    hardware: 'GenericTFM'
+#    interfaces:
+#      5:
+#        description: b5
+#        name: b5
+#        native_vlan: vlan-1
+#      6:
+#        description: b6
+#        name: b6
+#        stack:
+#          dp: faucet-2
+#          port: 9
+#      7:
+#        description: b7
+#        name: b7
+#        stack:
+#          dp: faucet-3
+#          port: 9
+#      8:
+#        description: b8
+#        name: b8
+#        stack:
+#          dp: faucet-1
+#          port: 9
+#      9:
+#        description: b9
+#        name: b9
+#        stack:
+#          dp: faucet-4
+#          port: 9
+#      10:
+#        description: b10
+#        name: b10
+#        stack:
+#          dp: faucet-5
+#          port: 9
+#vlans:
+#  vlan-1:
+#    vid: 100
+#"""
+#
+#    def setUp(self):
+#        self.setup_valves(self.CONFIG)
+#        self.trigger_stack_ports()
+#
+#    def test_flooding(self):
+#        """Test we can output a packet between hosts on each switch"""
+#        dps = [i for i in range(1, 13)]
+#        bcast_match = {
+#            'in_port': 5,
+#            'eth_src': '00:00:00:00:00:12',
+#            'eth_dst': mac.BROADCAST_STR,
+#            'ipv4_src': '10.1.0.1',
+#            'ipv4_dst': '10.1.0.2',
+#            'vlan_vid': 0
+#        }
+#        for src in dps:
+#            for dst in dps:
+#                if src != dst:
+#                    self.assertTrue(self.network.is_output(bcast_match, src, dst, 5, 0))
 
 
 if __name__ == "__main__":
