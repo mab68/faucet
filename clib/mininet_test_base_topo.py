@@ -12,6 +12,7 @@ import yaml  # pytype: disable=pyi-error
 from clib.mininet_test_util import timeout_cmd
 from clib.mininet_test_base import FaucetTestBase, IPV4_ETH
 from clib.mininet_test_topo_generator import FaucetTopoGenerator
+from clib.config_generator import ConfigGenerator
 
 
 class FaucetTopoTestBase(FaucetTestBase):
@@ -151,7 +152,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         )
         self.port_maps = {dpid: self.create_port_map(dpid) for dpid in self.dpids}
         self.port_map = self.port_maps[self.dpid]
-        self.CONFIG = self.get_config(
+        self.CONFIG = ConfigGenerator().get_config(
             dpids=self.dpids,
             hw_dpid=hw_dpid,
             hardware=self.hardware,
