@@ -39,6 +39,11 @@ class FakeOFTable:
     is_output.
     """
 
+    tables = None
+    groups = None
+    requires_tfm = None
+    tfm = None
+
     def __init__(self, num_tables=1, requires_tfm=True):
         self.tables = [[] for _ in range(0, num_tables)]
         self.groups = {}
