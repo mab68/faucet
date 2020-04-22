@@ -31,7 +31,6 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     dpids = None
     port_maps = None
-
     n_vlans = 0
     configuration_options = None
 
