@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """Unit tests for Mininet Topologies in mininet_test_topo"""
 
 from unittest import TestCase, main
@@ -6,6 +8,7 @@ import networkx
 
 from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_util import flat_test_name
+from clib.config_generator import FaucetFakeOFTopoGenerator
 
 
 class FaucetStringOfDPSwitchTopoTest(TestCase):
@@ -149,6 +152,40 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
                 ]
             },
             "peer links are incorrect")
+
+
+class FaucetTopoTest(TestCase):
+    """ """
+
+    serial = 0
+
+    def get_serialno(self, *_args, **_kwargs):
+        """"Return mock serial number"""
+        self.serial += 1
+        return self.serial
+
+    def test_topo(self):
+        n_vlans = 3
+        dp_links = networkx.cycle_graph(5)
+        switch_links = list(dp_links.edges())
+        link_vlans = {}
+        for link in switch_links:
+            link_vlans[link] = None
+        host_links = {}
+        h = 0
+        for dp in dp_links.nodes():
+            host_links.setdefault(h, [])
+            host_links[h].append(dp)
+            h += 1
+        host_vlans = {}
+        for h in host_links.keys():
+            host_vlans[h] = 0
+        port_order = [3, 2, 1, 0]
+        topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            port_order=port_order, get_serialno=self.get_serialno)
+
 
 if __name__ == "__main__":
     main()
