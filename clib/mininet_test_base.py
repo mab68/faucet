@@ -657,7 +657,7 @@ class FaucetTestBase(unittest.TestCase):
                         self.quiet_commands(host, ['ip netns add %s' % hostns])
                 return
             self._stop_net()
-            last_error_txt += '\n\n' + self._dump_controller_logs()
+            #last_error_txt += '\n\n' + self._dump_controller_logs()
             error('%s: %s' % (self._test_name(), last_error_txt))
             time.sleep(mininet_test_util.MIN_PORT_AGE)
         self.fail(last_error_txt)
@@ -1370,6 +1370,7 @@ dbs:
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet', retries=3):
+        # TODO: Need to change this...
         if dpid:
             if dpid is True:
                 dpid = int(self.dpid)
@@ -2152,7 +2153,7 @@ dbs:
 
     def port_labels(self, port_no):
         port_name = 'b%u' % port_no
-        return {'port': port_name, 'port_description': port_name}
+        return {'port': port_name, 'port_description': r'.+'}
 
     def set_dpid_names(self, dpid_names):
         self.dpid_names = copy.deepcopy(dpid_names)
