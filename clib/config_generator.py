@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
+
 import random
 import networkx
 import yaml
@@ -38,6 +40,9 @@ class FakeOFSwitch(FakeOFBase):
 
     # DP ID for the switch
     dpid = None
+
+    # TODO: FakeOFSwitch contains a FakeOFTable or something...
+    # Rename FakeOFTable to this
 
     def __init__(self, name, dpid, index):
         super().__init__(name, index)
@@ -93,18 +98,19 @@ class FakeOFLink(FakeOFBase):
         self.node = node
         self.peer_node = peer_node
         self.vlans = []
+        self.options = {}
         self.port = port
         self.peer_port = peer_port
 
 
-class ConfigGenerator:
+class FaucetTopoGenerator:
 
     # Network graph 
     network_topology = None
     # Switch index map to switches
     switches_by_id = None
     # Switch index map to list of switch links
-    switch_links_by_switch_id = None
+    links_by_switch_id = None
     # Host index to hosts
     hosts_by_id = None
     # Vlan index to vlans
@@ -147,20 +153,20 @@ class ConfigGenerator:
     def __init__(self):
         self.network_topology = networkx.MultiGraph()
         self.switches_by_id = {}
-        self.switch_links_by_switch_id = {}
+        self.links_by_switch_id = {}
         self.hosts_by_id = {}
         self.vlans_by_id = {}
 
-    def create_switch(self, index):
+    def _add_faucet_switch(self, index):
         """Creates the switch"""
         name = self.dp_name(index)
         dpid = self.dp_dpid(index)
         switch = FakeOFSwitch(name, dpid, index)
         self.switches_by_id[index] = switch
-        self.switch_links_by_switch_id[index] = []
+        self.links_by_switch_id[index] = []
         return switch
 
-    def create_host(self, index, vlans):
+    def _add_host(self, index, vlans):
         """Creates the host"""
         name = self.host_name(index)
         host = FakeOFHost(name, index, vlans)
@@ -179,18 +185,57 @@ class ConfigGenerator:
         """Creates a switch-switch or switch-host link"""
         name = node.name + '-' + peer_node.name
         link = FakeOFLink(name, 0, node, peer_node, port, peer_port)
+        peer_link = FakeOFLink(name, 0, peer_node, node, peer_port, port)
         if isinstance(node, FakeOFSwitch):
-            self.switch_links_by_switch_id[node.index].append(link)
+            self.links_by_switch_id[node.index].append(link)
         if isinstance(peer_node, FakeOFSwitch):
-            self.switch_links_by_switch_id[peer_node.index].append(link)
+            self.links_by_switch_id[peer_node.index].append(peer_link)
         return link
 
-    def add_switch_topology(self, switch_topology):
+    def add_link_options(self, u, v, options):
+        """
+        Sets all the links u-v to contain the options
+
+        Args:
+            u (int): Source link switch index
+            v (int): Destination link switch index
+            options (dict): Options for the link
+        """
+        v_switch = self.switches_by_id[v]
+        for link in self.links_by_switch_id[u]:
+            if link.peer_node == v_switch:
+                for vlan in vlans:
+                    if vlan not in self.vlans_by_id:
+                        self.create_vlan(vlan)
+                link.options = options
+
+    def add_link_vlans(self, u, v, vlans):
+        """
+        Sets all the links u-v to be of type determined by vlans
+        int: untagged host
+        list: tagged host
+        None: stack link
+
+        Args:
+            u (int): Source link switch index
+            v (int): Destination link switch index
+            vlans (None/list/int): Sets the link type with vlans by indices
+        """
+        v_switch = self.switches_by_id[v]
+        for link in self.links_by_switch_id[u]:
+            if link.peer_node == v_switch:
+                for vlan in vlans:
+                    if vlan not in self.vlans_by_id:
+                        self.create_vlan(vlan)
+                link.vlans = vlans
+
+    def add_switch_topology(self, switch_topology, link_vlans):
         """
         Adds the switches and switch-switch links to the network topology
 
         Args:
             switch_topology (networkx.MultiGraph): Graph of the switch topology with dp index nodes
+            link_vlans (dict): Link tuple of switch indices (u, v) mapping to vlans
         """
         for u, v in switch_topology.edges():
             if u not in self.switches_by_id:
@@ -203,8 +248,11 @@ class ConfigGenerator:
                 self.network_topology.add_node(v_switch.name)
             else:
                 v_switch = self.switches_by_id[v].name
-            self.create_link(u_switch, v_switch, None, None)
+            link = self.create_link(u_switch, v_switch, None, None)
             self.network_topology.add_edge(u_switch.name, v_switch.name)
+        for pair, vlans in link_vlans.items():
+            u, v = pair
+            self.add_link_vlans(u, v, vlans)
 
     def add_host_topology(self, host_links, host_vlans):
         """
@@ -267,7 +315,7 @@ class ConfigGenerator:
                     router_config[self.router_name(router)][option_key] = option_value
         return routers_config
 
-    def get_dps_config(self, dp_options, host_options, dp_port_acls):
+    def get_dps_config(self, dp_options, host_options, link_options, dp_port_acls):
         """Return the DPs in dictionary format for the configuration file"""
         dps_config = {}
 
@@ -276,7 +324,7 @@ class ConfigGenerator:
             dp_config['dp_id'] = switch.dpid
             interfaces_config = {}
 
-            for link in switch_links_by_switch_id[dp]:
+            for link in links_by_switch_id[dp]:
                 # TODO: port_map
                 port = link.port
                 interfaces_config[port] = {}
@@ -320,7 +368,9 @@ class ConfigGenerator:
                             self.vlans_by_id[vlan].vid for vlan in link.vlans]
                     else:
                         raise ConfigGenerationError('Unknown link type')
-                    for option_key, option_value in link.options.items():
+                    # TODO: This is not correct...
+                    if (switch.index, peer_switch.index):
+                    for option_key, option_value in link_options.items():
                         interfaces_config[port][option_key] = option_value
                 else:
                     raise ConfigGenerationError('Unknown link peer type')
@@ -337,7 +387,7 @@ class ConfigGenerator:
         return dps_config
 
     def get_config(self, acl_options=None, dp_port_acls=None, dp_options=None, host_options=None,
-                   vlan_options=None, routers=None, router_options=None,
+                   link_options=None, vlan_options=None, routers=None, router_options=None,
                    include=None,include_optional=None):
         """
         Args:
@@ -345,6 +395,7 @@ class ConfigGenerator:
             dp_port_acls (dict): DP port to acl option mapping
             dp_options (dict): Additional options for each DP, keyed by DP index
             host_options (dict): Additional options for each host, keyed by host index
+            link_options (dict): Additional options for each link, keyed by switch indices tuple (u, v)
             vlan_options (dict): Additional options for each VLAN, keyed by vlan index
             routers (dict): Router index to list of VLANs in the router
             router_options (dict): Additional options for each router, keyed by router index
@@ -359,171 +410,10 @@ class ConfigGenerator:
         config['acls'] = get_acls_config(acl_options)
         config['vlans'] = get_vlans_config(vlan_options)
         config['routers'] = get_routers_config(routers, router_options)
-        config['dps'] = get_dps_config(dp_options, host_options, dp_port_acls)
+        config['dps'] = get_dps_config(dp_options, host_options, link_options, dp_port_acls)
         return yaml.dump(config, default_flow_style=False)
 
 
-
-
-
-
-
-
-    def get_config(self, dpids=None, hw_dpid=None, hardware=None, ofchannel_log=None,
-                   n_vlans=1, host_links=None, host_vlans=None, stack_roots=None,
-                   include=None, include_optional=None, acls=None, acl_in_dp=None,
-                   lacp_trunk=False, vlan_options=None, dp_options=None,
-                   routers=None, host_options=None):
-        """
-        Args:
-            dpids: List of DPIDs the dp indices in the configuration dictionaries refer to
-            hw_dpid: DPID for connected hardware switch
-            hardware:
-            ofchannel_log: Debug log path
-            n_vlans: Number of VLANs
-            host_links (dict): host index to dp index
-            host_vlans (dict): host index to vlan index
-            stack_roots (dict): dp index to priority value (leave none for tagged links)
-            include:
-            include_optional:
-            hw_dpid: DPID of hardware switch
-            lacp_trunk: Use LACP trunk ports
-            vlan_options (dict): vlan_index to key, value dp options
-            dp_options (dict): dp index to key, value dp options
-            routers (dict): router index to list of vlan index
-            host_options (dict): Host index to host option key, values
-        """
-        if dpids is None:
-            dpids = []
-        if include is None:
-            include = []
-        if include_optional is None:
-            include_optional = []
-        if acls is None:
-            acls = {}
-        if acl_in_dp is None:
-            acl_in_dp = {}
-
-        def add_vlans(n_vlans, host_vlans, vlan_options):
-            vlans_config = {}
-            for vlan in range(n_vlans):
-                n_tagged = 0
-                n_untagged = 0
-                for vlans in host_vlans.values():
-                    if isinstance(vlans, int) and vlan == vlans:
-                        n_untagged += 1
-                    elif isinstance(vlans, tuple) and vlan in vlans:
-                        n_tagged += 1
-                vlans_config[self.vlan_name(vlan)] = {
-                    'description': '%s tagged, %s untagged' % (n_tagged, n_untagged),
-                    'vid': self.vlan_vid(vlan)
-                }
-            if vlan_options:
-                for vlan, options in vlan_options.items():
-                    for key, value in options.items():
-                        vlans_config[self.vlan_name(vlan)][key] = value
-            return vlans_config
-
-        def add_routers(routers):
-            router_config = {}
-            for i, vlans in routers.items():
-                router_config['router-%s' % i] = {
-                    'vlans': [self.vlan_name(vlan) for vlan in vlans]
-                }
-            return router_config
-
-        def add_acl_to_port(i, port, interfaces_config):
-            if i in acl_in_dp and port in acl_in_dp[i]:
-                interfaces_config[port]['acl_in'] = acl_in_dp[i][port]
-
-        def add_dp(i, dpid, hw_dpid, ofchannel_log, group_table,
-                   n_vlans, host_vlans, stack_roots, host_links, dpid_peer_links, port_maps):
-            dp_config = {
-                'dp_id': int(dpid),
-                'hardware': hardware if dpid == hw_dpid else 'Open vSwitch',
-                'ofchannel_log': ofchannel_log + str(i) if ofchannel_log else None,
-                'interfaces': {},
-                'group_table': group_table,
-            }
-
-            if dp_options and i in dp_options:
-                for key, value in dp_options[i].items():
-                    dp_config[key] = value
-
-            if stack_roots and i in stack_roots:
-                dp_config['stack'] = {}
-                dp_config['stack']['priority'] = stack_roots[i]  # pytype: disable=unsupported-operands
-
-            interfaces_config = {}
-            # Generate host links
-            index = 1
-            for host_id, links in host_links.items():
-                if i in links:
-                    n_links = links.count(i)
-                    vlan = host_vlans[host_id]
-                    if isinstance(vlan, int):
-                        key = 'native_vlan'
-                        value = self.vlan_name(vlan)
-                    else:
-                        key = 'tagged_vlans'
-                        value = [self.vlan_name(vlan) for vlan in vlan]
-                    for _ in range(n_links):
-                        port = port_maps[dpid]['port_%d' % index]
-                        interfaces_config[port] = {
-                            key: value
-                        }
-                        if host_options and host_id in host_options:
-                            for option_key, option_value in host_options[host_id].items():
-                                interfaces_config[port][option_key] = option_value
-                        index += 1
-                        add_acl_to_port(i, port, interfaces_config)
-
-            # Generate switch-switch links
-            for link in dpid_peer_links:
-                # TODO: dpid_peer_links should be 
-                port, peer_dpid, peer_port = link.port, link.peer_dpid, link.peer_port
-                interfaces_config[port] = {}
-                if stack_roots:
-                    interfaces_config[port].update({
-                        'stack': {
-                            'dp': self.dp_name(dpids.index(peer_dpid)),
-                            'port': peer_port
-                        }})
-                else:
-                    tagged_vlans = [self.vlan_name(vlan) for vlan in range(n_vlans)]
-                    interfaces_config[port].update({'tagged_vlans': tagged_vlans})
-                    if lacp_trunk:
-                        interfaces_config[port].update({
-                            'lacp': 1,
-                            'lacp_active': True
-                        })
-                        dp_config['lacp_timeout'] = 10
-                add_acl_to_port(i, port, interfaces_config)
-
-            dp_config['interfaces'] = interfaces_config
-            return dp_config
-
-        config = {'version': 2}
-        if include:
-            config['include'] = list(include)
-        if include_optional:
-            config['include_optional'] = list(include_optional)
-        config['acls'] = acls.copy()
-        config['vlans'] = add_vlans(n_vlans, host_vlans, vlan_options)
-
-        if routers:
-            config['routers'] = add_routers(routers)
-
-        dpid_names = {dpids[i]: self.dp_name(i) for i in range(len(dpids))}
-        self.set_dpid_names(dpid_names)
-
-        config['dps'] = {}
-        for i, dpid in enumerate(dpids):
-            # TODO: GROUP_TABLE
-            #       topo.dpid_peer_links(dpid)
-            #       port_maps
-            config['dps'][self.dp_name(i)] = add_dp(
-                i, dpid, hw_dpid, ofchannel_log, self.GROUP_TABLE, n_vlans, host_vlans,
-                stack_roots, host_links, self.topo.dpid_peer_links(dpid), self.port_maps)
-
-        return yaml.dump(config, default_flow_style=False)
+if __name__ == '__main__':
+    print('Testing')
+    ftg = FaucetTopoGenerator()
