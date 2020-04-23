@@ -25,6 +25,11 @@ class ConfigGenerationError(Exception):
     pass
 
 
+class FakeOFNode:
+    """ """
+    pass
+
+
 class FakeOFBase:
 
     # Name of the FakeOF object
@@ -34,6 +39,7 @@ class FakeOFBase:
 
     def __init__(self, name, index):
         self.name = name
+        self.index = index
 
 
 class FakeOFSwitch(FakeOFBase):
@@ -103,7 +109,8 @@ class FakeOFLink(FakeOFBase):
         self.peer_port = peer_port
 
 
-class FaucetTopoGenerator:
+class FaucetGenerator:
+    # TODO: This takes mininet.topo to generate objects??
 
     # Network graph 
     network_topology = None
