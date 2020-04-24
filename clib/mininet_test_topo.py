@@ -80,6 +80,7 @@ class VLANHost(FaucetHost):
         self.intf_root_name = intf.name
         intf.name = vlan_intf_name
         self.nameToIntf[vlan_intf_name] = intf
+        # TODO: Create bond...
         return super_config
 
 

@@ -39,7 +39,14 @@ class FakeOFTable:
     is_output.
     """
 
-    def __init__(self, num_tables=1, requires_tfm=True):
+    dpid = None
+    tables = None
+    groups = None
+    requires_tfm = None
+    tfm = None
+
+    def __init__(self, dpid, num_tables=1, requires_tfm=True):
+        self.dpid = dpid
         self.tables = [[] for _ in range(0, num_tables)]
         self.groups = {}
         self.requires_tfm = requires_tfm
