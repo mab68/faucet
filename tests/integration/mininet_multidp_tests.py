@@ -11,6 +11,57 @@ from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 
 
+class FaucetMultiDPTest(FaucetTopoGenerator):
+    """ """
+
+    def setUp(self):
+        pass
+
+    def set_up(self, stack=False, n_dps=1, n_tagged=0, n_untagged=0,
+               include=None, include_optional=None,
+               switch_to_switch_links=1, hw_dpid=None, stack_ring=False,
+               lacp_trunk=False, use_external=False,
+               vlan_options=None, dp_options=None, routers=None):
+        n_vlans = 1
+        dp_links = {}
+        switch_links = []
+        if stack_ring:
+            dp_links = networkx.cycle_graph(n_dps)
+        else:
+            dp_links = networkx.path_graph(n_dps)
+        link_options = {}
+        switch_links = list(dp_links.edges()) * switch_to_switch_links
+        link_vlans = None if stack else list(range(n_vlans))
+        for link in switch_links:
+            link_options.setdefault(link, {})
+            link_options[link]['vlans'] = link_vlans
+            if lacp_trunk:
+                link_options[link]['lacp'] = 1
+                link_options[link]['lacp_active'] = True
+        host_links = {}
+        host = 0
+        for _ in range(n_tagged):
+            host_links.setdefault(host, [])
+            host_links[host].extend(range(n_dps))
+            host += 1
+        for _ in range(n_untagged):
+            host_links.setdefault(host, [])
+            host_links[host].extend(range(n_dps))
+            host += 1
+        host_options = {}
+        if use_external:
+            for host in host_links.keys():
+                host_options.setdefault(host, {})
+                # TODO: Math
+                host_options[host]['loop_protect_external': False]
+        dp_options = {}
+        if lacp_trunk:
+            for dp in range(n_dps):
+                dp_options.setdefault(dp, {})
+                dp_options[dp]['lacp_timeout'] = 10
+
+
+
 class FaucetMultiDPTest(FaucetTopoTestBase):
     """Replaces the FaucetStringOfDPTest for the old integration tests"""
 
