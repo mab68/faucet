@@ -28,6 +28,7 @@ class GenerationError(Exception):
 
 
 class FaucetTopoGenerator(Topo):
+    """ """
 
     # Host CPU option
     CPUF = 0.5
@@ -430,11 +431,11 @@ class FaucetTopoGenerator(Topo):
             vlans = link_info['config_opts']['vlans']
             if self.isSwitch(src_node):
                 dps_config.setdefault(src_node, {})
-                dps_config.setdefault('dp_id', src_info['config_opts']['dp_id'])
+                dps_config.setdefault('dp_id', int(src_info['config_opts']['dp_id']))
                 add_dp_config(src_node, dst_node, link_key, link_info)
             if self.isSwitch(dst_node):
                 dps_config.setdefault(dst_node, {})
-                dps_config.setdefault('dp_id', dst_info['config_opts']['dp_id'])
+                dps_config.setdefault('dp_id', int(dst_info['config_opts']['dp_id']))
                 add_dp_config(dst_node, src_node, link_key, link_info, True)
         if dp_options:
             for dp, options in dp_options.items():
@@ -520,17 +521,9 @@ class FaucetTopoGenerator(Topo):
 class FaucetFakeOFTopoGenerator(FaucetTopoGenerator):
     """ """
 
-    @staticmethod
-    def get_serialno(self, ports_sock, test_name):
-        return 1
+    # NOTE: For now, we dont actually create the objects for the unittests
+    #   so we can leave them as they are in the FaucetTopoGenerator function
 
     def dp_dpid(self, i):
         """DP DPID"""
         return '%u' % (i+1)
-
-
-if __name__ == '__main__':
-    # TODO: helper methods to make the parameter structures...
-    print('Testing')
-    ftg = FaucetTopoGenerator('kernel', 'something', 'somethingelse', {}, {}, [], {})
-    print(ftg.get_config(5))

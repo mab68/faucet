@@ -34,15 +34,10 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     dpids = None
     port_maps = None
+
     n_vlans = 0
-    dp_links = None
-    host_links = None
-    host_vlans = None
-    stack_roots = None
-    routers = None
-    dp_options = None
-    host_options = None
-    vlan_options = None
+    configuration_options = None
+
     host_information = None
     faucet_vips = None
 
