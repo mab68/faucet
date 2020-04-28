@@ -88,12 +88,19 @@ class FaucetTopoTestBase(FaucetTestBase):
         return {}
 
 
+    def faucet_vip(self, i):
+        """Faucet VLAN VIP"""
+        return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
+
+    def faucet_mac(self, i):
+        """Faucet VLAN MAC"""
+        return '00:00:00:00:00:%u%u' % (i+1, i+1)
+
     def host_ip_address(self, host_index, vlan_index):
         """Create a string of the host IP address"""
         if isinstance(vlan_index, tuple):
             vlan_index = vlan_index[0]
         return '10.%u.0.%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
-
 
     def host_ping(self, src_host, dst_ip, intf=None):
         """Default method to ping from one host to an IP address"""
@@ -164,7 +171,9 @@ class FaucetTopoTestBase(FaucetTestBase):
             'dp': dp_options,
             'host': host_options,
             'link': link_options,
-            'router': router_options
+            'router': router_options,
+            'host_vlans': host_vlans,
+            'link_vlans': link_vlans
         }
 
     def start_net(self):
@@ -173,35 +182,22 @@ class FaucetTopoTestBase(FaucetTestBase):
             host routes for routed hosts
         """
         super(FaucetTopoTestBase, self).start_net()
-        # Create a dictionary of host information that might be used in a test later on.
-        # This makes it easier to retrieve certain information and consolidates it into one
-        #   location.
+
+        # Create a dictionary of host information
         self.host_information = {}
         for host_id, host_name in self.topo.hosts_by_id.items():
-            host_obj = self.net.get(host_name)
-            vlan = self.host_vlans[host_id]
+            host = self.net.get(host_name)
+            vlan = self.configuration_options['host_vlans'][host_id]
             ip_interface = ipaddress.ip_interface(self.host_ip_address(host_id, vlan))
             self.set_host_ip(host_obj, ip_interface)
             self.host_information[host_id] = {
                 'host': host_obj,
                 'ip': ip_interface,
                 'mac': host_obj.MAC(),
-                'vlan': vlan,
+                'vlan' = vlan,
                 'bond': None,
-                'ports': {}
+                'ports': self.topo.get_host_peer_links(host_id)
             }
-        # Add information of hosts chosen dpid, port map values
-        # TODO: This redoes logic from get_config()
-        # for i, dpid in enumerate(self.dpids):
-        #     index = 1
-        #     for host_id, links in self.host_links.items():
-        #         if i in links:
-        #             n_links = links.count(i)
-        #             for _ in range(n_links):
-        #                 port = self.port_maps[dpid]['port_%d' % index]
-        #                 self.host_information[host_id]['ports'].setdefault(dpid, [])
-        #                 self.host_information[host_id]['ports'][dpid].append(port)
-        #                 index += 1
         # Store faucet vip interfaces
         self.faucet_vips = {}
         for vlan in range(self.n_vlans):
@@ -220,9 +216,12 @@ class FaucetTopoTestBase(FaucetTestBase):
             if 'lacp' in options:
                 host = self.host_information[host_id]['host']
                 # LACP must be configured with host ports down
-                for dpid, ports in self.host_information[host_id]['ports'].items():
-                    for port in ports:
-                        self.set_port_down(port, dpid)
+                for link in self.topo.get_host_peer_links:
+                    i, port = link
+                    self.set_port_down(port, self.topo.dpids_by_id[i])
+                # for dpid, ports in self.host_information[host_id]['ports'].items():
+                #     for port in ports:
+                #         self.set_port_down(port, dpid)
                 orig_ip = host.IP()
                 lacp_switches = [self.net.switches[i] for i in self.host_links[host_id]]
                 bond_members = [
@@ -247,9 +246,12 @@ class FaucetTopoTestBase(FaucetTestBase):
                         'ip link set dev %s master %s' % (bond_member, bond_name),))
                 bond_index += 1
                 # Return the ports to UP
-                for dpid, ports in self.host_information[host_id]['ports'].items():
-                    for port in ports:
-                        self.set_port_up(port, dpid)
+                for link in self.topo.get_host_peer_links:
+                    i, port = link
+                    self.set_port_up(port, self.topo.dpids_by_id[i])
+                # for dpid, ports in self.host_information[host_id]['ports'].items():
+                #     for port in ports:
+                #         self.set_port_up(port, dpid)
 
     def setup_intervlan_host_routes(self):
         """Configure host routes between hosts that belong on routed VLANs"""

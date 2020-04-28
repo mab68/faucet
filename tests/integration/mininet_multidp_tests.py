@@ -12,63 +12,7 @@ from clib.mininet_test_base_topo import FaucetTopoTestBase
 
 
 class FaucetMultiDPTest(FaucetTopoGenerator):
-    """ """
-
-    def mininet_host_options(self):
-        """Additional mininet host options"""
-        return {}
-
-    def acls(self):
-        """Defined configuration ACLs"""
-        return {}
-
-    def acl_in_dp(self):
-        """DP-port to ACL mapping"""
-        return {}
-
-    def include(self):
-        """Additional include files"""
-        return []
-
-    def include_optional(self):
-        """Additional optional-include files"""
-        return []
-
-    def dp_options(self):
-        """Additional DP options"""
-        return {}
-
-    def host_options(self):
-        """Additional host options"""
-        return {}
-
-    def link_options(self):
-        """Additional link options"""
-        return {}
-
-    def vlan_options(self):
-        """Additional VLAN options"""
-        return {}
-
-    def router_options(self):
-        """Additional router options"""
-        return {}
-
-
-    def faucet_vip(self, i):
-        """Faucet VLAN VIP"""
-        return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
-
-    def faucet_mac(self, i):
-        """Faucet VLAN MAC"""
-        return '00:00:00:00:00:%u%u' % (i+1, i+1)
-
-    def host_ip_address(self, host_index, vlan_index):
-        """Create a string of the host IP address"""
-        if isinstance(vlan_index, tuple):
-            vlan_index = vlan_index[0]
-        return '10.%u.0.%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
-
+    """Converts old FaucetStringOfDPTest class to a more generalized test topology & config builder"""
 
     def setUp(self):
         pass
@@ -76,6 +20,7 @@ class FaucetMultiDPTest(FaucetTopoGenerator):
     def set_up(self, stack=False, n_dps=1, n_tagged=0, n_untagged=0,
                switch_to_switch_links=1, stack_ring=False,
                lacp_trunk=False, use_external=False, routers=None):
+        super(FaucetMultiDPTest, self).setUp()
         n_vlans = 1
         dp_links = {}
         if stack_ring:
@@ -167,48 +112,6 @@ class FaucetMultiDPTest(FaucetTopoGenerator):
             include=self.include(),
             include_optional=self.include_optional()
         )
-
-
-class FaucetMultiDPTest(FaucetTopoTestBase):
-    """Replaces the FaucetStringOfDPTest for the old integration tests"""
-
-    def setUp(self):
-        pass
-
-    def set_up(self, stack=False, n_dps=1, n_tagged=0, n_untagged=0,
-               include=None, include_optional=None,
-               switch_to_switch_links=1, hw_dpid=None, stack_ring=False,
-               lacp_trunk=False, use_external=False,
-               vlan_options=None, dp_options=None, routers=None):
-        """Set up a network with the given parameters"""
-        super(FaucetMultiDPTest, self).setUp()
-        n_vlans = 1
-        dp_links = {}
-        if stack_ring:
-            dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
-                networkx.cycle_graph(n_dps), n_dp_links=switch_to_switch_links)
-        else:
-            dp_links = FaucetTopoGenerator.dp_links_networkx_graph(
-                networkx.path_graph(n_dps), n_dp_links=switch_to_switch_links)
-        stack_roots = None
-        if stack:
-            stack_roots = {0: 1}
-        host_links, host_vlans = FaucetTopoGenerator.tagged_untagged_hosts(
-            n_dps, n_tagged, n_untagged)
-        host_options = {}
-        values = [False for _ in range(n_dps)]
-        if use_external:
-            for host_id, links in host_links.items():
-                for link in links:
-                    host_options[host_id] = {'loop_protect_external': values[link]}
-                    values[link] = True
-        self.build_net(
-            n_dps=n_dps, n_vlans=n_vlans, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans,
-            stack_roots=stack_roots, vlan_options=vlan_options,
-            dp_options=dp_options, routers=routers, include=include,
-            include_optional=include_optional, hw_dpid=hw_dpid,
-            lacp_trunk=lacp_trunk, host_options=host_options)
         self.start_net()
 
 

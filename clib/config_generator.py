@@ -82,6 +82,17 @@ class FaucetTopoGenerator(Topo):
                 peer_links.append((port, link[1]))
         return peer_links
 
+    def get_host_peer_links(self, host_index):
+        """Returns a list of (peer_index, peer_port) pairs for host-switch links from host_index"""
+        host_name = self.hosts_by_id[host_index]
+        ports = self.ports[host_name]
+        peer_links = []
+        for port, link in self.ports[host_name].items():
+            peer_name = link[0]
+            switch_id = self.g.node[peer_name]['switch_n']
+            peer_links.append((switch_id, link[1]))
+        return peer_links
+
     def dp_dpid(self, i):
         """DP DPID"""
         if i == 0 and self.hw_dpid:
@@ -107,12 +118,6 @@ class FaucetTopoGenerator(Topo):
     def vlan_vip(self, i):
        """VLAN VIP"""
        return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
-
-    def host_ip_address(self, host_index, vlan_index):
-        """Create a string of the host IP address"""
-        if isinstance(vlan_index, tuple):
-            vlan_index = vlan_index[0]
-        return '10.%u.0.%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
 
     def router_name(self, i):
         """Router name"""
