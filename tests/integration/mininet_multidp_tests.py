@@ -14,52 +14,159 @@ from clib.mininet_test_base_topo import FaucetTopoTestBase
 class FaucetMultiDPTest(FaucetTopoGenerator):
     """ """
 
+    def mininet_host_options(self):
+        """Additional mininet host options"""
+        return {}
+
+    def acls(self):
+        """Defined configuration ACLs"""
+        return {}
+
+    def acl_in_dp(self):
+        """DP-port to ACL mapping"""
+        return {}
+
+    def include(self):
+        """Additional include files"""
+        return []
+
+    def include_optional(self):
+        """Additional optional-include files"""
+        return []
+
+    def dp_options(self):
+        """Additional DP options"""
+        return {}
+
+    def host_options(self):
+        """Additional host options"""
+        return {}
+
+    def link_options(self):
+        """Additional link options"""
+        return {}
+
+    def vlan_options(self):
+        """Additional VLAN options"""
+        return {}
+
+    def router_options(self):
+        """Additional router options"""
+        return {}
+
+
+    def faucet_vip(self, i):
+        """Faucet VLAN VIP"""
+        return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
+
+    def faucet_mac(self, i):
+        """Faucet VLAN MAC"""
+        return '00:00:00:00:00:%u%u' % (i+1, i+1)
+
+    def host_ip_address(self, host_index, vlan_index):
+        """Create a string of the host IP address"""
+        if isinstance(vlan_index, tuple):
+            vlan_index = vlan_index[0]
+        return '10.%u.0.%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
+
+
     def setUp(self):
         pass
 
     def set_up(self, stack=False, n_dps=1, n_tagged=0, n_untagged=0,
-               include=None, include_optional=None,
-               switch_to_switch_links=1, hw_dpid=None, stack_ring=False,
-               lacp_trunk=False, use_external=False,
-               vlan_options=None, dp_options=None, routers=None):
+               switch_to_switch_links=1, stack_ring=False,
+               lacp_trunk=False, use_external=False, routers=None):
         n_vlans = 1
         dp_links = {}
-        switch_links = []
         if stack_ring:
             dp_links = networkx.cycle_graph(n_dps)
         else:
             dp_links = networkx.path_graph(n_dps)
-        link_options = {}
+        # Create list of switch-switch links for network topology
+        switch_links = []
         switch_links = list(dp_links.edges()) * switch_to_switch_links
-        link_vlans = None if stack else list(range(n_vlans))
+        # Create link type for the switch-switch links
+        link_vlans = {}
+        vlans = None if stack else list(range(n_vlans))
         for link in switch_links:
-            link_options.setdefault(link, {})
-            link_options[link]['vlans'] = link_vlans
+            link_vlans[link] = vlans
+        # Create link configuration options for DP interfaces
+        link_options = {}
+        for link in switch_links:
             if lacp_trunk:
-                link_options[link]['lacp'] = 1
-                link_options[link]['lacp_active'] = True
+                link_options.setdefault(link, {})
+                link_options[link] = {
+                    'lacp': 1,
+                    'lacp_active': True
+                }
+        # Create host link topology and vlan information
         host_links = {}
+        host_vlans = {}
         host = 0
-        for _ in range(n_tagged):
-            host_links.setdefault(host, [])
-            host_links[host].extend(range(n_dps))
-            host += 1
-        for _ in range(n_untagged):
-            host_links.setdefault(host, [])
-            host_links[host].extend(range(n_dps))
-            host += 1
+        for dp in range(n_dps):
+            for _ in range(n_tagged):
+                host_links[host] = [dp]
+                vlans = list(range(n_vlans))
+                host_vlans[host] = vlans
+                host += 1
+            for _ in range(n_untagged):
+                host_links[host] = [dp]
+                host_vlans[host] = 0
+                host += 1
+        # Create Host configuration options for DP interfaces
         host_options = {}
         if use_external:
-            for host in host_links.keys():
-                host_options.setdefault(host, {})
-                # TODO: Math
+            # The first host with a link to a switch without an external host
+            #   becomes an external host on all links
+            values = [False for _ in range(n_dps)]
+            for host, links in host_links.items():
+                make_external = False
+                for link in links:
+                    if value[link]:
+                        make_external = True
+                        values[link] = True
                 host_options[host]['loop_protect_external': False]
+        host_options.update(self.host_options())
+        # Create DP configuration options
         dp_options = {}
-        if lacp_trunk:
-            for dp in range(n_dps):
-                dp_options.setdefault(dp, {})
+        for dp in range(n_dps):
+            dp_options.setdefault(dp, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
+                'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            if lacp_trunk:
                 dp_options[dp]['lacp_timeout'] = 10
-
+        dp_options.update(self.dp_options())
+        # Create VLAN configuration options
+        vlan_options = {}
+        if routers:
+            for vlans in self.routers():
+                for vlan in vlans:
+                    if vlan not in vlan_options:
+                        vlan_options[vlan] = {
+                            'faucet_mac': self.faucet_mac(vlan),
+                            'faucet_vips': [self.faucet_vip(vlan)],
+                            'targeted_gw_resolution': False
+                        }
+        vlan_options.update(self.vlan_options())
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            mininet_host_options=self.mininet_host_options(),
+            n_vlans=n_vlans,
+            acl_options=self.acls(),
+            dp_options=dp_options,
+            host_options=host_options,
+            link_options=link_options,
+            vlan_options=vlan_options,
+            routers=routers,
+            router_options=self.router_options(),
+            include=self.include(),
+            include_optional=self.include_optional()
+        )
 
 
 class FaucetMultiDPTest(FaucetTopoTestBase):
@@ -178,9 +285,11 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
 
     def lacp_ports(self):
         """Return LACP ports"""
-        first_link, second_link = sorted(self.non_host_links(self.dpid))
-        first_lacp_port, second_lacp_port = first_link.port, second_link.port
-        remote_first_lacp_port, remote_second_lacp_port = first_link.peer_port, second_link.peer_port
+        # We sort non_host_links by port because FAUCET sorts its ports
+        # and only floods out of the first active LACP port in that list
+        first_link, second_link = sorted(self.get_switch_peer_links(0))
+        first_lacp_port, remote_first_lacp_port = first_link
+        second_lacp_port, remote_second_lacp_port = second_link
         return (first_lacp_port, second_lacp_port,
                 remote_first_lacp_port, remote_second_lacp_port)
 
@@ -207,9 +316,6 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
     def wait_for_lacp_port_nosync(self, port_no, dpid, dp_name):
         """Wait for LACP state NOSYNC"""
         self.wait_for_lacp_state(port_no, 5, dpid, dp_name)
-
-    # We sort non_host_links by port because FAUCET sorts its ports
-    # and only floods out of the first active LACP port in that list
 
     def wait_for_all_lacp_up(self):
         """Wait for all LACP ports to be up"""
@@ -442,11 +548,10 @@ class FaucetStackRingOfDPTest(FaucetMultiDPTest):
         self.retry_net_ping()
         self.verify_traveling_dhcp_mac()
         # Move through each DP breaking either side of the ring
-        for dpid_i in range(self.NUM_DPS):
-            dpid = self.dpids[dpid_i]
-            dp_name = self.dp_name(dpid_i)
-            for link in self.non_host_links(dpid):
-                port = link.port
+        for i, dp_name in self.topo.switches_by_id.items():
+            dpid = self.dpids[i]
+            for link in self.topo.get_switch_peer_links(i):
+                port = link[0]
                 self.one_stack_port_down(dpid, dp_name, port)
                 self.retry_net_ping()
                 self.one_stack_port_up(dpid, dp_name, port)
@@ -986,7 +1091,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
         self.verify_stack_up()
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
-        first_stack_port = self.non_host_links(self.dpid)[0].port
+        first_stack_port = self.get_switch_peer_links(0)[0][0]
         self.one_stack_port_down(self.dpid, self.DP_NAME, first_stack_port)
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
@@ -1191,7 +1296,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
         self.verify_stack_up()
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
-        first_stack_port = self.non_host_links(self.dpid)[0].port
+        first_stack_port = self.get_switch_peer_links(0)[0][0]
         self.one_stack_port_down(self.dpid, self.DP_NAME, first_stack_port)
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)

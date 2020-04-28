@@ -41,6 +41,47 @@ class FaucetTopoGenerator(Topo):
     # Host index map to host name
     hosts_by_id = None
 
+    # Generated hardware switch name
+    hw_name = None
+    # DPID of the hardware switch
+    hw_dpid = None
+    # List of port order for the hardware switch
+    hw_ports = None
+
+    # Function to resolve serial numbers
+    get_serialno = None
+
+    # Additional mininet host options
+    host_options = None
+
+    # The generated starting port for each switch
+    start_port = None
+    # The port order for each switch
+    port_order = None
+
+    def get_dpids(self):
+        """Returns list of DPIDs in switch index keyed order"""
+        return [value for key, value in sorted(self.dpids_by_id.keys())]
+
+    def create_port_maps(self):
+        """Return a port map for each switch/dpid keyed by dpid"""
+        port_maps = {}
+        for i, dpid in self.dpids_by_id.items():
+            switch_name = self.switches_by_id[i]
+            ports = self.ports[switch_name].keys()
+            port_maps[dpid] = {'port_%d' % i: port for i, port in enumerate(ports)}
+        return port_maps
+
+    def get_switch_peer_links(self, switch_index):
+        """Returns a list of (port, peer_port) pairs for switch-switch links from switch_index"""
+        switch_name = self.switches_by_id[switch_index]
+        ports = self.ports[switch_name]
+        peer_links = []
+        for port, link in self.ports[switch_name].items():
+            if self.isSwitch(link[0]):
+                peer_links.append((port, link[1]))
+        return peer_links
+
     def dp_dpid(self, i):
         """DP DPID"""
         if i == 0 and self.hw_dpid:
@@ -60,12 +101,12 @@ class FaucetTopoGenerator(Topo):
         return (i+1) * 100
 
     def vlan_mac(self, i):
-        """VLAN MAC"""
-        return '00:00:00:00:00:%u%u' % (i+1, i+1)
+       """VLAN MAC"""
+       return '00:00:00:00:00:%u%u' % (i+1, i+1)
 
     def vlan_vip(self, i):
-        """VLAN VIP"""
-        return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
+       """VLAN VIP"""
+       return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
 
     def host_ip_address(self, host_index, vlan_index):
         """Create a string of the host IP address"""
@@ -124,8 +165,9 @@ class FaucetTopoGenerator(Topo):
             switch_name (str): The name of the switch to generate the next port
         """
         index = len(self.ports[switch_name])
-        port = self.start_port + self.port_order[index]
-        return port
+        if self.hw_name and switch_name == self.hw_name and self.hw_ports:
+            return self.hw_ports[self.port_order[index]]
+        return self.start_port + self.port_order[index]
 
     def _add_host(self, host_index, vlans):
         """
@@ -139,7 +181,6 @@ class FaucetTopoGenerator(Topo):
         # TODO: host IP address
         sid_prefix = self._generate_sid_prefix()
         host_opts = self.host_options.get(host_index, {})
-        config_opts = {'vlans': vlans}
         host_name, host_cls = None, None
         if isinstance(vlans, int):
             vlans = None
@@ -178,6 +219,7 @@ class FaucetTopoGenerator(Topo):
         switch_cls = FaucetSwitch
         switch_name = 's%s' % sid_prefix
         if switch_index == 0 and self.hw_dpid:
+            self.hw_name = switch_name
             self.dpids_by_id[switch_index] = self.hw_dpid
             dpid = str(int(self.hw_dpid) + 1)
             output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)\n' % (
@@ -198,7 +240,7 @@ class FaucetTopoGenerator(Topo):
         Creates and adds a link between two nodes to the topology
 
         Args:
-            node (str): Name of the node for the link
+            node (str): Name of the node for the link, NOTE: should ALWAYS be a switch
             peer_node (str): Name of the peer node for the link
             vlans (list/None/int): Type of the link
         """
@@ -268,7 +310,7 @@ class FaucetTopoGenerator(Topo):
               host_links, host_vlans, switch_links, link_vlans,
               hw_dpid=None, hw_ports=None,
               port_order=None, start_port=5,
-              get_serialno=None, host_options=None, e_cls=None, e_tmpdir=None):
+              get_serialno=None, host_options=None):
         """
         Creates a Faucet mininet topology
 
@@ -285,9 +327,7 @@ class FaucetTopoGenerator(Topo):
             port_order (list): List of integers in order for a switch port index order
             start_port (int): The minimum start port number for all switch port numbers
             get_serialno (func): Function to get the serial no.
-            host_options (dict): Host index map to mininet host option
-            e_cls (class): Class of the extended host
-            e_tmpdir (str): Temporary directory of the extended host
+            host_options (dict): Host index map to additional mininet host options
         """
         # Additional test generation information
         self.ovs_type = ovs_type
@@ -377,10 +417,6 @@ class FaucetTopoGenerator(Topo):
                 link_name, src_port, dst_port, vlans, options, port_acls)
 
         for links in self.links(withKeys=True, withInfo=True):
-            # NOTE: src_node should always be a switch if we always create a link
-            #   with switch as the src node
-            # NOTE: This is assuming there are no duplicates of (src, dst) (dst, src)
-            #   with the same link key
             src_node, dst_node, link_key, link_info = links
             dps_config.setdefault(src_node, {})
             dps_config.setdefault(dst_node, {})
@@ -446,7 +482,7 @@ class FaucetTopoGenerator(Topo):
 
     def get_config(self, n_vlans, acl_options=None, dp_options=None, host_options=None,
                    link_options=None, vlan_options=None, routers=None, router_options=None,
-                   include=None,include_optional=None):
+                   include=None, include_optional=None):
         """
         Creates a Faucet YAML configuration file using the current topology
 

@@ -46,38 +46,47 @@ class FaucetTopoTestBase(FaucetTestBase):
     host_information = None
     faucet_vips = None
 
-    def non_host_links(self, dpid):
-        """Return dpid peer links from topo"""
-        return self.topo.dpid_peer_links(dpid)
 
-    @staticmethod
-    def get_config_header(_config_global, _debug_log, _dpid, _hardware):
-        """Don't generate standard config file header."""
-        return ''
-
-    @staticmethod
-    def acls():
-        """Dictionary of ACLs"""
+    def mininet_host_options(self):
+        """Additional mininet host options"""
         return {}
 
-    @staticmethod
-    def acl_in_dp():
-        """Dictionary of DP & port map to ACL"""
+    def acls(self):
+        """Defined configuration ACLs"""
         return {}
 
-    @staticmethod
-    def dp_name(i):
-        """DP config name"""
-        return 'faucet-%u' % (i + 1)
+    def acl_in_dp(self):
+        """DP-port to ACL mapping"""
+        return {}
 
-    def faucet_vip(self, i):
-        """Faucet VLAN VIP"""
-        return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
+    def include(self):
+        """Additional include files"""
+        return []
 
-    @staticmethod
-    def faucet_mac(i):
-        """Faucet VLAN MAC"""
-        return '00:00:00:00:00:%u%u' % (i+1, i+1)
+    def include_optional(self):
+        """Additional optional-include files"""
+        return []
+
+    def dp_options(self):
+        """Additional DP options"""
+        return {}
+
+    def host_options(self):
+        """Additional host options"""
+        return {}
+
+    def link_options(self):
+        """Additional link options"""
+        return {}
+
+    def vlan_options(self):
+        """Additional VLAN options"""
+        return {}
+
+    def router_options(self):
+        """Additional router options"""
+        return {}
+
 
     def host_ip_address(self, host_index, vlan_index):
         """Create a string of the host IP address"""
@@ -85,15 +94,6 @@ class FaucetTopoTestBase(FaucetTestBase):
             vlan_index = vlan_index[0]
         return '10.%u.0.%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
 
-    @staticmethod
-    def vlan_name(i):
-        """VLAN name"""
-        return 'vlan-%i' % (i+1)
-
-    @staticmethod
-    def vlan_vid(i):
-        """VLAN VID value"""
-        return (i+1) * 100
 
     def host_ping(self, src_host, dst_ip, intf=None):
         """Default method to ping from one host to an IP address"""
@@ -104,82 +104,68 @@ class FaucetTopoTestBase(FaucetTestBase):
         """Default method for setting a hosts IP address"""
         host.setIP(str(host_ip.ip), prefixLen=self.NETPREFIX)
 
-    def build_net(self, n_dps=1, n_vlans=1,
-                  dp_links=None, host_links=None, host_vlans=None,
-                  vlan_options=None, dp_options=None, host_options=None,
-                  routers=None, stack_roots=None,
-                  include=None, include_optional=None,
-                  hw_dpid=None, lacp_trunk=False):
+
+
+    def build_net(self, host_links=None, host_vlans=None, switch_links=None,
+                  link_vlans=None, mininet_host_options=None,
+                  n_vlans=1, acl_options=None, dp_options=None, host_options=None,
+                  link_options=None, vlan_options=None, routers=None, router_options=None,
+                  include=None, include_optional=None):
         """
-        Use the TopologyGenerator to generate the YAML configuration and create the network
         Args:
-            n_dps: Number of DPs
-            n_vlans: Number of VLANs
-            dp_links (dict): dp index to dp index
-            host_links (dict): host index to list of dp index
-            host_vlans (dict): host index to vlan index
-            vlan_options (dict): vlan_index to key, value dp options
-            dp_options (dict): dp index to key, value dp options
-            host_options (dict): Host index to host option key, values
-            routers (dict): router index to list of vlan index
-            stack_roots (dict): dp index to priority value (leave none for tagged links)
-            include:
-            include_optional:
-            hw_dpid: DPID of hardware switch
-            lacp_trunk: Use LACP trunk ports
+            host_links (dict): Host index key to list of dp indices
+            host_vlans (dict): Host index key to vlan index/indices
+            switch_links (list): List of link tuples of switch indices (u, v)
+            link_vlans (dict): Link tuple of switch indices (u, v) mapping to vlans
+            mininet_host_options (dict): Host index map to additional mininet host options
+            n_vlans (int): Number of VLANs to generate
+            acl_options (dict): Acls in use in the Faucet configuration file
+            dp_options (dict): Additional options for each DP, keyed by DP index
+            host_options (dict): Additional options for each host, keyed by host index
+            link_options (dict): Additional options for each link, keyed by switch indices tuple (u, v)
+            vlan_options (dict): Additional options for each VLAN, keyed by vlan index
+            routers (dict): Router index to list of VLANs in the router
+            router_options (dict): Additional options for each router, keyed by router index
+            include (list): Files to include using the the Faucet config 'include' key
+            include_optional (list): File to include using the Faucet config 'include_optional' key
         """
-        if include is None:
-            include = []
-        if include_optional is None:
-            include_optional = []
-        self.NUM_DPS = n_dps
-        self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
-        self.dpids[0] = self.dpid
-        vlan_vids = {vlan: self.vlan_vid(vlan) for vlan in range(n_vlans)}
         self.topo = FaucetTopoGenerator(
             self.OVS_TYPE,
             self.ports_sock,
             self._test_name(),
-            self.dpids,
-            dp_links,
-            host_links,
-            host_vlans,
-            vlan_vids,
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
             hw_dpid=self.hw_dpid,
             switch_map=self.switch_map,
             port_order=self.port_order,
-            start_port=self.start_port
+            start_port=self.start_port,
+            host_options=mininet_host_options
         )
-        self.port_maps = {dpid: self.create_port_map(dpid) for dpid in self.dpids}
-        self.port_map = self.port_maps[self.dpid]
-        self.CONFIG = ConfigGenerator().get_config(
-            dpids=self.dpids,
-            hw_dpid=hw_dpid,
-            hardware=self.hardware,
-            ofchannel_log=self.debug_log_path,
-            n_vlans=n_vlans,
-            host_links=host_links,
-            host_vlans=host_vlans,
-            stack_roots=stack_roots,
-            include=include,
-            include_optional=include_optional,
-            acls=self.acls(),
-            acl_in_dp=self.acl_in_dp(),
-            lacp_trunk=lacp_trunk,
-            vlan_options=vlan_options,
+        self.CONFIG = self.topo.get_config(
+            n_vlans,
+            acl_options=acl_options,
             dp_options=dp_options,
+            host_options=host_options,
+            link_options=link_options,
+            vlan_options=vlan_options,
             routers=routers,
-            host_options=host_options
+            router_options=router_options,
+            include=include,
+            include_optional=include_optional
         )
+        self.dpids = self.topo.get_dpids()
+        self.port_maps = self.topo.create_port_maps()
         self.n_vlans = n_vlans
-        self.dp_links = dp_links
-        self.host_links = host_links
-        self.host_vlans = host_vlans
-        self.stack_roots = stack_roots
-        self.routers = routers
-        self.dp_options = dp_options
-        self.host_options = host_options
-        self.vlan_options = vlan_options
+        self.configuration_options = {
+            'vlan': vlan_options
+            'acl': acl_options,
+            'dp': dp_options,
+            'host': host_options,
+            'link': link_options,
+            'router': router_options
+        }
 
     def start_net(self):
         """
@@ -206,16 +192,16 @@ class FaucetTopoTestBase(FaucetTestBase):
             }
         # Add information of hosts chosen dpid, port map values
         # TODO: This redoes logic from get_config()
-        for i, dpid in enumerate(self.dpids):
-            index = 1
-            for host_id, links in self.host_links.items():
-                if i in links:
-                    n_links = links.count(i)
-                    for _ in range(n_links):
-                        port = self.port_maps[dpid]['port_%d' % index]
-                        self.host_information[host_id]['ports'].setdefault(dpid, [])
-                        self.host_information[host_id]['ports'][dpid].append(port)
-                        index += 1
+        # for i, dpid in enumerate(self.dpids):
+        #     index = 1
+        #     for host_id, links in self.host_links.items():
+        #         if i in links:
+        #             n_links = links.count(i)
+        #             for _ in range(n_links):
+        #                 port = self.port_maps[dpid]['port_%d' % index]
+        #                 self.host_information[host_id]['ports'].setdefault(dpid, [])
+        #                 self.host_information[host_id]['ports'][dpid].append(port)
+        #                 index += 1
         # Store faucet vip interfaces
         self.faucet_vips = {}
         for vlan in range(self.n_vlans):
@@ -282,160 +268,6 @@ class FaucetTopoTestBase(FaucetTestBase):
                             dst_faucet_vip = self.faucet_vips[dst_vlan]
                             self.add_host_route(src_host, dst_ip, src_faucet_vip.ip)
                             self.add_host_route(dst_host, src_ip, dst_faucet_vip.ip)
-
-    def get_config(self, dpids=None, hw_dpid=None, hardware=None, ofchannel_log=None,
-                   n_vlans=1, host_links=None, host_vlans=None, stack_roots=None,
-                   include=None, include_optional=None, acls=None, acl_in_dp=None,
-                   lacp_trunk=False, vlan_options=None, dp_options=None,
-                   routers=None, host_options=None):
-        """
-        Args:
-            dpids: List of DPIDs the dp indices in the configuration dictionaries refer to
-            hw_dpid: DPID for connected hardware switch
-            hardware:
-            ofchannel_log: Debug log path
-            n_vlans: Number of VLANs
-            host_links (dict): host index to dp index
-            host_vlans (dict): host index to vlan index
-            stack_roots (dict): dp index to priority value (leave none for tagged links)
-            include:
-            include_optional:
-            hw_dpid: DPID of hardware switch
-            lacp_trunk: Use LACP trunk ports
-            vlan_options (dict): vlan_index to key, value dp options
-            dp_options (dict): dp index to key, value dp options
-            routers (dict): router index to list of vlan index
-            host_options (dict): Host index to host option key, values
-        """
-        if dpids is None:
-            dpids = []
-        if include is None:
-            include = []
-        if include_optional is None:
-            include_optional = []
-        if acls is None:
-            acls = {}
-        if acl_in_dp is None:
-            acl_in_dp = {}
-
-        def add_vlans(n_vlans, host_vlans, vlan_options):
-            vlans_config = {}
-            for vlan in range(n_vlans):
-                n_tagged = 0
-                n_untagged = 0
-                for vlans in host_vlans.values():
-                    if isinstance(vlans, int) and vlan == vlans:
-                        n_untagged += 1
-                    elif isinstance(vlans, tuple) and vlan in vlans:
-                        n_tagged += 1
-                vlans_config[self.vlan_name(vlan)] = {
-                    'description': '%s tagged, %s untagged' % (n_tagged, n_untagged),
-                    'vid': self.vlan_vid(vlan)
-                }
-            if vlan_options:
-                for vlan, options in vlan_options.items():
-                    for key, value in options.items():
-                        vlans_config[self.vlan_name(vlan)][key] = value
-            return vlans_config
-
-        def add_routers(routers):
-            router_config = {}
-            for i, vlans in routers.items():
-                router_config['router-%s' % i] = {
-                    'vlans': [self.vlan_name(vlan) for vlan in vlans]
-                }
-            return router_config
-
-        def add_acl_to_port(i, port, interfaces_config):
-            if i in acl_in_dp and port in acl_in_dp[i]:
-                interfaces_config[port]['acl_in'] = acl_in_dp[i][port]
-
-        def add_dp(i, dpid, hw_dpid, ofchannel_log, group_table,
-                   n_vlans, host_vlans, stack_roots, host_links, dpid_peer_links, port_maps):
-            dp_config = {
-                'dp_id': int(dpid),
-                'hardware': hardware if dpid == hw_dpid else 'Open vSwitch',
-                'ofchannel_log': ofchannel_log + str(i) if ofchannel_log else None,
-                'interfaces': {},
-                'group_table': group_table,
-            }
-
-            if dp_options and i in dp_options:
-                for key, value in dp_options[i].items():
-                    dp_config[key] = value
-
-            if stack_roots and i in stack_roots:
-                dp_config['stack'] = {}
-                dp_config['stack']['priority'] = stack_roots[i]  # pytype: disable=unsupported-operands
-
-            interfaces_config = {}
-            # Generate host links
-            index = 1
-            for host_id, links in host_links.items():
-                if i in links:
-                    n_links = links.count(i)
-                    vlan = host_vlans[host_id]
-                    if isinstance(vlan, int):
-                        key = 'native_vlan'
-                        value = self.vlan_name(vlan)
-                    else:
-                        key = 'tagged_vlans'
-                        value = [self.vlan_name(vlan) for vlan in vlan]
-                    for _ in range(n_links):
-                        port = port_maps[dpid]['port_%d' % index]
-                        interfaces_config[port] = {
-                            key: value
-                        }
-                        if host_options and host_id in host_options:
-                            for option_key, option_value in host_options[host_id].items():
-                                interfaces_config[port][option_key] = option_value
-                        index += 1
-                        add_acl_to_port(i, port, interfaces_config)
-
-            # Generate switch-switch links
-            for link in dpid_peer_links:
-                port, peer_dpid, peer_port = link.port, link.peer_dpid, link.peer_port
-                interfaces_config[port] = {}
-                if stack_roots:
-                    interfaces_config[port].update({
-                        'stack': {
-                            'dp': self.dp_name(dpids.index(peer_dpid)),
-                            'port': peer_port
-                        }})
-                else:
-                    tagged_vlans = [self.vlan_name(vlan) for vlan in range(n_vlans)]
-                    interfaces_config[port].update({'tagged_vlans': tagged_vlans})
-                    if lacp_trunk:
-                        interfaces_config[port].update({
-                            'lacp': 1,
-                            'lacp_active': True
-                        })
-                        dp_config['lacp_timeout'] = 10
-                add_acl_to_port(i, port, interfaces_config)
-
-            dp_config['interfaces'] = interfaces_config
-            return dp_config
-
-        config = {'version': 2}
-        if include:
-            config['include'] = list(include)
-        if include_optional:
-            config['include_optional'] = list(include_optional)
-        config['acls'] = acls.copy()
-        config['vlans'] = add_vlans(n_vlans, host_vlans, vlan_options)
-
-        if routers:
-            config['routers'] = add_routers(routers)
-
-        dpid_names = {dpids[i]: self.dp_name(i) for i in range(len(dpids))}
-        self.set_dpid_names(dpid_names)
-        config['dps'] = {}
-        for i, dpid in enumerate(dpids):
-            config['dps'][self.dp_name(i)] = add_dp(
-                i, dpid, hw_dpid, ofchannel_log, self.GROUP_TABLE, n_vlans, host_vlans,
-                stack_roots, host_links, self.topo.dpid_peer_links(dpid), self.port_maps)
-
-        return yaml.dump(config, default_flow_style=False)
 
     def debug(self):
         """Print host information when debugging"""
@@ -512,12 +344,12 @@ class FaucetTopoTestBase(FaucetTestBase):
         for _ in range(timeout):
             links = 0
             links_up = 0
-            for i, dpid in enumerate(self.dpids):
-                dp_name = self.dp_name(i)
-                for link in self.non_host_links(dpid):
-                    status = self.stack_port_status(dpid, dp_name, link.port)
+            for i, name in self.topo.switches_by_id.items():
+                for link in self.topo.get_switch_pair_links(i):
+                    dpid = self.dpids[i]
+                    status = self.stack_port_status(dpid, name, link[0])
                     links += 1
-                    if status == 3:  # up
+                    if status == 3: # STACK_STATE_UP
                         links_up += 1
             prop_up = links_up / links
             if prop_up >= prop:
@@ -528,8 +360,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def verify_one_stack_down(self, stack_offset_port, coldstart=False):
         """Test conditions when one stack port is down"""
         self.retry_net_ping()
-        stack_port = self.non_host_links(self.dpid)[stack_offset_port].port
-        remote_stack_port = self.non_host_links(self.dpid)[stack_offset_port].peer_port
+        stack_port, remote_stack_port = self.get_switch_peer_links(0)[stack_offset_port]
         self.set_port_down(stack_port, wait=False)
         # self.dpids[1] is the intermediate switch.
         self.set_port_down(remote_stack_port, self.dpids[1], wait=False)
@@ -549,6 +380,7 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def verify_no_arp_storm(self, ping_host, tcpdump_host):
         """Check that there is no excess ARP packets in the network"""
+        # TODO: What????
         num_arp_expected = self.topo.switch_to_switch_links * 2
         tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
         tcpdump_txt = self.tcpdump_helper(
