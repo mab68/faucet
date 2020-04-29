@@ -64,8 +64,8 @@ class FaucetTopoGenerator(Topo):
     port_order = None
 
     def get_dpids(self):
-        """Returns list of DPIDs in switch index keyed order"""
-        return [value for key, value in sorted(self.dpids_by_id.keys())]
+        """Returns list of DPIDs in switch index order"""
+        return [self.dpids_by_id[key] for key in sorted(self.dpids_by_id)]
 
     def create_port_maps(self):
         """Return a port map for each switch/dpid keyed by dpid"""
@@ -310,7 +310,6 @@ class FaucetTopoGenerator(Topo):
                 switch_name = self.switches_by_id[dp]
                 self._add_link(switch_name, host_name, vlans)
 
-    # TODO: Add back in get_serialno
     def build(self, ovs_type, ports_sock, test_name,
               host_links, host_vlans, switch_links, link_vlans,
               hw_dpid=None, hw_ports=None,

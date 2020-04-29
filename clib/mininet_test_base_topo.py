@@ -40,17 +40,12 @@ class FaucetTopoTestBase(FaucetTestBase):
     host_information = None
     faucet_vips = None
 
-
     def mininet_host_options(self):
         """Additional mininet host options"""
         return {}
 
     def acls(self):
         """Defined configuration ACLs"""
-        return {}
-
-    def link_acls(self):
-        """DP link (host or switch) to ACLs mapping"""
         return {}
 
     def include(self):
@@ -106,7 +101,6 @@ class FaucetTopoTestBase(FaucetTestBase):
         host.setIP(str(host_ip.ip), prefixLen=self.NETPREFIX)
 
 
-
     def build_net(self, host_links=None, host_vlans=None, switch_links=None,
                   link_vlans=None, mininet_host_options=None,
                   n_vlans=1, acl_options=None, dp_options=None, host_options=None,
@@ -139,7 +133,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             switch_links=switch_links,
             link_vlans=link_vlans,
             hw_dpid=self.hw_dpid,
-            switch_map=self.switch_map,
+            hw_ports=self.switch_map,
             port_order=self.port_order,
             start_port=self.start_port,
             host_options=mininet_host_options

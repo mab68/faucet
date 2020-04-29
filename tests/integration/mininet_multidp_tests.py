@@ -14,6 +14,8 @@ from clib.mininet_test_base_topo import FaucetTopoTestBase
 class FaucetMultiDPTest(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a more generalized test topology & config builder"""
 
+    # TODO: Replace this with a new method 
+
     def setUp(self):
         pass
 
@@ -195,7 +197,6 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=2,
-            hw_dpid=self.hw_dpid,
             lacp_trunk=True)
 
     def lacp_ports(self):
@@ -345,7 +346,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTest):
         """All untagged hosts in stack topology can reach each other."""
         self.set_up(
             stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-            switch_to_switch_links=2, hw_dpid=self.hw_dpid)
+            switch_to_switch_links=2)
         self.verify_stack_hosts()
 
 
@@ -361,7 +362,6 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=2,
-            hw_dpid=self.hw_dpid,
             use_external=True)
 
     def test_untagged(self):
@@ -411,7 +411,7 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTest):
     def test_untagged(self):
         """Test the external loop protect with stacked DPs and untagged hosts"""
         self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-                    switch_to_switch_links=2, hw_dpid=self.hw_dpid, use_external=True)
+                    switch_to_switch_links=2, use_external=True)
         self.verify_stack_up()
         int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
         _, root_ext_hosts = dp_hosts[self.DP_NAME]
@@ -939,7 +939,7 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-                    switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS, hw_dpid=self.hw_dpid)
+                    switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
         self.verify_stack_up()
         src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
@@ -992,8 +992,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
-            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
-            hw_dpid=self.hw_dpid)
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
@@ -1025,81 +1024,85 @@ class FaucetTunnelLoopTest(FaucetSingleTunnelTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
-            hw_dpid=self.hw_dpid,
             stack_ring=True)
 
 
-# class FaucetTunnelAllowTest(FaucetTopoTestBase):
-#     """Test Tunnels with ACLs containing allow=True"""
+class FaucetTunnelAllowTest(FaucetTopoTestBase):
+    """Test Tunnels with ACLs containing allow=True"""
 
-#     NUM_DPS = 2
-#     NUM_HOSTS = 4
-#     NUM_VLANS = 2
-#     SOFTWARE_ONLY = True
+    NUM_DPS = 2
+    NUM_HOSTS = 4
+    NUM_VLANS = 2
+    SOFTWARE_ONLY = True
 
-#     def acls(self):
-#         """Return config ACL options"""
-#         dpid2 = self.dpids[1]
-#         port2_1 = self.port_maps[dpid2]['port_1']
-#         return {
-#             1: [
-#                 {'rule': {
-#                     'dl_type': IPV4_ETH,
-#                     'ip_proto': 1,
-#                     'actions': {
-#                         'allow': 1,
-#                         'output': {
-#                             'tunnel': {
-#                                 'type': 'vlan',
-#                                 'tunnel_id': 300,
-#                                 'dp': 'faucet-2',
-#                                 'port': port2_1}
-#                         }
-#                     }
-#                 }},
-#                 {'rule': {
-#                     'actions': {
-#                         'allow': 1,
-#                     }
-#                 }},
-#             ]
-#         }
+    def acls(self):
+        """Return config ACL options"""
+        dpid2 = self.dpids[1]
+        port2_1 = self.port_maps[dpid2]['port_1']
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 1,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 300,
+                                'dp': 'faucet-2',
+                                'port': port2_1}
+                        }
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ]
+        }
 
-#     def acl_in_dp(self):
-#         """DP-to-acl port mapping"""
-#         port_1 = self.port_map['port_1']
-#         return {
-#             0: {
-#                 # First port 1, acl_in = 1
-#                 port_1: 1,
-#             }
-#         }
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp in network_graph.nodes():
+            dp_options.setdefault(dp, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
+                'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+        dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+        host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
+        host_options = {0: {'acls_in': [1]}}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            acl_options=self.acls(),
+            dp_options=dp_options,
+            host_options=host_options,
+        )
+        self.start_net()
 
-#     def setUp(self):  # pylint: disable=invalid-name
-#         """Start the network"""
-#         super(FaucetTunnelAllowTest, self).setUp()
-#         stack_roots = {0: 1}
-#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-#         # LACP host doubly connected to sw0 & sw1
-#         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
-#         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
-#         self.build_net(
-#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-#             host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots)
-#         self.start_net()
-
-#     def test_tunnel_continue_through_pipeline_interaction(self):
-#         """Test packets that enter a tunnel with allow, also continue through the pipeline"""
-#         # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
-#         #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
-#         self.verify_stack_up()
-#         # Ensure connection to the host on the other end of the tunnel can exist
-#         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
-#         self.verify_tunnel_established(src_host, dst_host, other_host)
-#         # Ensure a connection to a host not in the tunnel can exist
-#         #   this implies that the packet is also sent through the pipeline
-#         self.check_host_connectivity_by_id(0, 1)
-#         self.check_host_connectivity_by_id(0, 3)
+    def test_tunnel_continue_through_pipeline_interaction(self):
+        """Test packets that enter a tunnel with allow, also continue through the pipeline"""
+        # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
+        #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
+        self.verify_stack_up()
+        # Ensure connection to the host on the other end of the tunnel can exist
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+        # Ensure a connection to a host not in the tunnel can exist
+        #   this implies that the packet is also sent through the pipeline
+        self.check_host_connectivity_by_id(0, 1)
+        self.check_host_connectivity_by_id(0, 3)
 
 
 class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
@@ -1131,20 +1134,16 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
             ]
         }
 
-    def acl_in_dp(self):
-        """DP to acl port mapping"""
-        port_1 = self.port_map['port_1']
+    def link_acls(self):
+        """DP link to list of acls to apply"""
         return {
-            0: {
-                # First port 1, acl_in = 1
-                port_1: 1,
-            }
+            0: [1] # Host 0 'acls_in': [1]
         }
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
-                    switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS, hw_dpid=self.hw_dpid)
+                    switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
         self.verify_stack_up()
         src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host)
@@ -1181,14 +1180,10 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
             ]
         }
 
-    def acl_in_dp(self):
-        """DP-to-acl port mapping"""
-        port_1 = self.port_map['port_1']
+    def link_acls(self):
+        """DP link to list of acls to apply"""
         return {
-            0: {
-                # First port 1, acl_in = 1
-                port_1: 1,
-            }
+            0: [1] # Host 0 'acls_in': [1]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
@@ -1197,8 +1192,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
-            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
-            hw_dpid=self.hw_dpid)
+            switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
@@ -1230,173 +1224,193 @@ class FaucetTunnelLoopOrderedTest(FaucetSingleTunnelOrderedTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS,
-            hw_dpid=self.hw_dpid,
             stack_ring=True)
 
 
-# class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
-#     """Test Tunnels with ACLs containing allow=True"""
+class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
+    """Test Tunnels with ACLs containing allow=True"""
 
-#     NUM_DPS = 2
-#     NUM_HOSTS = 4
-#     NUM_VLANS = 2
-#     SOFTWARE_ONLY = True
+    NUM_DPS = 2
+    NUM_HOSTS = 4
+    NUM_VLANS = 2
+    SOFTWARE_ONLY = True
 
-#     def acls(self):
-#         """Return config ACL options"""
-#         dpid2 = self.dpids[1]
-#         port2_1 = self.port_maps[dpid2]['port_1']
-#         return {
-#             1: [
-#                 {'rule': {
-#                     'dl_type': IPV4_ETH,
-#                     'ip_proto': 1,
-#                     'actions': {
-#                         'allow': 1,
-#                         'output': [
-#                             {'tunnel': {
-#                                 'type': 'vlan',
-#                                 'tunnel_id': 300,
-#                                 'dp': 'faucet-2',
-#                                 'port': port2_1}}
-#                         ]
-#                     }
-#                 }},
-#                 {'rule': {
-#                     'actions': {
-#                         'allow': 1,
-#                     }
-#                 }},
-#             ]
-#         }
+    def acls(self):
+        """Return config ACL options"""
+        dpid2 = self.dpids[1]
+        port2_1 = self.port_maps[dpid2]['port_1']
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 1,
+                        'output': [
+                            {'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 300,
+                                'dp': 'faucet-2',
+                                'port': port2_1}}
+                        ]
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ]
+        }
 
-#     def acl_in_dp(self):
-#         """DP-to-acl port mapping"""
-#         port_1 = self.port_map['port_1']
-#         return {
-#             0: {
-#                 # First port 1, acl_in = 1
-#                 port_1: 1,
-#             }
-#         }
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp in network_graph.nodes():
+            dp_options.setdefault(dp, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
+                'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+        dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+        host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
+        host_options = {0: {'acls_in': [1]}}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            acl_options=self.acls(),
+            dp_options=dp_options,
+            host_options=host_options,
+        )
+        self.start_net()
 
-#     def setUp(self):  # pylint: disable=invalid-name
-#         """Start the network"""
-#         super(FaucetTunnelAllowOrderedTest, self).setUp()
-#         stack_roots = {0: 1}
-#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-#         # LACP host doubly connected to sw0 & sw1
-#         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
-#         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
-#         self.build_net(
-#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-#             host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots)
-#         self.start_net()
-
-#     def test_tunnel_continue_through_pipeline_interaction(self):
-#         """Test packets that enter a tunnel with allow, also continue through the pipeline"""
-#         # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
-#         #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
-#         self.verify_stack_up()
-#         # Ensure connection to the host on the other end of the tunnel can exist
-#         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
-#         self.verify_tunnel_established(src_host, dst_host, other_host)
-#         # Ensure a connection to a host not in the tunnel can exist
-#         #   this implies that the packet is also sent through the pipeline
-#         self.check_host_connectivity_by_id(0, 1)
-#         self.check_host_connectivity_by_id(0, 3)
+    def test_tunnel_continue_through_pipeline_interaction(self):
+        """Test packets that enter a tunnel with allow, also continue through the pipeline"""
+        # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
+        #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
+        self.verify_stack_up()
+        # Ensure connection to the host on the other end of the tunnel can exist
+        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+        # Ensure a connection to a host not in the tunnel can exist
+        #   this implies that the packet is also sent through the pipeline
+        self.check_host_connectivity_by_id(0, 1)
+        self.check_host_connectivity_by_id(0, 3)
 
 
-# class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
-#     """IPV4 intervlan routing with stacking test"""
+class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
+    """IPV4 intervlan routing with stacking test"""
 
-#     IPV = 4
-#     NETPREFIX = 24
-#     ETH_TYPE = IPV4_ETH
-#     NUM_DPS = 4
-#     NUM_HOSTS = 8
-#     SOFTWARE_ONLY = True
+    IPV = 4
+    NETPREFIX = 24
+    ETH_TYPE = IPV4_ETH
+    NUM_DPS = 4
+    NUM_HOSTS = 8
+    NUM_VLANS = 3
+    SOFTWARE_ONLY = True
 
-#     def setUp(self):
-#         """Disabling allows for each test case to start the test"""
-#         pass
+    def set_up(self, n_dps, host_links=None, host_vlans=None):
+        """
+        Args:
+            n_dps: Number of DPs
+            host_links: How to connect each host to the DPs
+            host_vlans: The VLAN each host is on
+        """
+        network_graph = networkx.path_graph(n_dps)
+        dp_options = {}
+        for dp in network_graph.nodes():
+            dp_options.setdefault(dp, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
+                'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+        dp_options[0]['stack'] = {'priority': 1}
+        dp_options.update({dp: self.dp_options() for dp in range(n_dps)})
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        routed_vlans = 2
+        if host_links is None or host_vlans is None:
+            host_links = {}
+            host_vlans = {}
+            host_n = 0
+            for dp in range(n_dps):
+                for vlan in range(routed_vlans):
+                    host_links[host_n] = [dp]
+                    host_vlans[host_n] = vlan
+                    host_n += 1
+        for v in range(routed_vlans):
+            vlan_options[v] = {
+                'faucet_mac': self.faucet_mac(v),
+                'faucet_vips': [self.faucet_vip(v)],
+                'targeted_gw_resolution': False
+            }
+        routers = {0: [v for v in range(routed_vlans)]}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            host_options=host_options,
+            vlan_options=vlan_options
+            routers=routers
+        )
+        self.start_net()
 
-#     def set_up(self, n_dps, host_links=None, host_vlans=None):
-#         """
-#         Args:
-#             n_dps: Number of DPs
-#             host_links: How to connect each host to the DPs
-#             host_vlans: The VLAN each host is on
-#         """
-#         super(FaucetSingleUntaggedIPV4RoutingWithStackingTest, self).setUp()
-#         n_vlans = 3
-#         routed_vlans = 2
-#         stack_roots = {0: 1}
-#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(n_dps))
-#         if not host_links and not host_vlans:
-#             host_links, host_vlans = FaucetTopoGenerator.untagged_vlan_hosts(n_dps, routed_vlans)
-#         vlan_options = {}
-#         for v in range(routed_vlans):
-#             vlan_options[v] = {
-#                 'faucet_mac': self.faucet_mac(v),
-#                 'faucet_vips': [self.faucet_vip(v)],
-#                 'targeted_gw_resolution': False
-#             }
-#         dp_options = {dp: self.dp_options() for dp in range(n_dps)}
-#         routers = {0: [v for v in range(routed_vlans)]}
-#         self.build_net(
-#             n_dps=n_dps, n_vlans=n_vlans, dp_links=dp_links,
-#             host_links=host_links, host_vlans=host_vlans,
-#             stack_roots=stack_roots, vlan_options=vlan_options,
-#             dp_options=dp_options, routers=routers)
-#         self.start_net()
+    def dp_options(self):
+        """Return DP config options"""
+        return {
+            'arp_neighbor_timeout': 2,
+            'max_resolve_backoff_time': 2,
+            'proactive_learn_v4': True
+        }
 
-#     def dp_options(self):
-#         """Return DP config options"""
-#         return {
-#             'arp_neighbor_timeout': 2,
-#             'max_resolve_backoff_time': 2,
-#             'proactive_learn_v4': True
-#         }
+    def test_intervlan_routing_2stack(self):
+        """Verify intervlan routing works with 2 DPs in a stack"""
+        self.NUM_DPS = 2
+        self.set_up(self.NUM_DPS)
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
 
-#     def test_intervlan_routing_2stack(self):
-#         """Verify intervlan routing works with 2 DPs in a stack"""
-#         self.NUM_DPS = 2
-#         self.set_up(self.NUM_DPS)
-#         self.verify_stack_up()
-#         self.verify_intervlan_routing()
+    def test_intervlan_routing_3stack(self):
+        """Verify intervlan routing works with 3 DPs in a stack"""
+        self.NUM_DPS = 3
+        self.set_up(self.NUM_DPS)
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
 
-#     def test_intervlan_routing_3stack(self):
-#         """Verify intervlan routing works with 3 DPs in a stack"""
-#         self.NUM_DPS = 3
-#         self.set_up(self.NUM_DPS)
-#         self.verify_stack_up()
-#         self.verify_intervlan_routing()
+    def test_intervlan_routing_4stack(self):
+        """Verify intervlan routing works with 4 DPs in a stack"""
+        self.NUM_DPS = 4
+        self.set_up(self.NUM_DPS)
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
 
-#     def test_intervlan_routing_4stack(self):
-#         """Verify intervlan routing works with 4 DPs in a stack"""
-#         self.NUM_DPS = 4
-#         self.set_up(self.NUM_DPS)
-#         self.verify_stack_up()
-#         self.verify_intervlan_routing()
+    def test_path_no_vlans(self):
+        """Test when a DP in the path of a intervlan route contains no routed VLANs"""
+        self.NUM_DPS = 3
+        host_links = {i: [i] for i in range(self.NUM_DPS)}
+        host_vlans = {0: 0, 1: 2, 2: 1}
+        self.set_up(self.NUM_DPS, host_links=host_links, host_vlans=host_vlans)
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
 
-#     def test_path_no_vlans(self):
-#         """Test when a DP in the path of a intervlan route contains no routed VLANs"""
-#         self.NUM_DPS = 3
-#         host_links = {i: [i] for i in range(self.NUM_DPS)}
-#         host_vlans = {0: 0, 1: 2, 2: 1}
-#         self.set_up(self.NUM_DPS, host_links=host_links, host_vlans=host_vlans)
-#         self.verify_stack_up()
-#         self.verify_intervlan_routing()
-
-#     def test_dp_one_vlan_from_router(self):
-#         """Test when each DP contains a subset of the routed vlans"""
-#         self.NUM_DPS = 2
-#         host_links = {i: [i] for i in range(self.NUM_DPS)}
-#         host_vlans = {0: 0, 1: 1}
-#         self.set_up(self.NUM_DPS, host_links=host_links, host_vlans=host_vlans)
-#         self.verify_stack_up()
-#         self.verify_intervlan_routing()
+    def test_dp_one_vlan_from_router(self):
+        """Test when each DP contains a subset of the routed vlans"""
+        self.NUM_DPS = 2
+        host_links = {i: [i] for i in range(self.NUM_DPS)}
+        host_vlans = {0: 0, 1: 1}
+        self.set_up(self.NUM_DPS, host_links=host_links, host_vlans=host_vlans)
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
 
 
 class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4RoutingWithStackingTest):
@@ -1406,7 +1420,7 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4Ro
     NETPREFIX = 64
     ETH_TYPE = IPV6_ETH
 
-    def get_dp_options(self):
+    def dp_options(self):
         """Return DP config options"""
         return {
             'nd_neighbor_timeout': 2,
@@ -1431,435 +1445,496 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4Ro
         return 'fc0%u::1:%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
 
 
-# class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
-#     """Test InterVLAN routing can flood packets to stack ports"""
+class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
+    """Test InterVLAN routing can flood packets to stack ports"""
 
-#     IPV = 4
-#     NETPREFIX = 24
-#     ETH_TYPE = IPV4_ETH
-#     NUM_DPS = 2
-#     NUM_HOSTS = 2
-#     NUM_VLANS = 2
-#     SOFTWARE_ONLY = True
+    IPV = 4
+    NETPREFIX = 24
+    ETH_TYPE = IPV4_ETH
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+    NUM_VLANS = 2
+    SOFTWARE_ONLY = True
 
-#     def setUp(self):
-#         """Disabling allows for each test case to start the test"""
-#         pass
+    def setUp(self):
+        """Disabling allows for each test case to start the test"""
+        pass
 
-#     def set_up(self):
-#         """Start the network"""
-#         super(FaucetSingleUntaggedVlanStackFloodTest, self).setUp()
-#         stack_roots = {0: 1}
-#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-#         host_links = {0: [0], 1: [1]}
-#         host_vlans = {0: 0, 1: 1}
-#         vlan_options = {}
-#         for v in range(self.NUM_VLANS):
-#             vlan_options[v] = {
-#                 'faucet_mac': self.faucet_mac(v),
-#                 'faucet_vips': [self.faucet_vip(v)],
-#                 'targeted_gw_resolution': False
-#             }
-#         dp_options = {dp: self.dp_options() for dp in range(self.NUM_DPS)}
-#         routers = {0: [v for v in range(self.NUM_VLANS)]}
-#         self.build_net(
-#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-#             host_links=host_links, host_vlans=host_vlans,
-#             stack_roots=stack_roots, vlan_options=vlan_options,
-#             dp_options=dp_options, routers=routers)
-#         self.start_net()
+    def set_up(self):
+        """Start the network"""
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp in network_graph.nodes():
+            dp_options.setdefault(dp, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
+                'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+        dp_options[0]['stack'] = {'priority': 1}
+        dp_options.update({dp: self.dp_options() for dp in range(n_dps)})
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [1]}
+        host_vlans = {0: 0, 1: 1}
+        vlan_options = {}
+        for v in range(self.NUM_VLANS):
+            vlan_options[v] = {
+                'faucet_mac': self.faucet_mac(v),
+                'faucet_vips': [self.faucet_vip(v)],
+                'targeted_gw_resolution': False
+            }
+        routers = {0: [v for v in range(self.NUM_VLANS)]}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            vlan_options=vlan_options,
+            routers=routers
+        )
+        self.start_net()
 
-#     def dp_options(self):
-#         """Return DP config options"""
-#         return {
-#             'arp_neighbor_timeout': 2,
-#             'max_resolve_backoff_time': 2,
-#             'proactive_learn_v4': True
-#         }
+    def dp_options(self):
+        """Return DP config options"""
+        return {
+            'arp_neighbor_timeout': 2,
+            'max_resolve_backoff_time': 2,
+            'proactive_learn_v4': True
+        }
 
-#     def test_intervlan_stack_flooding(self):
-#         """
-#         Test intervlan can flood to stack ports
-#         h1 (dst_host) should not have talked on the network so Faucet does not know about
-#             it. h2 (src_host) -> h1 ping will normally fail (without flooding to the stack)
-#             because the ARP packet for resolving h1 does not make it across the stack.
-#         """
-#         self.set_up()
-#         self.verify_stack_up()
-#         src_host = self.host_information[1]['host']
-#         dst_ip = self.host_information[0]['ip']
-#         self.host_ping(src_host, dst_ip.ip)
-
-
-# class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
-#     """Test that L2 connectivity exists over a transit switch with no VLANs"""
-
-#     NUM_DPS = 3
-#     NUM_HOSTS = 2
-#     NUM_VLANS = 1
-#     SOFTWARE_ONLY = True
-
-#     def setUp(self):
-#         """Set up network with transit switch with no hosts"""
-#         super(FaucetUntaggedStackTransitTest, self).setUp()
-#         stack_roots = {0: 1}
-#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-#         host_links = {0: [0], 1: [2]}
-#         host_vlans = {0: 0, 1: 0}
-#         self.build_net(
-#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-#             host_links=host_links, host_vlans=host_vlans,
-#             stack_roots=stack_roots)
-#         self.start_net()
-
-#     def test_hosts_connect_over_stack_transit(self):
-#         """Test to ensure that hosts can be connected over stack transit switches"""
-#         self.verify_stack_up()
-#         self.verify_intervlan_routing()
+    def test_intervlan_stack_flooding(self):
+        """
+        Test intervlan can flood to stack ports
+        h1 (dst_host) should not have talked on the network so Faucet does not know about
+            it. h2 (src_host) -> h1 ping will normally fail (without flooding to the stack)
+            because the ARP packet for resolving h1 does not make it across the stack.
+        """
+        self.set_up()
+        self.verify_stack_up()
+        src_host = self.host_information[1]['host']
+        dst_ip = self.host_information[0]['ip']
+        self.host_ping(src_host, dst_ip.ip)
 
 
-# class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
-#     """Test that L2 connectivity exists over a transit switch with different VLANs"""
+class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
+    """Test that L2 connectivity exists over a transit switch with no VLANs"""
 
-#     NUM_DPS = 3
-#     NUM_HOSTS = 2
-#     NUM_VLANS = 2
-#     SOFTWARE_ONLY = True
+    NUM_DPS = 3
+    NUM_HOSTS = 2
+    NUM_VLANS = 1
+    SOFTWARE_ONLY = True
 
-#     def setUp(self):
-#         """Set up network with transit switch on different VLAN"""
-#         super(FaucetUntaggedStackTransitVLANTest, self).setUp()
-#         stack_roots = {0: 1}
-#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-#         host_links = {0: [0], 1: [1], 2: [2]}
-#         host_vlans = {0: 0, 1: 1, 2: 0}
-#         self.build_net(
-#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-#             host_links=host_links, host_vlans=host_vlans,
-#             stack_roots=stack_roots)
-#         self.start_net()
+    def setUp(self):
+        """Set up network with transit switch with no hosts"""
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp in network_graph.nodes():
+            dp_options.setdefault(dp, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
+                'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+        dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [2]}
+        host_vlans = {0: 0, 1: 0}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+        )
+        self.start_net()
 
-#     def test_hosts_connect_over_stack_transit(self):
-#         """Test to ensure that hosts can be connected over stack transit switches"""
-#         self.verify_stack_up()
-#         self.verify_intervlan_routing()
-
-
-# class FaucetSingleLAGTest(FaucetTopoTestBase):
-#     """Test LACP LAG on Faucet stack topologies with a distributed LAG bundle"""
-
-#     NUM_DPS = 2
-#     NUM_HOSTS = 5
-#     NUM_VLANS = 2
-#     SOFTWARE_ONLY = True
-
-#     LACP_HOST = 2
-
-#     @staticmethod
-#     def get_dp_options():
-#         """Return DP config options"""
-#         return {
-#             'arp_neighbor_timeout': 2,
-#             'max_resolve_backoff_time': 2,
-#             'proactive_learn_v4': True,
-#             'lacp_timeout': 10
-#         }
-
-#     def setUp(self):
-#         """Disabling allows for each test case to start the test"""
-#         pass
-
-#     def set_up(self, lacp_host_links, host_vlans=None):
-#         """
-#         Args:
-#             lacp_host_links: List of dpid indices the LACP host will be connected to
-#             host_vlans: Default generate with one host on each VLAN, on each DP
-#                 plus one LAG host the same VLAN as hosts
-#         """
-#         super(FaucetSingleLAGTest, self).setUp()
-#         stack_roots = {0: 1}
-#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-#         host_links = {0: [0], 1: [0], self.LACP_HOST: lacp_host_links, 3: [1], 4: [1]}
-#         if host_vlans is None:
-#             host_vlans = {0: 0, 1: 1, 2: 1, 3: 0, 4: 1}
-#         vlan_options = {}
-#         for v in range(self.NUM_VLANS):
-#             vlan_options[v] = {
-#                 'faucet_mac': self.faucet_mac(v),
-#                 'faucet_vips': [self.faucet_vip(v)],
-#                 'targeted_gw_resolution': False
-#             }
-#         dp_options = {dp: self.get_dp_options() for dp in range(self.NUM_DPS)}
-#         routers = {0: [v for v in range(self.NUM_VLANS)]}
-#         host_options = {self.LACP_HOST: {'lacp': 1}}
-#         self.build_net(
-#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-#             host_links=host_links, host_vlans=host_vlans,
-#             stack_roots=stack_roots, vlan_options=vlan_options,
-#             dp_options=dp_options, host_options=host_options, routers=routers)
-#         self.start_net()
-
-#     def test_lacp_lag(self):
-#         """Test LACP LAG, where LAG bundle is connected to the same DP"""
-#         lacp_host_links = [0, 0]
-#         self.set_up(lacp_host_links)
-#         self.verify_stack_up()
-#         self.verify_lag_connectivity(self.LACP_HOST)
-
-#     def test_mclag_vip_connectivity(self):
-#         """Test LACP MCLAG, where LAG bundle is connected to different DPs"""
-#         lacp_host_links = [0, 1]
-#         self.set_up(lacp_host_links)
-#         self.verify_stack_up()
-#         self.verify_lag_connectivity(self.LACP_HOST)
-
-#     def restart_on_down_lag_port(self, port_dp_index, cold_start_dp_index):
-#         """Down a port on port_dpid_index, cold-start on cold_start_dp, UP previous port"""
-#         # Bring a LACP port DOWN
-#         chosen_dpid = self.dpids[port_dp_index]
-#         port_no = self.host_information[self.LACP_HOST]['ports'][chosen_dpid][0]
-#         self.set_port_down(port_no, chosen_dpid)
-#         self.verify_num_lag_up_ports(1, chosen_dpid)
-#         # Cold start switch, cold-start twice to get back to initial condition
-#         cold_start_dpid = self.dpids[cold_start_dp_index]
-#         conf = self._get_faucet_conf()
-#         interfaces_conf = conf['dps'][self.dp_name(cold_start_dp_index)]['interfaces']
-#         for port, port_conf in interfaces_conf.items():
-#             if 'lacp' not in port_conf and 'stack' not in port_conf:
-#                 # Change host VLAN to enable cold-starting on faucet-2
-#                 curr_vlan = port_conf['native_vlan']
-#                 port_conf['native_vlan'] = (
-#                     self.vlan_name(1) if curr_vlan == self.vlan_name(0) else self.vlan_name(0))
-#                 # VLAN changed so just delete the host information instead of recomputing
-#                 #   routes etc..
-#                 for _id in self.host_information:
-#                     if cold_start_dpid in self.host_information[_id]['ports']:
-#                         ports = self.host_information[_id]['ports'][cold_start_dpid]
-#                         if port in ports:
-#                             del self.host_information[_id]
-#                             break
-#                 break
-#         self.reload_conf(
-#             conf, self.faucet_config_path, restart=True,
-#             cold_start=True, change_expected=False)
-#         # Bring LACP port UP
-#         self.set_port_up(port_no, chosen_dpid)
-#         self.verify_num_lag_up_ports(2, chosen_dpid)
-#         # Take down all of the other ports
-#         for dpid, ports in self.host_information[self.LACP_HOST]['ports'].items():
-#             if dpid != chosen_dpid:
-#                 for port in ports:
-#                     if port != port_no:
-#                         self.set_port_down(port, dpid)
-
-#     def test_mclag_coldstart(self):
-#         """Test LACP MCLAG after a cold start"""
-#         lacp_host_links = [0, 0, 1, 1]
-#         self.set_up(lacp_host_links)
-#         self.verify_stack_up()
-#         self.verify_lag_host_connectivity()
-#         self.restart_on_down_lag_port(1, 1)
-#         self.verify_lag_host_connectivity()
-
-#     def test_mclag_warmstart(self):
-#         """Test LACP MCLAG after a warm start"""
-#         lacp_host_links = [0, 0, 1, 1]
-#         self.set_up(lacp_host_links)
-#         self.verify_stack_up()
-#         self.verify_lag_host_connectivity()
-#         self.restart_on_down_lag_port(0, 1)
-#         self.verify_lag_host_connectivity()
-
-#     def test_mclag_portrestart(self):
-#         """Test LACP MCLAG after a port gets restarted"""
-#         lacp_host_links = [0, 0, 1, 1]
-#         self.set_up(lacp_host_links)
-#         self.verify_stack_up()
-#         self.verify_lag_host_connectivity()
-#         chosen_dpid = self.dpids[0]
-#         port_no = self.host_information[self.LACP_HOST]['ports'][chosen_dpid][0]
-#         self.set_port_down(port_no, chosen_dpid)
-#         self.set_port_up(port_no, chosen_dpid)
-#         for dpid, ports in self.host_information[self.LACP_HOST]['ports'].items():
-#             for port in ports:
-#                 if dpid != chosen_dpid and port != port_no:
-#                     self.set_port_down(port, dpid)
-#         self.verify_lag_host_connectivity()
+    def test_hosts_connect_over_stack_transit(self):
+        """Test to ensure that hosts can be connected over stack transit switches"""
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
 
 
-# class FaucetSingleLAGOnUniqueVLANTest(FaucetSingleLAGTest):
-#     """Test LACP LAG on Faucet stack topologies with a distributed LAG bundle on a unique VLAN"""
+class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
+    """Test that L2 connectivity exists over a transit switch with different VLANs"""
 
-#     NUM_VLANS = 3
+    NUM_DPS = 3
+    NUM_HOSTS = 2
+    NUM_VLANS = 2
+    SOFTWARE_ONLY = True
 
-#     def set_up(self, lacp_host_links, host_vlans=None):
-#         """
-#         Generate tests but with the LAG host on a different VLAN
-#         Args:
-#             lacp_host_links: List of dpid indices the LACP host will be connected to
-#         """
-#         host_vlans = {0: 0, 1: 1, self.LACP_HOST: 2, 3: 0, 4: 1}
-#         super(FaucetSingleLAGOnUniqueVLANTest, self).set_up(lacp_host_links, host_vlans)
+    def setUp(self):
+        """Set up network with transit switch on different VLAN"""
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp in network_graph.nodes():
+            dp_options.setdefault(dp, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
+                'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+        dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [1], 2: [2]}
+        host_vlans = {0: 0, 1: 1, 2: 0}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+        )
+        self.start_net()
+
+    def test_hosts_connect_over_stack_transit(self):
+        """Test to ensure that hosts can be connected over stack transit switches"""
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
 
 
-# class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
-#     """Line topology on 3 nodes, MCLAG host with 2 connections to 2 different switches"""
+class FaucetSingleLAGTest(FaucetTopoTestBase):
+    """Test LACP LAG on Faucet stack topologies with a distributed LAG bundle"""
 
-#     NUM_DPS = 3
-#     NUM_HOSTS = 4
-#     NUM_VLANS = 1
-#     SOFTWARE_ONLY = True
+    NUM_DPS = 2
+    NUM_HOSTS = 5
+    NUM_VLANS = 2
+    SOFTWARE_ONLY = True
 
-#     LACP_HOST = 3
+    LACP_HOST = 2
 
-#     @staticmethod
-#     def get_dp_options():
-#         return {
-#             'arp_neighbor_timeout': 2,
-#             'max_resolve_backoff_time': 2,
-#             'proactive_learn_v4': True,
-#             'lacp_timeout': 10
-#         }
+    def dp_options(self):
+        """Return DP config options"""
+        return {
+            'arp_neighbor_timeout': 2,
+            'max_resolve_backoff_time': 2,
+            'proactive_learn_v4': True,
+            'lacp_timeout': 10
+        }
 
-#     def setUp(self):
-#         pass
+    def setUp(self):
+        """Disabling allows for each test case to start the test"""
+        pass
 
-#     def set_up(self):
-#         super(FaucetSingleMCLAGComplexTest, self).setUp()
-#         stack_roots = {0: 1}
-#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-#         # LACP host doubly connected to sw0 & sw1
-#         host_links = {0: [0], 1: [1], 2: [2], 3: [0, 0, 2, 2]}
-#         host_vlans = {host_id: 0 for host_id in range(self.NUM_HOSTS)}
-#         dp_options = {dp: self.get_dp_options() for dp in range(self.NUM_DPS)}
-#         host_options = {self.LACP_HOST: {'lacp': 1}}
-#         self.build_net(
-#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-#             host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots,
-#             dp_options=dp_options, host_options=host_options)
-#         self.start_net()
+    def set_up(self, lacp_host_links, host_vlans=None):
+        """
+        Args:
+            lacp_host_links: List of dpid indices the LACP host will be connected to
+            host_vlans: Default generate with one host on each VLAN, on each DP
+                plus one LAG host the same VLAN as hosts
+        """
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp in network_graph.nodes():
+            dp_options.setdefault(dp, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
+                'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+        dp_options[0]['stack'] = {'priority': 1}
+        dp_options.update({dp: self.dp_options() for dp in range(self.NUM_DPS)})
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [0], self.LACP_HOST: lacp_host_links, 3: [1], 4: [1]}
+        if host_vlans is None:
+            host_vlans = {0: 0, 1: 1, 2: 1, 3: 0, 4: 1}
+        vlan_options = {}
+        for v in range(self.NUM_VLANS):
+            vlan_options[v] = {
+                'faucet_mac': self.faucet_mac(v),
+                'faucet_vips': [self.faucet_vip(v)],
+                'targeted_gw_resolution': False
+            }
+        routers = {0: [v for v in range(self.NUM_VLANS)]}
+        host_options = {self.LACP_HOST: {'lacp': 1}}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            vlan_options=vlan_options,
+            routers=routers,
+            host_options=host_options
+        )
+        self.start_net()
 
-#     def test_lag_connectivity(self):
-#         """Test whether the LAG host can connect to any other host"""
-#         self.set_up()
-#         self.verify_stack_up()
-#         self.require_linux_bond_up(self.LACP_HOST)
-#         self.verify_lag_host_connectivity()
+    def test_lacp_lag(self):
+        """Test LACP LAG, where LAG bundle is connected to the same DP"""
+        lacp_host_links = [0, 0]
+        self.set_up(lacp_host_links)
+        self.verify_stack_up()
+        self.verify_lag_connectivity(self.LACP_HOST)
 
-#     def test_all_lacp_links(self):
-#         """
-#         All of the LAG links should work, test by using the xmit_hash_policy
-#             with different IP addresses to change the link used by the packet
-#         """
-#         self.set_up()
-#         self.verify_stack_up()
-#         self.require_linux_bond_up(self.LACP_HOST)
-#         lacp_host = self.host_information[self.LACP_HOST]['host']
-#         lacp_switches = {self.net.switches[i] for i in self.host_links[self.LACP_HOST]}
-#         lacp_intfs = sorted({
-#             pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)})
-#         dst_host_id = 1
-#         dst_host = self.host_information[dst_host_id]['host']
-#         tcpdump_filter = (
-#             'ip and ether src 0e:00:00:00:00:99 '
-#             'and src net %s and dst net %s' % (lacp_host.IP(), dst_host.IP()))
-#         # Loop until all links have been used to prove that they can be used
-#         link_used = [False for _ in range(len(lacp_intfs))]
-#         max_iter = len(lacp_intfs) * 2
-#         iterations = 0
-#         while link_used.count(False) > 2 and iterations <= max_iter:
-#             no_packets = True
-#             for i, intf in enumerate(lacp_intfs):
-#                 funcs = []
-#                 funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
-#                 tcpdump_txt = self.tcpdump_helper(
-#                     lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs)
-#                 no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
-#                 if not no_packets:
-#                     # Packets detected on link so can stop testing and
-#                     #   goto a new IP value for the remaining links
-#                     link_used[i] = True
-#                     error('%s via %s\n' % (dst_host.IP(), intf))
-#                     break
-#             # If no packets have been detected on any port then something
-#             #   has gone terribly wrong
-#             self.assertFalse(
-#                 no_packets, 'Ping packets to host IP %s could not be found' % dst_host.IP())
-#             # Increment the host IP address to change the LACP hash value,
-#             #   potentially changing the link used
-#             self.increment_host_ip(dst_host_id)
-#             tcpdump_filter = (
-#                 'ip and ether src 0e:00:00:00:00:99 '
-#                 'and src net %s and dst net %s' % (lacp_host.IP(), dst_host.IP()))
-#             iterations += 1
-#         not_used = [list(lacp_intfs)[i] for i, value in enumerate(link_used) if not value]
-#         expected_links = [True, True, False, False]
-#         self.assertEqual(link_used, expected_links, 'Links %s not used' % not_used)
+    def test_mclag_vip_connectivity(self):
+        """Test LACP MCLAG, where LAG bundle is connected to different DPs"""
+        lacp_host_links = [0, 1]
+        self.set_up(lacp_host_links)
+        self.verify_stack_up()
+        self.verify_lag_connectivity(self.LACP_HOST)
 
-#     def increment_host_ip(self, host_id):
-#         """Increases the host ip address"""
-#         host = self.host_information[host_id]['host']
-#         self.host_information[host_id]['ip'] += 3
-#         self.set_host_ip(host, self.host_information[host_id]['ip'])
+    def restart_on_down_lag_port(self, port_dp_index, cold_start_dp_index):
+        """Down a port on port_dpid_index, cold-start on cold_start_dp, UP previous port"""
+        # Bring a LACP port DOWN
+        chosen_dpid = self.dpids[port_dp_index]
+        port_no = self.host_information[self.LACP_HOST]['ports'][chosen_dpid][0]
+        self.set_port_down(port_no, chosen_dpid)
+        self.verify_num_lag_up_ports(1, chosen_dpid)
+        # Cold start switch, cold-start twice to get back to initial condition
+        cold_start_dpid = self.dpids[cold_start_dp_index]
+        conf = self._get_faucet_conf()
+        interfaces_conf = conf['dps'][self.dp_name(cold_start_dp_index)]['interfaces']
+        for port, port_conf in interfaces_conf.items():
+            if 'lacp' not in port_conf and 'stack' not in port_conf:
+                # Change host VLAN to enable cold-starting on faucet-2
+                curr_vlan = port_conf['native_vlan']
+                port_conf['native_vlan'] = (
+                    self.vlan_name(1) if curr_vlan == self.vlan_name(0) else self.vlan_name(0))
+                # VLAN changed so just delete the host information instead of recomputing
+                #   routes etc..
+                for _id in self.host_information:
+                    if cold_start_dpid in self.host_information[_id]['ports']:
+                        ports = self.host_information[_id]['ports'][cold_start_dpid]
+                        if port in ports:
+                            del self.host_information[_id]
+                            break
+                break
+        self.reload_conf(
+            conf, self.faucet_config_path, restart=True,
+            cold_start=True, change_expected=False)
+        # Bring LACP port UP
+        self.set_port_up(port_no, chosen_dpid)
+        self.verify_num_lag_up_ports(2, chosen_dpid)
+        # Take down all of the other ports
+        for dpid, ports in self.host_information[self.LACP_HOST]['ports'].items():
+            if dpid != chosen_dpid:
+                for port in ports:
+                    if port != port_no:
+                        self.set_port_down(port, dpid)
 
-#     def test_lacp_port_change(self):
-#         """
-#         Test that communication to a host on a LAG is possible
-#             after the original selected link goes DOWN
-#         """
-#         self.set_up()
-#         self.verify_stack_up()
-#         self.require_linux_bond_up(self.LACP_HOST)
-#         self.verify_lag_host_connectivity()
-#         root_dpid = self.dpids[0]
-#         lacp_ports = self.host_information[self.LACP_HOST]['ports']
-#         for port in lacp_ports[root_dpid]:
-#             self.set_port_down(port, root_dpid)
-#         self.verify_num_lag_up_ports(0, root_dpid)
-#         self.verify_lag_host_connectivity()
+    def test_mclag_coldstart(self):
+        """Test LACP MCLAG after a cold start"""
+        lacp_host_links = [0, 0, 1, 1]
+        self.set_up(lacp_host_links)
+        self.verify_stack_up()
+        self.verify_lag_host_connectivity()
+        self.restart_on_down_lag_port(1, 1)
+        self.verify_lag_host_connectivity()
 
-#     def test_broadcast_loop(self):
-#         """
-#         LACP packets should be hashed using xmit_hash_policy layer2+3
-#         This means that IP & MAC & Packet type is used for hashing/choosing
-#             the LAG link
-#         When LAG host sends broadcast, the packet should only be visible on
-#             one link (the sending link), if the broadcast packet is detected
-#             on the other links, then the packet was returned to it (via the
-#             Faucet network)
-#         """
-#         self.set_up()
-#         self.verify_stack_up()
-#         self.require_linux_bond_up(self.LACP_HOST)
-#         lacp_host = self.host_information[self.LACP_HOST]['host']
-#         lacp_switches = {self.net.switches[i] for i in self.host_links[self.LACP_HOST]}
-#         lacp_intfs = {
-#             pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)}
-#         dst_host = self.host_information[1]['host']
-#         # Detect initial broadcast ARP
-#         tcpdump_filter = ('arp and ether src 0e:00:00:00:00:99 '
-#                           'and ether dst ff:ff:ff:ff:ff:ff')
-#         # Count the number of links that contained the broadcast ARP packet
-#         except_count = 0
-#         for intf in lacp_intfs:
-#             funcs = []
-#             # Delete all ARP records of the lacp host
-#             for host_id in self.host_information:
-#                 host = self.host_information[host_id]['host']
-#                 funcs.append(lambda: host.cmd('arp -d %s' % lacp_host.IP()))
-#                 funcs.append(lambda: host.cmd('arp -d %s' % dst_host.IP()))
-#                 funcs.append(lambda: lacp_host.cmd('arp -d %s' % host.IP()))
-#             # Ping to cause broadcast ARP request
-#             funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
-#             # Start tcpdump looking for broadcast ARP packets
-#             tcpdump_txt = self.tcpdump_helper(
-#                 lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs)
-#             try:
-#                 self.verify_no_packets(tcpdump_txt)
-#             except AssertionError:
-#                 error('Broadcast detected on %s\n' % intf)
-#                 except_count += 1
-#         # Only the source LACP link should detect the packet
-#         self.assertEqual(
-#             except_count, 1,
-#             'Number of links detecting the broadcast ARP %s (!= 1)' % except_count)
+    def test_mclag_warmstart(self):
+        """Test LACP MCLAG after a warm start"""
+        lacp_host_links = [0, 0, 1, 1]
+        self.set_up(lacp_host_links)
+        self.verify_stack_up()
+        self.verify_lag_host_connectivity()
+        self.restart_on_down_lag_port(0, 1)
+        self.verify_lag_host_connectivity()
+
+    def test_mclag_portrestart(self):
+        """Test LACP MCLAG after a port gets restarted"""
+        lacp_host_links = [0, 0, 1, 1]
+        self.set_up(lacp_host_links)
+        self.verify_stack_up()
+        self.verify_lag_host_connectivity()
+        chosen_dpid = self.dpids[0]
+        port_no = self.host_information[self.LACP_HOST]['ports'][chosen_dpid][0]
+        self.set_port_down(port_no, chosen_dpid)
+        self.set_port_up(port_no, chosen_dpid)
+        for dpid, ports in self.host_information[self.LACP_HOST]['ports'].items():
+            for port in ports:
+                if dpid != chosen_dpid and port != port_no:
+                    self.set_port_down(port, dpid)
+        self.verify_lag_host_connectivity()
+
+
+class FaucetSingleLAGOnUniqueVLANTest(FaucetSingleLAGTest):
+    """Test LACP LAG on Faucet stack topologies with a distributed LAG bundle on a unique VLAN"""
+
+    NUM_VLANS = 3
+
+    def set_up(self, lacp_host_links, host_vlans=None):
+        """
+        Generate tests but with the LAG host on a different VLAN
+        Args:
+            lacp_host_links: List of dpid indices the LACP host will be connected to
+        """
+        host_vlans = {0: 0, 1: 1, self.LACP_HOST: 2, 3: 0, 4: 1}
+        super(FaucetSingleLAGOnUniqueVLANTest, self).set_up(lacp_host_links, host_vlans)
+
+
+class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
+    """Line topology on 3 nodes, MCLAG host with 2 connections to 2 different switches"""
+
+    NUM_DPS = 3
+    NUM_HOSTS = 4
+    NUM_VLANS = 1
+    SOFTWARE_ONLY = True
+
+    LACP_HOST = 3
+
+    def dp_options(self):
+        return {
+            'arp_neighbor_timeout': 2,
+            'max_resolve_backoff_time': 2,
+            'proactive_learn_v4': True,
+            'lacp_timeout': 10
+        }
+
+    def setUp(self):
+        pass
+
+    def set_up(self):
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp in network_graph.nodes():
+            dp_options.setdefault(dp, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
+                'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+        dp_options[0]['stack'] = {'priority': 1}
+        dp_options.update({dp: self.dp_options() for dp in range(self.NUM_DPS)})
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [1], 2: [2], 3: [0, 0, 2, 2]}
+        host_vlans = {host_id: 0 for host_id in range(self.NUM_HOSTS)}
+        host_options = {self.LACP_HOST: {'lacp': 1}}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            host_options=host_options
+        )
+        self.start_net()
+
+    def test_lag_connectivity(self):
+        """Test whether the LAG host can connect to any other host"""
+        self.set_up()
+        self.verify_stack_up()
+        self.require_linux_bond_up(self.LACP_HOST)
+        self.verify_lag_host_connectivity()
+
+    def test_all_lacp_links(self):
+        """
+        All of the LAG links should work, test by using the xmit_hash_policy
+            with different IP addresses to change the link used by the packet
+        """
+        self.set_up()
+        self.verify_stack_up()
+        self.require_linux_bond_up(self.LACP_HOST)
+        lacp_host = self.host_information[self.LACP_HOST]['host']
+        lacp_switches = {self.net.switches[i] for i in self.host_links[self.LACP_HOST]}
+        lacp_intfs = sorted({
+            pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)})
+        dst_host_id = 1
+        dst_host = self.host_information[dst_host_id]['host']
+        tcpdump_filter = (
+            'ip and ether src 0e:00:00:00:00:99 '
+            'and src net %s and dst net %s' % (lacp_host.IP(), dst_host.IP()))
+        # Loop until all links have been used to prove that they can be used
+        link_used = [False for _ in range(len(lacp_intfs))]
+        max_iter = len(lacp_intfs) * 2
+        iterations = 0
+        while link_used.count(False) > 2 and iterations <= max_iter:
+            no_packets = True
+            for i, intf in enumerate(lacp_intfs):
+                funcs = []
+                funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
+                tcpdump_txt = self.tcpdump_helper(
+                    lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs)
+                no_packets = self.tcpdump_rx_packets(tcpdump_txt, packets=0)
+                if not no_packets:
+                    # Packets detected on link so can stop testing and
+                    #   goto a new IP value for the remaining links
+                    link_used[i] = True
+                    error('%s via %s\n' % (dst_host.IP(), intf))
+                    break
+            # If no packets have been detected on any port then something
+            #   has gone terribly wrong
+            self.assertFalse(
+                no_packets, 'Ping packets to host IP %s could not be found' % dst_host.IP())
+            # Increment the host IP address to change the LACP hash value,
+            #   potentially changing the link used
+            self.increment_host_ip(dst_host_id)
+            tcpdump_filter = (
+                'ip and ether src 0e:00:00:00:00:99 '
+                'and src net %s and dst net %s' % (lacp_host.IP(), dst_host.IP()))
+            iterations += 1
+        not_used = [list(lacp_intfs)[i] for i, value in enumerate(link_used) if not value]
+        expected_links = [True, True, False, False]
+        self.assertEqual(link_used, expected_links, 'Links %s not used' % not_used)
+
+    def increment_host_ip(self, host_id):
+        """Increases the host ip address"""
+        host = self.host_information[host_id]['host']
+        self.host_information[host_id]['ip'] += 3
+        self.set_host_ip(host, self.host_information[host_id]['ip'])
+
+    def test_lacp_port_change(self):
+        """
+        Test that communication to a host on a LAG is possible
+            after the original selected link goes DOWN
+        """
+        self.set_up()
+        self.verify_stack_up()
+        self.require_linux_bond_up(self.LACP_HOST)
+        self.verify_lag_host_connectivity()
+        root_dpid = self.dpids[0]
+        lacp_ports = self.host_information[self.LACP_HOST]['ports']
+        for port in lacp_ports[root_dpid]:
+            self.set_port_down(port, root_dpid)
+        self.verify_num_lag_up_ports(0, root_dpid)
+        self.verify_lag_host_connectivity()
+
+    def test_broadcast_loop(self):
+        """
+        LACP packets should be hashed using xmit_hash_policy layer2+3
+        This means that IP & MAC & Packet type is used for hashing/choosing
+            the LAG link
+        When LAG host sends broadcast, the packet should only be visible on
+            one link (the sending link), if the broadcast packet is detected
+            on the other links, then the packet was returned to it (via the
+            Faucet network)
+        """
+        self.set_up()
+        self.verify_stack_up()
+        self.require_linux_bond_up(self.LACP_HOST)
+        lacp_host = self.host_information[self.LACP_HOST]['host']
+        lacp_switches = {self.net.switches[i] for i in self.host_links[self.LACP_HOST]}
+        lacp_intfs = {
+            pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)}
+        dst_host = self.host_information[1]['host']
+        # Detect initial broadcast ARP
+        tcpdump_filter = ('arp and ether src 0e:00:00:00:00:99 '
+                          'and ether dst ff:ff:ff:ff:ff:ff')
+        # Count the number of links that contained the broadcast ARP packet
+        except_count = 0
+        for intf in lacp_intfs:
+            funcs = []
+            # Delete all ARP records of the lacp host
+            for host_id in self.host_information:
+                host = self.host_information[host_id]['host']
+                funcs.append(lambda: host.cmd('arp -d %s' % lacp_host.IP()))
+                funcs.append(lambda: host.cmd('arp -d %s' % dst_host.IP()))
+                funcs.append(lambda: lacp_host.cmd('arp -d %s' % host.IP()))
+            # Ping to cause broadcast ARP request
+            funcs.append(lambda: lacp_host.cmd('ping -c5 %s' % dst_host.IP()))
+            # Start tcpdump looking for broadcast ARP packets
+            tcpdump_txt = self.tcpdump_helper(
+                lacp_host, tcpdump_filter, intf_name=intf, funcs=funcs)
+            try:
+                self.verify_no_packets(tcpdump_txt)
+            except AssertionError:
+                error('Broadcast detected on %s\n' % intf)
+                except_count += 1
+        # Only the source LACP link should detect the packet
+        self.assertEqual(
+            except_count, 1,
+            'Number of links detecting the broadcast ARP %s (!= 1)' % except_count)
