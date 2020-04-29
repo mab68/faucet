@@ -173,17 +173,18 @@ class FaucetTopoTestBase(FaucetTestBase):
         """
         super(FaucetTopoTestBase, self).start_net()
 
+        # TODO: We do not need this information really.
         # Create a dictionary of host information
         self.host_information = {}
         for host_id, host_name in self.topo.hosts_by_id.items():
             host = self.net.get(host_name)
             vlan = self.configuration_options['host_vlans'][host_id]
             ip_interface = ipaddress.ip_interface(self.host_ip_address(host_id, vlan))
-            self.set_host_ip(host_obj, ip_interface)
+            self.set_host_ip(host, ip_interface)
             self.host_information[host_id] = {
-                'host': host_obj,
-                'ip': ip_interface,
-                'mac': host_obj.MAC(),
+                'host': host,
+                'ip': host.IP(),
+                'mac': host.MAC(),
                 'vlan': vlan,
                 'bond': None,
                 'ports': self.topo.get_host_peer_links(host_id)
@@ -199,10 +200,12 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def setup_lacp_bonds(self):
         """Search through host options for lacp hosts and configure accordingly"""
-        if not self.host_options:
+        # TODO: This should be moved to a mininet host object
+        host_options = self.configuration_options['host']
+        if not host_options:
             return
         bond_index = 1
-        for host_id, options in self.host_options.items():
+        for host_id, options in host_options.items():
             if 'lacp' in options:
                 host = self.host_information[host_id]['host']
                 # LACP must be configured with host ports down
@@ -443,7 +446,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         int_hosts = []
         ext_hosts = []
         dp_hosts = {self.dp_name(dp_index): ([], []) for dp_index in range(self.NUM_DPS)}
-        for host_id, options in self.host_options.items():
+        for host_id, options in self.configuration_options['host'].items():
             host = self.host_information[host_id]['host']
             if options.get('loop_protect_external', False):
                 ext_hosts.append(host)
@@ -560,7 +563,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def get_expected_synced_states(self, host_id):
         """Return the list of regex string for the expected sync state of a LACP LAG connection"""
         synced_state_list = []
-        oper_key = self.host_options[host_id]['lacp']
+        oper_key = self.configuration_options['host'][host_id]['lacp']
         lacp_ports = [
             port for ports in self.host_information[host_id]['ports'].values() for port in ports]
         for port in lacp_ports:
@@ -598,7 +601,7 @@ details partner lacp pdu:
     def prom_lacp_up_ports(self, dpid):
         """Get the number of up LAG ports according to Prometheus for a dpid"""
         lacp_up_ports = 0
-        for host_id, options in self.host_options.items():
+        for host_id, options in self.configuration_options['host'].items():
             # Find LACP hosts
             for key in options.keys():
                 if key == 'lacp':
@@ -681,7 +684,7 @@ details partner lacp pdu:
     def verify_lag_host_connectivity(self):
         """Verify LAG hosts can connect to any other host using the interface"""
         # Find all LACP hosts
-        for lacp_id, host_options in self.host_options.items():
+        for lacp_id, host_options in self.configuration_options['host'].items():
             if 'lacp' in host_options:
                 # Found LACP host
                 for dst_id in self.host_information:

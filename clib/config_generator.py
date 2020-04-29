@@ -253,7 +253,7 @@ class FaucetTopoGenerator(Topo):
         delay, htb = None, None
         if self.isSwitch(node):
             # Node is a switch, create port
-            port = self._create_next_port(node)
+            port1 = self._create_next_port(node)
         if self.isSwitch(peer_node):
             # Peer node is a switch, create port
             port2 = self._create_next_port(peer_node)

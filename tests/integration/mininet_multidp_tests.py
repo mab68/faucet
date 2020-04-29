@@ -14,8 +14,6 @@ from clib.mininet_test_base_topo import FaucetTopoTestBase
 class FaucetMultiDPTest(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a more generalized test topology & config builder"""
 
-    # TODO: Replace this with a new method 
-
     def link_acls(self):
         return {}
 
@@ -101,7 +99,6 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                             'targeted_gw_resolution': False
                         }
         vlan_options.update(self.vlan_options())
-        # TODO: link_acls
         if self.link_acls():
             for link, acls in self.link_acls():
                 if isinstance(link, tuple):
@@ -1140,11 +1137,11 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
             ]
         }
 
-    # def link_acls(self):
-    #     """DP link to list of acls to apply"""
-    #     return {
-    #         0: [1] # Host 0 'acls_in': [1]
-    #     }
+    def link_acls(self):
+        """DP link to list of acls to apply"""
+        return {
+            0: [1] # Host 0 'acls_in': [1]
+        }
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
