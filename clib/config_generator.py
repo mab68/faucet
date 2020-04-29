@@ -15,10 +15,12 @@
 
 from collections import namedtuple
 
+import string
 import random
 import networkx
 import yaml
 
+from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch
 from mininet.topo import Topo
 
 
@@ -141,7 +143,7 @@ class FaucetTopoGenerator(Topo):
             id_chars[id_a], id_chars[id_b])
 
     @staticmethod
-    def extend_port_order(self, port_order=None, max_length=16):
+    def extend_port_order(port_order=None, max_length=16):
         """
         Extends the pattern of port_port order up to max_length
 
@@ -170,7 +172,9 @@ class FaucetTopoGenerator(Topo):
         Args:
             switch_name (str): The name of the switch to generate the next port
         """
-        index = len(self.ports[switch_name])
+        index = 0
+        if switch_name in self.ports:
+            index = len(self.ports[switch_name])
         if self.hw_name and switch_name == self.hw_name and self.hw_ports:
             return self.hw_ports[self.port_order[index]]
         return self.start_port + self.port_order[index]
@@ -209,8 +213,8 @@ class FaucetTopoGenerator(Topo):
             vlans=vlans,
             cls=host_cls,
             cpu=self.CPUF,
-            **host_opts,
-            config_opts={})
+            host_n=host_index,
+            **host_opts)
 
     def _add_faucet_switch(self, switch_index):
         """
@@ -234,6 +238,7 @@ class FaucetTopoGenerator(Topo):
         else:
             dpid = self.dp_dpid(switch_index)
             self.dpids_by_id[switch_index] = dpid
+        self.switches_by_id[switch_index] = switch_name
         return self.addSwitch(
             name=switch_name,
             cls=switch_cls,
@@ -346,7 +351,7 @@ class FaucetTopoGenerator(Topo):
         self.hw_ports = sorted(hw_ports) if hw_ports else []
 
         # Additional information for special hosts
-        self.host_options = host_options
+        self.host_options = host_options if host_options else {}
 
         # Generate a port order for all of the switches to use
         max_ports = len(switch_links) + len(host_links)
@@ -365,7 +370,7 @@ class FaucetTopoGenerator(Topo):
         """Return the DPs in dictionary format for the configuration file"""
         dps_config = {}
 
-        def get_interface_config(self, link_name, src_port, dst_port, vlans, options):
+        def get_interface_config(link_name, src_port, dst_port, vlans, options):
             interface_config = {}
             type_ = 'switch-switch' if dst_port else 'switch-host'
             if isinstance(vlans, int):
@@ -380,7 +385,7 @@ class FaucetTopoGenerator(Topo):
                     'name': 'tagged %s' % link_name,
                     'tagged_vlans': [self.vlan_vid(vlan) for vlan in vlans]
                 }
-            if dst_port and vlans is None:
+            elif dst_port and vlans is None:
                 # Stack link
                 interface_config = {
                     'name': 'stack %s' % link_name,
@@ -396,46 +401,48 @@ class FaucetTopoGenerator(Topo):
                     interface_config[option_key] = option_value
             return interface_config
 
-        def add_dp_config(self, src_node, dst_node, link_key, link_info, reverse=False):
+        def add_dp_config(src_node, dst_node, link_key, link_info, reverse=False):
             dp_config = dps_config[src_node]
             src_info, dst_info = self.nodeInfo(src_node), self.nodeInfo(dst_node)
-            vlans = link_info['config_opts']['vlans']
+            vlans = link_info['config_vlans']
             src_id = src_info['switch_n']
             dp_config.setdefault('interfaces', {})
+            options = {}
             if self.isSwitch(dst_node):
                 # Generate switch-switch config link
                 if reverse:
                     src_port, dst_port = link_info['port2'], link_info['port1']
                 else:
                     src_port, dst_port = link_info['port1'], link_info['port2']
-                link_name = 'link #%s to %s:%s' % ((link_key + 1), dst_node, dst_port)
+                link_name = 'link #%s to %s:%s' % (link_key, dst_node, dst_port)
                 options = {}
                 dst_id = dst_info['switch_n']
-                for pair in [(src_id, dst_id), (dst_id, src_id)]:
-                    options.update(link_options[pair])
+                if link_options:
+                    for pair in [(src_id, dst_id), (dst_id, src_id)]:
+                        options.update(link_options.get(pair, {}))
             else:
                 # Generate host-switch config link
                 src_port, dst_port = link_info['port1'], None
-                link_name = 'link #%s to %s:%s' % ((link_key + 1), dst_node, dst_port)
-                options = host_options[dst_info['host_n']]
-            port_acls = dp_port_acls[src_id][src_port]
-            dp_config['interfaces'][src_port] = self.get_interface_config(
-                link_name, src_port, dst_port, vlans, options, port_acls)
+                link_name = 'link #%s to %s' % (link_key, dst_node)
+                host_n = dst_info['host_n']
+                if link_options and host_n in host_options:
+                    options = host_options[host_n]
+            dp_config['interfaces'][src_port] = get_interface_config(
+                link_name, src_port, dst_port, vlans, options)
 
         for links in self.links(withKeys=True, withInfo=True):
             src_node, dst_node, link_key, link_info = links
-            dps_config.setdefault(src_node, {})
-            dps_config.setdefault(dst_node, {})
             src_info = self.nodeInfo(src_node)
             dst_info = self.nodeInfo(dst_node)
-            vlans = link_info['config_opts']['vlans']
             if self.isSwitch(src_node):
                 dps_config.setdefault(src_node, {})
-                dps_config.setdefault('dp_id', int(src_info['config_opts']['dp_id']))
+                src_dpid = self.dpids_by_id[src_info['switch_n']]
+                dps_config[src_node].setdefault('dp_id', int(src_dpid))
                 add_dp_config(src_node, dst_node, link_key, link_info)
             if self.isSwitch(dst_node):
                 dps_config.setdefault(dst_node, {})
-                dps_config.setdefault('dp_id', int(dst_info['config_opts']['dp_id']))
+                dst_dpid = self.dpids_by_id[dst_info['switch_n']]
+                dps_config[dst_node].setdefault('dp_id', int(dst_dpid))
                 add_dp_config(dst_node, src_node, link_key, link_info, True)
         if dp_options:
             for dp, options in dp_options.items():
@@ -476,7 +483,7 @@ class FaucetTopoGenerator(Topo):
         """
         routers_config = {}
         for router, vlans in routers.items():
-            router_config[self.router_name(router)] = {
+            routers_config[self.router_name(router)] = {
                 'vlans': [self.vlan_name(vlan) for vlan in vlans]
             }
         if router_options:

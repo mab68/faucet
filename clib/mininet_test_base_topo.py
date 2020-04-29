@@ -54,6 +54,10 @@ class FaucetTopoTestBase(FaucetTestBase):
         """DP-port to ACL mapping"""
         return {}
 
+    def link_acl(self):
+        """DP link (host or switch) to ACL mapping"""
+        return {}
+
     def include(self):
         """Additional include files"""
         return []

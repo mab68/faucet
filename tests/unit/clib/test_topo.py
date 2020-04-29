@@ -182,7 +182,7 @@ class FaucetTopoTest(TestCase):
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
             host_links, host_vlans, switch_links, link_vlans,
-            port_order, get_serialno=self.get_serialno)
+            port_order=port_order, get_serialno=self.get_serialno)
 
 
 if __name__ == "__main__":
