@@ -16,6 +16,9 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
 
     # TODO: Replace this with a new method 
 
+    def link_acls(self):
+        return {}
+
     def setUp(self):
         pass
 
@@ -69,7 +72,7 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
             for host, links in host_links.items():
                 make_external = False
                 for link in links:
-                    if value[link]:
+                    if values[link]:
                         make_external = True
                         values[link] = True
                 host_options[host]['loop_protect_external': False]
@@ -97,6 +100,7 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                             'targeted_gw_resolution': False
                         }
         vlan_options.update(self.vlan_options())
+        # TODO: link_acls
         if self.link_acls():
             for link, acls in self.link_acls():
                 if isinstance(link, tuple):
@@ -1134,11 +1138,11 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
             ]
         }
 
-    def link_acls(self):
-        """DP link to list of acls to apply"""
-        return {
-            0: [1] # Host 0 'acls_in': [1]
-        }
+    # def link_acls(self):
+    #     """DP link to list of acls to apply"""
+    #     return {
+    #         0: [1] # Host 0 'acls_in': [1]
+    #     }
 
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
@@ -1345,6 +1349,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
                     host_links[host_n] = [dp]
                     host_vlans[host_n] = vlan
                     host_n += 1
+        vlan_options = {}
         for v in range(routed_vlans):
             vlan_options[v] = {
                 'faucet_mac': self.faucet_mac(v),
@@ -1360,7 +1365,7 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
             host_options=host_options,
-            vlan_options=vlan_options
+            vlan_options=vlan_options,
             routers=routers
         )
         self.start_net()
