@@ -21,6 +21,7 @@ import networkx
 import yaml
 
 from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch
+from clib import mininet_test_util
 from mininet.topo import Topo
 
 
@@ -114,14 +115,6 @@ class FaucetTopoGenerator(Topo):
         """VLAN VID value"""
         return (i+1) * 100
 
-    def vlan_mac(self, i):
-       """VLAN MAC"""
-       return '00:00:00:00:00:%u%u' % (i+1, i+1)
-
-    def vlan_vip(self, i):
-       """VLAN VIP"""
-       return '10.%u.0.254/%u' % (i+1, self.NETPREFIX)
-
     def router_name(self, i):
         """Router name"""
         return 'router-%s' % (i+1)
@@ -189,6 +182,7 @@ class FaucetTopoGenerator(Topo):
             vlans (list/None/int): Type of host/vlans the host belongs to
         """
         # TODO: host IP address
+        # TODO: LACP host
         sid_prefix = self._generate_sid_prefix()
         host_opts = self.host_options.get(host_index, {})
         host_name, host_cls = None, None
@@ -321,7 +315,7 @@ class FaucetTopoGenerator(Topo):
               host_links, host_vlans, switch_links, link_vlans,
               hw_dpid=None, hw_ports=None,
               port_order=None, start_port=5,
-              get_serialno=None, host_options=None):
+              get_serialno=mininet_test_util.get_serialno, host_options=None):
         """
         Creates a Faucet mininet topology
 

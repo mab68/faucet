@@ -11,8 +11,7 @@ import yaml  # pytype: disable=pyi-error
 
 from clib.mininet_test_util import timeout_cmd
 from clib.mininet_test_base import FaucetTestBase, IPV4_ETH
-from clib.mininet_test_topo_generator import FaucetTopoGenerator
-from clib.config_generator import ConfigGenerator
+from clib.config_generator import FaucetTopoGenerator
 
 
 class FaucetTopoTestBase(FaucetTestBase):
@@ -50,12 +49,8 @@ class FaucetTopoTestBase(FaucetTestBase):
         """Defined configuration ACLs"""
         return {}
 
-    def acl_in_dp(self):
-        """DP-port to ACL mapping"""
-        return {}
-
-    def link_acl(self):
-        """DP link (host or switch) to ACL mapping"""
+    def link_acls(self):
+        """DP link (host or switch) to ACLs mapping"""
         return {}
 
     def include(self):
