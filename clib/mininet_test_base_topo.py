@@ -151,7 +151,9 @@ class FaucetTopoTestBase(FaucetTestBase):
             include_optional=include_optional
         )
         self.dpids = self.topo.get_dpids()
+        self.dpid = self.dpids[0]
         self.port_maps = self.topo.create_port_maps()
+        self.port_map = self.port_maps[self.dpid]
         self.n_vlans = n_vlans
         self.configuration_options = {
             'vlan': vlan_options,

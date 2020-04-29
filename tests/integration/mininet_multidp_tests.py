@@ -25,7 +25,7 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
     def set_up(self, stack=False, n_dps=1, n_tagged=0, n_untagged=0,
                switch_to_switch_links=1, stack_ring=False,
                lacp_trunk=False, use_external=False, routers=None):
-        super(FaucetMultiDPTest, self).setUp()
+        super().setUp()
         n_vlans = 1
         dp_links = {}
         if stack_ring:
@@ -75,6 +75,7 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                     if values[link]:
                         make_external = True
                         values[link] = True
+                host_options.setdefault(host, {})
                 host_options[host]['loop_protect_external': False]
         host_options.update(self.host_options())
         # Create DP configuration options
@@ -1069,6 +1070,7 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Start the network"""
+        super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp in network_graph.nodes():
@@ -1269,6 +1271,7 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
 
     def setUp(self):  # pylint: disable=invalid-name
         """Start the network"""
+        super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp in network_graph.nodes():
@@ -1467,6 +1470,7 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
 
     def set_up(self):
         """Start the network"""
+        super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp in network_graph.nodes():
@@ -1533,6 +1537,7 @@ class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
 
     def setUp(self):
         """Set up network with transit switch with no hosts"""
+        super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp in network_graph.nodes():
@@ -1572,6 +1577,7 @@ class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
 
     def setUp(self):
         """Set up network with transit switch on different VLAN"""
+        super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp in network_graph.nodes():
@@ -1631,6 +1637,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
             host_vlans: Default generate with one host on each VLAN, on each DP
                 plus one LAG host the same VLAN as hosts
         """
+        super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp in network_graph.nodes():
@@ -1793,6 +1800,7 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         pass
 
     def set_up(self):
+        super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
         dp_options = {}
         for dp in network_graph.nodes():
