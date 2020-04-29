@@ -160,7 +160,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.port_maps = self.topo.create_port_maps()
         self.n_vlans = n_vlans
         self.configuration_options = {
-            'vlan': vlan_options
+            'vlan': vlan_options,
             'acl': acl_options,
             'dp': dp_options,
             'host': host_options,
@@ -188,7 +188,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                 'host': host_obj,
                 'ip': ip_interface,
                 'mac': host_obj.MAC(),
-                'vlan' = vlan,
+                'vlan': vlan,
                 'bond': None,
                 'ports': self.topo.get_host_peer_links(host_id)
             }

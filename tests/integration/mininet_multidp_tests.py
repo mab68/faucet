@@ -11,7 +11,7 @@ from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 
 
-class FaucetMultiDPTest(FaucetTopoGenerator):
+class FaucetMultiDPTest(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a more generalized test topology & config builder"""
 
     def setUp(self):
@@ -186,7 +186,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
     NUM_DPS = 2
     NUM_HOSTS = 2
     SOFTWARE_ONLY = True
-    match_bcast = {'dl_vlan': FaucetMultiDPTest.vlan_vid(0), 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
+    match_bcast = {'dl_vlan': 100, 'dl_dst': 'ff:ff:ff:ff:ff:ff'}
     action_str = 'OUTPUT:%u'
 
     def setUp(self):  # pylint: disable=invalid-name
@@ -1029,77 +1029,77 @@ class FaucetTunnelLoopTest(FaucetSingleTunnelTest):
             stack_ring=True)
 
 
-class FaucetTunnelAllowTest(FaucetTopoTestBase):
-    """Test Tunnels with ACLs containing allow=True"""
+# class FaucetTunnelAllowTest(FaucetTopoTestBase):
+#     """Test Tunnels with ACLs containing allow=True"""
 
-    NUM_DPS = 2
-    NUM_HOSTS = 4
-    NUM_VLANS = 2
-    SOFTWARE_ONLY = True
+#     NUM_DPS = 2
+#     NUM_HOSTS = 4
+#     NUM_VLANS = 2
+#     SOFTWARE_ONLY = True
 
-    def acls(self):
-        """Return config ACL options"""
-        dpid2 = self.dpids[1]
-        port2_1 = self.port_maps[dpid2]['port_1']
-        return {
-            1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 1,
-                        'output': {
-                            'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 300,
-                                'dp': 'faucet-2',
-                                'port': port2_1}
-                        }
-                    }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    }
-                }},
-            ]
-        }
+#     def acls(self):
+#         """Return config ACL options"""
+#         dpid2 = self.dpids[1]
+#         port2_1 = self.port_maps[dpid2]['port_1']
+#         return {
+#             1: [
+#                 {'rule': {
+#                     'dl_type': IPV4_ETH,
+#                     'ip_proto': 1,
+#                     'actions': {
+#                         'allow': 1,
+#                         'output': {
+#                             'tunnel': {
+#                                 'type': 'vlan',
+#                                 'tunnel_id': 300,
+#                                 'dp': 'faucet-2',
+#                                 'port': port2_1}
+#                         }
+#                     }
+#                 }},
+#                 {'rule': {
+#                     'actions': {
+#                         'allow': 1,
+#                     }
+#                 }},
+#             ]
+#         }
 
-    def acl_in_dp(self):
-        """DP-to-acl port mapping"""
-        port_1 = self.port_map['port_1']
-        return {
-            0: {
-                # First port 1, acl_in = 1
-                port_1: 1,
-            }
-        }
+#     def acl_in_dp(self):
+#         """DP-to-acl port mapping"""
+#         port_1 = self.port_map['port_1']
+#         return {
+#             0: {
+#                 # First port 1, acl_in = 1
+#                 port_1: 1,
+#             }
+#         }
 
-    def setUp(self):  # pylint: disable=invalid-name
-        """Start the network"""
-        super(FaucetTunnelAllowTest, self).setUp()
-        stack_roots = {0: 1}
-        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-        # LACP host doubly connected to sw0 & sw1
-        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
-        host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
-        self.build_net(
-            n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots)
-        self.start_net()
+#     def setUp(self):  # pylint: disable=invalid-name
+#         """Start the network"""
+#         super(FaucetTunnelAllowTest, self).setUp()
+#         stack_roots = {0: 1}
+#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
+#         # LACP host doubly connected to sw0 & sw1
+#         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+#         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
+#         self.build_net(
+#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
+#             host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots)
+#         self.start_net()
 
-    def test_tunnel_continue_through_pipeline_interaction(self):
-        """Test packets that enter a tunnel with allow, also continue through the pipeline"""
-        # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
-        #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
-        self.verify_stack_up()
-        # Ensure connection to the host on the other end of the tunnel can exist
-        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
-        self.verify_tunnel_established(src_host, dst_host, other_host)
-        # Ensure a connection to a host not in the tunnel can exist
-        #   this implies that the packet is also sent through the pipeline
-        self.check_host_connectivity_by_id(0, 1)
-        self.check_host_connectivity_by_id(0, 3)
+#     def test_tunnel_continue_through_pipeline_interaction(self):
+#         """Test packets that enter a tunnel with allow, also continue through the pipeline"""
+#         # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
+#         #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
+#         self.verify_stack_up()
+#         # Ensure connection to the host on the other end of the tunnel can exist
+#         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+#         self.verify_tunnel_established(src_host, dst_host, other_host)
+#         # Ensure a connection to a host not in the tunnel can exist
+#         #   this implies that the packet is also sent through the pipeline
+#         self.check_host_connectivity_by_id(0, 1)
+#         self.check_host_connectivity_by_id(0, 3)
 
 
 class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
@@ -1234,169 +1234,169 @@ class FaucetTunnelLoopOrderedTest(FaucetSingleTunnelOrderedTest):
             stack_ring=True)
 
 
-class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
-    """Test Tunnels with ACLs containing allow=True"""
+# class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
+#     """Test Tunnels with ACLs containing allow=True"""
 
-    NUM_DPS = 2
-    NUM_HOSTS = 4
-    NUM_VLANS = 2
-    SOFTWARE_ONLY = True
+#     NUM_DPS = 2
+#     NUM_HOSTS = 4
+#     NUM_VLANS = 2
+#     SOFTWARE_ONLY = True
 
-    def acls(self):
-        """Return config ACL options"""
-        dpid2 = self.dpids[1]
-        port2_1 = self.port_maps[dpid2]['port_1']
-        return {
-            1: [
-                {'rule': {
-                    'dl_type': IPV4_ETH,
-                    'ip_proto': 1,
-                    'actions': {
-                        'allow': 1,
-                        'output': [
-                            {'tunnel': {
-                                'type': 'vlan',
-                                'tunnel_id': 300,
-                                'dp': 'faucet-2',
-                                'port': port2_1}}
-                        ]
-                    }
-                }},
-                {'rule': {
-                    'actions': {
-                        'allow': 1,
-                    }
-                }},
-            ]
-        }
+#     def acls(self):
+#         """Return config ACL options"""
+#         dpid2 = self.dpids[1]
+#         port2_1 = self.port_maps[dpid2]['port_1']
+#         return {
+#             1: [
+#                 {'rule': {
+#                     'dl_type': IPV4_ETH,
+#                     'ip_proto': 1,
+#                     'actions': {
+#                         'allow': 1,
+#                         'output': [
+#                             {'tunnel': {
+#                                 'type': 'vlan',
+#                                 'tunnel_id': 300,
+#                                 'dp': 'faucet-2',
+#                                 'port': port2_1}}
+#                         ]
+#                     }
+#                 }},
+#                 {'rule': {
+#                     'actions': {
+#                         'allow': 1,
+#                     }
+#                 }},
+#             ]
+#         }
 
-    def acl_in_dp(self):
-        """DP-to-acl port mapping"""
-        port_1 = self.port_map['port_1']
-        return {
-            0: {
-                # First port 1, acl_in = 1
-                port_1: 1,
-            }
-        }
+#     def acl_in_dp(self):
+#         """DP-to-acl port mapping"""
+#         port_1 = self.port_map['port_1']
+#         return {
+#             0: {
+#                 # First port 1, acl_in = 1
+#                 port_1: 1,
+#             }
+#         }
 
-    def setUp(self):  # pylint: disable=invalid-name
-        """Start the network"""
-        super(FaucetTunnelAllowOrderedTest, self).setUp()
-        stack_roots = {0: 1}
-        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-        # LACP host doubly connected to sw0 & sw1
-        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
-        host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
-        self.build_net(
-            n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots)
-        self.start_net()
+#     def setUp(self):  # pylint: disable=invalid-name
+#         """Start the network"""
+#         super(FaucetTunnelAllowOrderedTest, self).setUp()
+#         stack_roots = {0: 1}
+#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
+#         # LACP host doubly connected to sw0 & sw1
+#         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+#         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
+#         self.build_net(
+#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
+#             host_links=host_links, host_vlans=host_vlans, stack_roots=stack_roots)
+#         self.start_net()
 
-    def test_tunnel_continue_through_pipeline_interaction(self):
-        """Test packets that enter a tunnel with allow, also continue through the pipeline"""
-        # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
-        #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
-        self.verify_stack_up()
-        # Ensure connection to the host on the other end of the tunnel can exist
-        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
-        self.verify_tunnel_established(src_host, dst_host, other_host)
-        # Ensure a connection to a host not in the tunnel can exist
-        #   this implies that the packet is also sent through the pipeline
-        self.check_host_connectivity_by_id(0, 1)
-        self.check_host_connectivity_by_id(0, 3)
+#     def test_tunnel_continue_through_pipeline_interaction(self):
+#         """Test packets that enter a tunnel with allow, also continue through the pipeline"""
+#         # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
+#         #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
+#         self.verify_stack_up()
+#         # Ensure connection to the host on the other end of the tunnel can exist
+#         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+#         self.verify_tunnel_established(src_host, dst_host, other_host)
+#         # Ensure a connection to a host not in the tunnel can exist
+#         #   this implies that the packet is also sent through the pipeline
+#         self.check_host_connectivity_by_id(0, 1)
+#         self.check_host_connectivity_by_id(0, 3)
 
 
-class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
-    """IPV4 intervlan routing with stacking test"""
+# class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
+#     """IPV4 intervlan routing with stacking test"""
 
-    IPV = 4
-    NETPREFIX = 24
-    ETH_TYPE = IPV4_ETH
-    NUM_DPS = 4
-    NUM_HOSTS = 8
-    SOFTWARE_ONLY = True
+#     IPV = 4
+#     NETPREFIX = 24
+#     ETH_TYPE = IPV4_ETH
+#     NUM_DPS = 4
+#     NUM_HOSTS = 8
+#     SOFTWARE_ONLY = True
 
-    def setUp(self):
-        """Disabling allows for each test case to start the test"""
-        pass
+#     def setUp(self):
+#         """Disabling allows for each test case to start the test"""
+#         pass
 
-    def set_up(self, n_dps, host_links=None, host_vlans=None):
-        """
-        Args:
-            n_dps: Number of DPs
-            host_links: How to connect each host to the DPs
-            host_vlans: The VLAN each host is on
-        """
-        super(FaucetSingleUntaggedIPV4RoutingWithStackingTest, self).setUp()
-        n_vlans = 3
-        routed_vlans = 2
-        stack_roots = {0: 1}
-        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(n_dps))
-        if not host_links and not host_vlans:
-            host_links, host_vlans = FaucetTopoGenerator.untagged_vlan_hosts(n_dps, routed_vlans)
-        vlan_options = {}
-        for v in range(routed_vlans):
-            vlan_options[v] = {
-                'faucet_mac': self.faucet_mac(v),
-                'faucet_vips': [self.faucet_vip(v)],
-                'targeted_gw_resolution': False
-            }
-        dp_options = {dp: self.dp_options() for dp in range(n_dps)}
-        routers = {0: [v for v in range(routed_vlans)]}
-        self.build_net(
-            n_dps=n_dps, n_vlans=n_vlans, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans,
-            stack_roots=stack_roots, vlan_options=vlan_options,
-            dp_options=dp_options, routers=routers)
-        self.start_net()
+#     def set_up(self, n_dps, host_links=None, host_vlans=None):
+#         """
+#         Args:
+#             n_dps: Number of DPs
+#             host_links: How to connect each host to the DPs
+#             host_vlans: The VLAN each host is on
+#         """
+#         super(FaucetSingleUntaggedIPV4RoutingWithStackingTest, self).setUp()
+#         n_vlans = 3
+#         routed_vlans = 2
+#         stack_roots = {0: 1}
+#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(n_dps))
+#         if not host_links and not host_vlans:
+#             host_links, host_vlans = FaucetTopoGenerator.untagged_vlan_hosts(n_dps, routed_vlans)
+#         vlan_options = {}
+#         for v in range(routed_vlans):
+#             vlan_options[v] = {
+#                 'faucet_mac': self.faucet_mac(v),
+#                 'faucet_vips': [self.faucet_vip(v)],
+#                 'targeted_gw_resolution': False
+#             }
+#         dp_options = {dp: self.dp_options() for dp in range(n_dps)}
+#         routers = {0: [v for v in range(routed_vlans)]}
+#         self.build_net(
+#             n_dps=n_dps, n_vlans=n_vlans, dp_links=dp_links,
+#             host_links=host_links, host_vlans=host_vlans,
+#             stack_roots=stack_roots, vlan_options=vlan_options,
+#             dp_options=dp_options, routers=routers)
+#         self.start_net()
 
-    def dp_options(self):
-        """Return DP config options"""
-        return {
-            'arp_neighbor_timeout': 2,
-            'max_resolve_backoff_time': 2,
-            'proactive_learn_v4': True
-        }
+#     def dp_options(self):
+#         """Return DP config options"""
+#         return {
+#             'arp_neighbor_timeout': 2,
+#             'max_resolve_backoff_time': 2,
+#             'proactive_learn_v4': True
+#         }
 
-    def test_intervlan_routing_2stack(self):
-        """Verify intervlan routing works with 2 DPs in a stack"""
-        self.NUM_DPS = 2
-        self.set_up(self.NUM_DPS)
-        self.verify_stack_up()
-        self.verify_intervlan_routing()
+#     def test_intervlan_routing_2stack(self):
+#         """Verify intervlan routing works with 2 DPs in a stack"""
+#         self.NUM_DPS = 2
+#         self.set_up(self.NUM_DPS)
+#         self.verify_stack_up()
+#         self.verify_intervlan_routing()
 
-    def test_intervlan_routing_3stack(self):
-        """Verify intervlan routing works with 3 DPs in a stack"""
-        self.NUM_DPS = 3
-        self.set_up(self.NUM_DPS)
-        self.verify_stack_up()
-        self.verify_intervlan_routing()
+#     def test_intervlan_routing_3stack(self):
+#         """Verify intervlan routing works with 3 DPs in a stack"""
+#         self.NUM_DPS = 3
+#         self.set_up(self.NUM_DPS)
+#         self.verify_stack_up()
+#         self.verify_intervlan_routing()
 
-    def test_intervlan_routing_4stack(self):
-        """Verify intervlan routing works with 4 DPs in a stack"""
-        self.NUM_DPS = 4
-        self.set_up(self.NUM_DPS)
-        self.verify_stack_up()
-        self.verify_intervlan_routing()
+#     def test_intervlan_routing_4stack(self):
+#         """Verify intervlan routing works with 4 DPs in a stack"""
+#         self.NUM_DPS = 4
+#         self.set_up(self.NUM_DPS)
+#         self.verify_stack_up()
+#         self.verify_intervlan_routing()
 
-    def test_path_no_vlans(self):
-        """Test when a DP in the path of a intervlan route contains no routed VLANs"""
-        self.NUM_DPS = 3
-        host_links = {i: [i] for i in range(self.NUM_DPS)}
-        host_vlans = {0: 0, 1: 2, 2: 1}
-        self.set_up(self.NUM_DPS, host_links=host_links, host_vlans=host_vlans)
-        self.verify_stack_up()
-        self.verify_intervlan_routing()
+#     def test_path_no_vlans(self):
+#         """Test when a DP in the path of a intervlan route contains no routed VLANs"""
+#         self.NUM_DPS = 3
+#         host_links = {i: [i] for i in range(self.NUM_DPS)}
+#         host_vlans = {0: 0, 1: 2, 2: 1}
+#         self.set_up(self.NUM_DPS, host_links=host_links, host_vlans=host_vlans)
+#         self.verify_stack_up()
+#         self.verify_intervlan_routing()
 
-    def test_dp_one_vlan_from_router(self):
-        """Test when each DP contains a subset of the routed vlans"""
-        self.NUM_DPS = 2
-        host_links = {i: [i] for i in range(self.NUM_DPS)}
-        host_vlans = {0: 0, 1: 1}
-        self.set_up(self.NUM_DPS, host_links=host_links, host_vlans=host_vlans)
-        self.verify_stack_up()
-        self.verify_intervlan_routing()
+#     def test_dp_one_vlan_from_router(self):
+#         """Test when each DP contains a subset of the routed vlans"""
+#         self.NUM_DPS = 2
+#         host_links = {i: [i] for i in range(self.NUM_DPS)}
+#         host_vlans = {0: 0, 1: 1}
+#         self.set_up(self.NUM_DPS, host_links=host_links, host_vlans=host_vlans)
+#         self.verify_stack_up()
+#         self.verify_intervlan_routing()
 
 
 class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4RoutingWithStackingTest):
@@ -1431,118 +1431,118 @@ class FaucetSingleUntaggedIPV6RoutingWithStackingTest(FaucetSingleUntaggedIPV4Ro
         return 'fc0%u::1:%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
 
 
-class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
-    """Test InterVLAN routing can flood packets to stack ports"""
+# class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
+#     """Test InterVLAN routing can flood packets to stack ports"""
 
-    IPV = 4
-    NETPREFIX = 24
-    ETH_TYPE = IPV4_ETH
-    NUM_DPS = 2
-    NUM_HOSTS = 2
-    NUM_VLANS = 2
-    SOFTWARE_ONLY = True
+#     IPV = 4
+#     NETPREFIX = 24
+#     ETH_TYPE = IPV4_ETH
+#     NUM_DPS = 2
+#     NUM_HOSTS = 2
+#     NUM_VLANS = 2
+#     SOFTWARE_ONLY = True
 
-    def setUp(self):
-        """Disabling allows for each test case to start the test"""
-        pass
+#     def setUp(self):
+#         """Disabling allows for each test case to start the test"""
+#         pass
 
-    def set_up(self):
-        """Start the network"""
-        super(FaucetSingleUntaggedVlanStackFloodTest, self).setUp()
-        stack_roots = {0: 1}
-        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-        host_links = {0: [0], 1: [1]}
-        host_vlans = {0: 0, 1: 1}
-        vlan_options = {}
-        for v in range(self.NUM_VLANS):
-            vlan_options[v] = {
-                'faucet_mac': self.faucet_mac(v),
-                'faucet_vips': [self.faucet_vip(v)],
-                'targeted_gw_resolution': False
-            }
-        dp_options = {dp: self.dp_options() for dp in range(self.NUM_DPS)}
-        routers = {0: [v for v in range(self.NUM_VLANS)]}
-        self.build_net(
-            n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans,
-            stack_roots=stack_roots, vlan_options=vlan_options,
-            dp_options=dp_options, routers=routers)
-        self.start_net()
+#     def set_up(self):
+#         """Start the network"""
+#         super(FaucetSingleUntaggedVlanStackFloodTest, self).setUp()
+#         stack_roots = {0: 1}
+#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
+#         host_links = {0: [0], 1: [1]}
+#         host_vlans = {0: 0, 1: 1}
+#         vlan_options = {}
+#         for v in range(self.NUM_VLANS):
+#             vlan_options[v] = {
+#                 'faucet_mac': self.faucet_mac(v),
+#                 'faucet_vips': [self.faucet_vip(v)],
+#                 'targeted_gw_resolution': False
+#             }
+#         dp_options = {dp: self.dp_options() for dp in range(self.NUM_DPS)}
+#         routers = {0: [v for v in range(self.NUM_VLANS)]}
+#         self.build_net(
+#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
+#             host_links=host_links, host_vlans=host_vlans,
+#             stack_roots=stack_roots, vlan_options=vlan_options,
+#             dp_options=dp_options, routers=routers)
+#         self.start_net()
 
-    def dp_options(self):
-        """Return DP config options"""
-        return {
-            'arp_neighbor_timeout': 2,
-            'max_resolve_backoff_time': 2,
-            'proactive_learn_v4': True
-        }
+#     def dp_options(self):
+#         """Return DP config options"""
+#         return {
+#             'arp_neighbor_timeout': 2,
+#             'max_resolve_backoff_time': 2,
+#             'proactive_learn_v4': True
+#         }
 
-    def test_intervlan_stack_flooding(self):
-        """
-        Test intervlan can flood to stack ports
-        h1 (dst_host) should not have talked on the network so Faucet does not know about
-            it. h2 (src_host) -> h1 ping will normally fail (without flooding to the stack)
-            because the ARP packet for resolving h1 does not make it across the stack.
-        """
-        self.set_up()
-        self.verify_stack_up()
-        src_host = self.host_information[1]['host']
-        dst_ip = self.host_information[0]['ip']
-        self.host_ping(src_host, dst_ip.ip)
-
-
-class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
-    """Test that L2 connectivity exists over a transit switch with no VLANs"""
-
-    NUM_DPS = 3
-    NUM_HOSTS = 2
-    NUM_VLANS = 1
-    SOFTWARE_ONLY = True
-
-    def setUp(self):
-        """Set up network with transit switch with no hosts"""
-        super(FaucetUntaggedStackTransitTest, self).setUp()
-        stack_roots = {0: 1}
-        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-        host_links = {0: [0], 1: [2]}
-        host_vlans = {0: 0, 1: 0}
-        self.build_net(
-            n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans,
-            stack_roots=stack_roots)
-        self.start_net()
-
-    def test_hosts_connect_over_stack_transit(self):
-        """Test to ensure that hosts can be connected over stack transit switches"""
-        self.verify_stack_up()
-        self.verify_intervlan_routing()
+#     def test_intervlan_stack_flooding(self):
+#         """
+#         Test intervlan can flood to stack ports
+#         h1 (dst_host) should not have talked on the network so Faucet does not know about
+#             it. h2 (src_host) -> h1 ping will normally fail (without flooding to the stack)
+#             because the ARP packet for resolving h1 does not make it across the stack.
+#         """
+#         self.set_up()
+#         self.verify_stack_up()
+#         src_host = self.host_information[1]['host']
+#         dst_ip = self.host_information[0]['ip']
+#         self.host_ping(src_host, dst_ip.ip)
 
 
-class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
-    """Test that L2 connectivity exists over a transit switch with different VLANs"""
+# class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
+#     """Test that L2 connectivity exists over a transit switch with no VLANs"""
 
-    NUM_DPS = 3
-    NUM_HOSTS = 2
-    NUM_VLANS = 2
-    SOFTWARE_ONLY = True
+#     NUM_DPS = 3
+#     NUM_HOSTS = 2
+#     NUM_VLANS = 1
+#     SOFTWARE_ONLY = True
 
-    def setUp(self):
-        """Set up network with transit switch on different VLAN"""
-        super(FaucetUntaggedStackTransitVLANTest, self).setUp()
-        stack_roots = {0: 1}
-        dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
-        host_links = {0: [0], 1: [1], 2: [2]}
-        host_vlans = {0: 0, 1: 1, 2: 0}
-        self.build_net(
-            n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
-            host_links=host_links, host_vlans=host_vlans,
-            stack_roots=stack_roots)
-        self.start_net()
+#     def setUp(self):
+#         """Set up network with transit switch with no hosts"""
+#         super(FaucetUntaggedStackTransitTest, self).setUp()
+#         stack_roots = {0: 1}
+#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
+#         host_links = {0: [0], 1: [2]}
+#         host_vlans = {0: 0, 1: 0}
+#         self.build_net(
+#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
+#             host_links=host_links, host_vlans=host_vlans,
+#             stack_roots=stack_roots)
+#         self.start_net()
 
-    def test_hosts_connect_over_stack_transit(self):
-        """Test to ensure that hosts can be connected over stack transit switches"""
-        self.verify_stack_up()
-        self.verify_intervlan_routing()
+#     def test_hosts_connect_over_stack_transit(self):
+#         """Test to ensure that hosts can be connected over stack transit switches"""
+#         self.verify_stack_up()
+#         self.verify_intervlan_routing()
+
+
+# class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
+#     """Test that L2 connectivity exists over a transit switch with different VLANs"""
+
+#     NUM_DPS = 3
+#     NUM_HOSTS = 2
+#     NUM_VLANS = 2
+#     SOFTWARE_ONLY = True
+
+#     def setUp(self):
+#         """Set up network with transit switch on different VLAN"""
+#         super(FaucetUntaggedStackTransitVLANTest, self).setUp()
+#         stack_roots = {0: 1}
+#         dp_links = FaucetTopoGenerator.dp_links_networkx_graph(networkx.path_graph(self.NUM_DPS))
+#         host_links = {0: [0], 1: [1], 2: [2]}
+#         host_vlans = {0: 0, 1: 1, 2: 0}
+#         self.build_net(
+#             n_dps=self.NUM_DPS, n_vlans=self.NUM_VLANS, dp_links=dp_links,
+#             host_links=host_links, host_vlans=host_vlans,
+#             stack_roots=stack_roots)
+#         self.start_net()
+
+#     def test_hosts_connect_over_stack_transit(self):
+#         """Test to ensure that hosts can be connected over stack transit switches"""
+#         self.verify_stack_up()
+#         self.verify_intervlan_routing()
 
 
 # class FaucetSingleLAGTest(FaucetTopoTestBase):
