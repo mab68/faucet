@@ -1370,6 +1370,7 @@ dbs:
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet', retries=3):
+        # TODO: Need to change this...
         if dpid:
             if dpid is True:
                 dpid = int(self.dpid)

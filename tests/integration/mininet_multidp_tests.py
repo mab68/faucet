@@ -84,6 +84,8 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
+            if stack and dp == 0:
+                dp_options[dp]['stack'] = {'priority': 1}
             if lacp_trunk:
                 dp_options[dp]['lacp_timeout'] = 10
         dp_options.update(self.dp_options())

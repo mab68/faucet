@@ -152,6 +152,17 @@ class FaucetTopoTestBase(FaucetTestBase):
             start_port=self.start_port,
             host_options=mininet_host_options
         )
+        self.dpids = self.topo.get_dpids()
+        self.dpid = self.dpids[0]
+        self.port_maps = self.topo.create_port_maps()
+        self.port_map = self.port_maps[self.dpid]
+        # TODO: This should be integrated into mininet test base...
+        dpid_names = {}
+        for i in self.topo.switches_by_id:
+            dpid = self.topo.dpids_by_id[i]
+            name = self.topo.switches_by_id[i]
+            dpid_names[dpid] = name
+        self.set_dpid_names(dpid_names)
         self.CONFIG = self.topo.get_config(
             n_vlans,
             acl_options=self.acls(),
@@ -164,10 +175,6 @@ class FaucetTopoTestBase(FaucetTestBase):
             include=include,
             include_optional=include_optional
         )
-        self.dpids = self.topo.get_dpids()
-        self.dpid = self.dpids[0]
-        self.port_maps = self.topo.create_port_maps()
-        self.port_map = self.port_maps[self.dpid]
         self.n_vlans = n_vlans
         self.routers = routers
         self.configuration_options = {
@@ -186,8 +193,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         Override start_net to create the faucet vips, the host information and set up the
             host routes for routed hosts
         """
-        super(FaucetTopoTestBase, self).start_net()
-
+        super().start_net()
         # TODO: We do not need this information really.
         # Create a dictionary of host information
         self.host_information = {}
