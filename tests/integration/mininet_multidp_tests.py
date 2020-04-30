@@ -74,7 +74,7 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                         make_external = True
                         values[link] = True
                 host_options.setdefault(host, {})
-                host_options[host]['loop_protect_external': False]
+                host_options[host]['loop_protect_external'] = False
         host_options.update(self.host_options())
         # Create DP configuration options
         dp_options = {}
@@ -118,7 +118,6 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
             link_vlans=link_vlans,
             mininet_host_options=self.mininet_host_options(),
             n_vlans=n_vlans,
-            acl_options=self.acls(),
             dp_options=dp_options,
             host_options=host_options,
             link_options=link_options,
@@ -1364,7 +1363,6 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
             link_vlans=link_vlans,
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
-            host_options=host_options,
             vlan_options=vlan_options,
             routers=routers
         )

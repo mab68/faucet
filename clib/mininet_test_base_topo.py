@@ -47,6 +47,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                 self.CONFIG_GLOBAL,
                 self.debug_log_path, self.dpid, self.hardware),
             self.CONFIG))
+        # TODO: %faucet_1??
         config_vars = {}
         for config_var in (self.config_ports, self.port_map):
             config_vars.update(config_var)
@@ -153,7 +154,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         )
         self.CONFIG = self.topo.get_config(
             n_vlans,
-            acl_options=acl_options,
+            acl_options=self.acls(),
             dp_options=dp_options,
             host_options=host_options,
             link_options=link_options,
@@ -351,7 +352,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             links = 0
             links_up = 0
             for i, name in self.topo.switches_by_id.items():
-                for link in self.topo.get_switch_pair_links(i):
+                for link in self.topo.get_switch_peer_links(i):
                     dpid = self.dpids[i]
                     status = self.stack_port_status(dpid, name, link[0])
                     links += 1
