@@ -187,11 +187,11 @@ class FaucetTopoGenerator(Topo):
         host_opts = self.host_options.get(host_index, {})
         host_name, host_cls = None, None
         if isinstance(vlans, int):
-            vlans = None
+            host_vlans = None
             host_name = 'u%s%1.1u' % (sid_prefix, host_index + 1)
             host_cls = FaucetHost
         elif isinstance(vlans, list):
-            vlans = [self.vlan_vid(vlan) for vlan in vlans]
+            host_vlans = [self.vlan_vid(vlan) for vlan in vlans]
             host_name = 't%s%1.1u' % (sid_prefix, host_index + 1)
             host_cls = VLANHost
         elif 'cls' in host_opts:
@@ -204,10 +204,11 @@ class FaucetTopoGenerator(Topo):
         self.hosts_by_id[host_index] = host_name
         return self.addHost(
             name=host_name,
-            vlans=vlans,
+            vlans=host_vlans,
             cls=host_cls,
             cpu=self.CPUF,
             host_n=host_index,
+            config_vlans=vlans,
             **host_opts)
 
     def _add_faucet_switch(self, switch_index):
@@ -363,28 +364,31 @@ class FaucetTopoGenerator(Topo):
         """Return the DPs in dictionary format for the configuration file"""
         dps_config = {}
 
-        def get_interface_config(link_name, src_port, dst_port, vlans, options):
+        def get_interface_config(link_name, src_port, dst_node, dst_port, vlans, options):
             interface_config = {}
             type_ = 'switch-switch' if dst_port else 'switch-host'
             if isinstance(vlans, int):
                 # Untagged link
                 interface_config = {
-                    'name': 'untagged %s' % link_name,
+                    'name': 'b%u' % src_port,
+                    'description': 'untagged %s' % link_name,
                     'native_vlan': self.vlan_vid(vlans)
                 }
             elif isinstance(vlans, list):
                 # Tagged link
                 interface_config = {
-                    'name': 'tagged %s' % link_name,
+                    'name': 'b%u' % src_port,
+                    'description': 'tagged %s' % link_name,
                     'tagged_vlans': [self.vlan_vid(vlan) for vlan in vlans]
                 }
-            elif dst_port and vlans is None:
+            elif dst_node and dst_port and vlans is None:
                 # Stack link
                 interface_config = {
-                    'name': 'stack %s' % link_name,
+                    'name': 'b%u' % src_port,
+                    'description': 'stack %s' % link_name,
                     'stack': {
                         'dp': dst_node,
-                        'port': dst_port
+                        'port': 'b%u' % dst_port
                     }
                 }
             else:
@@ -421,7 +425,7 @@ class FaucetTopoGenerator(Topo):
                 if link_options and host_n in host_options:
                     options = host_options[host_n]
             dp_config['interfaces'][src_port] = get_interface_config(
-                link_name, src_port, dst_port, vlans, options)
+                link_name, src_port, dst_node, dst_port, vlans, options)
 
         for links in self.links(withKeys=True, withInfo=True):
             src_node, dst_node, link_key, link_info = links

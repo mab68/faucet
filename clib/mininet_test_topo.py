@@ -55,6 +55,15 @@ class FaucetLink(Link):
 class FaucetHost(CPULimitedHost):
     """Base Mininet Host class, for Mininet-based tests."""
 
+    # bond_name = None
+
+    # def config(self, lacp={}, **params):
+    #     """Configure a LACP host if configured"""
+    #     super_config = super().config(**params)
+    #     # lacp: {bond_name: '', netprefix: '', }
+    #     # TODO: Configure LACP bonds & IP addresses
+
+
 
 class VLANHost(FaucetHost):
     """Implementation of a Mininet host on a tagged VLAN."""
@@ -80,7 +89,6 @@ class VLANHost(FaucetHost):
         self.intf_root_name = intf.name
         intf.name = vlan_intf_name
         self.nameToIntf[vlan_intf_name] = intf
-        # TODO: Create bond...
         return super_config
 
 

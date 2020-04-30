@@ -265,7 +265,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
             self.wait_for_lacp_port_none(
                 local_lacp_port, self.dpid, self.DP_NAME)
             self.wait_for_lacp_port_none(
-                remote_lacp_port, self.dpids[1], 'faucet-2')
+                remote_lacp_port, self.dpids[1], self.topo.switches_by_id[1])
             self.wait_until_matching_flow(
                 self.match_bcast, self._FLOOD_TABLE, actions=[
                     self.action_str % other_local_lacp_port])
@@ -293,17 +293,17 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         conf = self._get_faucet_conf()
         (src_port, dst_port, fail_port, _) = self.lacp_ports()
 
-        self.wait_for_lacp_port_up(src_port, self.dpids[0], 'faucet-1')
-        self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_up(src_port, self.dpids[0], self.topo.switches_by_id[0])
+        self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])
 
-        interfaces_conf = conf['dps']['faucet-2']['interfaces']
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
         interfaces_conf[fail_port]['lacp'] = 0
         interfaces_conf[fail_port]['lacp_active'] = False
         self.reload_conf(conf, self.faucet_config_path, restart=True,
                          cold_start=False, change_expected=False)
 
-        self.wait_for_lacp_port_init(src_port, self.dpids[0], 'faucet-1')
-        self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
+        self.wait_for_lacp_port_init(src_port, self.dpids[0], self.topo.switches_by_id[0])
+        self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])
 
     def test_passthrough(self):
         """Test lacp passthrough on port fail."""
@@ -311,12 +311,12 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         conf = self._get_faucet_conf()
         (src_port, dst_port, fail_port, end_port) = self.lacp_ports()
 
-        interfaces_conf = conf['dps']['faucet-1']['interfaces']
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
         interfaces_conf[dst_port]['lacp_passthrough'] = [src_port]
         interfaces_conf[dst_port]['loop_protect_external'] = True
         interfaces_conf[dst_port]['lacp'] = 2
         interfaces_conf[src_port]['loop_protect_external'] = True
-        interfaces_conf = conf['dps']['faucet-2']['interfaces']
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
         interfaces_conf[fail_port]['loop_protect_external'] = True
         interfaces_conf[end_port]['loop_protect_external'] = True
         interfaces_conf[end_port]['lacp'] = 2
@@ -332,9 +332,9 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         self.reload_conf(conf, self.faucet_config_path, restart=True,
                          cold_start=False, change_expected=False)
 
-        self.wait_for_lacp_port_init(src_port, self.dpids[0], 'faucet-1')
-        self.wait_for_lacp_port_up(dst_port, self.dpids[0], 'faucet-1')
-        self.wait_for_lacp_port_init(end_port, self.dpids[1], 'faucet-2')
+        self.wait_for_lacp_port_init(src_port, self.dpids[0], self.topo.switches_by_id[0])
+        self.wait_for_lacp_port_up(dst_port, self.dpids[0], self.topo.switches_by_id[0])
+        self.wait_for_lacp_port_init(end_port, self.dpids[1], self.topo.switches_by_id[1])
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetMultiDPTest):
@@ -920,8 +920,8 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
                             'tunnel': {
                                 'type': 'vlan',
                                 'tunnel_id': 200,
-                                'dp': 'faucet-1',
-                                'port': 'b%(port_2)d'}
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.port_map['port_2']}
                         }
                     }
                 }}
@@ -970,7 +970,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
                             'tunnel': {
                                 'type': 'vlan',
                                 'tunnel_id': 200,
-                                'dp': 'faucet-2',
+                                'dp': self.topo.switches_by_id[1],
                                 'port': port2_1}
                         }
                     }
@@ -1052,7 +1052,7 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
                             'tunnel': {
                                 'type': 'vlan',
                                 'tunnel_id': 300,
-                                'dp': 'faucet-2',
+                                'dp': self.topo.switches_by_id[1],
                                 'port': port2_1}
                         }
                     }
@@ -1129,8 +1129,8 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
                             {'tunnel': {
                                 'type': 'vlan',
                                 'tunnel_id': 200,
-                                'dp': 'faucet-1',
-                                'port': 'b%(port_2)d'}}
+                                'dp': self.topo.switches_by_id[1],
+                                'port': self.port_map['port_2']}}
                         ]
                     }
                 }}
@@ -1175,7 +1175,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
                             {'tunnel': {
                                 'type': 'vlan',
                                 'tunnel_id': 200,
-                                'dp': 'faucet-2',
+                                'dp': self.topo.switches_by_id[1],
                                 'port': port2_1}}
                         ]
                     }
@@ -1253,7 +1253,7 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
                             {'tunnel': {
                                 'type': 'vlan',
                                 'tunnel_id': 300,
-                                'dp': 'faucet-2',
+                                'dp': self.topo.switches_by_id[1],
                                 'port': port2_1}}
                         ]
                     }

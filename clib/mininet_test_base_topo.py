@@ -40,6 +40,19 @@ class FaucetTopoTestBase(FaucetTestBase):
     host_information = None
     faucet_vips = None
 
+    def _init_faucet_config(self):
+        # TODO: Shouldn't need to join the config headers...
+        faucet_config = '\n'.join((
+            self.get_config_header(
+                self.CONFIG_GLOBAL,
+                self.debug_log_path, self.dpid, self.hardware),
+            self.CONFIG))
+        config_vars = {}
+        for config_var in (self.config_ports, self.port_map):
+            config_vars.update(config_var)
+        faucet_config = faucet_config % config_vars
+        self._write_yaml_conf(self.faucet_config_path, yaml.safe_load(faucet_config))
+
     def mininet_host_options(self):
         """Additional mininet host options"""
         return {}
@@ -155,6 +168,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.port_maps = self.topo.create_port_maps()
         self.port_map = self.port_maps[self.dpid]
         self.n_vlans = n_vlans
+        self.routers = routers
         self.configuration_options = {
             'vlan': vlan_options,
             'acl': acl_options,
@@ -194,8 +208,10 @@ class FaucetTopoTestBase(FaucetTestBase):
         for vlan in range(self.n_vlans):
             self.faucet_vips[vlan] = ipaddress.ip_interface(self.faucet_vip(vlan))
         # Setup the linux bonds for LACP connected hosts
+        # TODO: Create 
         self.setup_lacp_bonds()
         # Add host routes to hosts for inter vlan routing
+        # TODO: Create intervlan routes with 
         self.setup_intervlan_host_routes()
 
     def setup_lacp_bonds(self):
@@ -212,9 +228,6 @@ class FaucetTopoTestBase(FaucetTestBase):
                 for link in self.topo.get_host_peer_links:
                     i, port = link
                     self.set_port_down(port, self.topo.dpids_by_id[i])
-                # for dpid, ports in self.host_information[host_id]['ports'].items():
-                #     for port in ports:
-                #         self.set_port_down(port, dpid)
                 orig_ip = host.IP()
                 lacp_switches = [self.net.switches[i] for i in self.host_links[host_id]]
                 bond_members = [
@@ -242,9 +255,6 @@ class FaucetTopoTestBase(FaucetTestBase):
                 for link in self.topo.get_host_peer_links:
                     i, port = link
                     self.set_port_up(port, self.topo.dpids_by_id[i])
-                # for dpid, ports in self.host_information[host_id]['ports'].items():
-                #     for port in ports:
-                #         self.set_port_up(port, dpid)
 
     def setup_intervlan_host_routes(self):
         """Configure host routes between hosts that belong on routed VLANs"""
@@ -269,6 +279,8 @@ class FaucetTopoTestBase(FaucetTestBase):
         try:
             super(FaucetTopoTestBase, self).debug()
         except Exception:
+            # TODO: Can print more information
+            # TODO: Fetch host_information
             pprint.pprint(self.host_information)
             raise
 
