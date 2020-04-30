@@ -286,10 +286,9 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def verify_no_cable_errors(self):
         """Check that prometheus does not detect any stack cabling errors on all DPs"""
-        i = 0
-        for dpid in self.dpids:
-            i += 1
-            labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': 'faucet-%u' % i}
+        for i, name in self.topo.switches_by_id.items():
+            dpid = self.dpids[i]
+            labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': name}
             self.assertEqual(
                 0, self.scrape_prometheus_var(
                     var='stack_cabling_errors_total', labels=labels, default=None))
@@ -457,7 +456,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         """
         int_hosts = []
         ext_hosts = []
-        dp_hosts = {self.dp_name(dp_index): ([], []) for dp_index in range(self.NUM_DPS)}
+        dp_hosts = {self.topo.switches_by_id[dp_index]: ([], []) for dp_index in range(self.NUM_DPS)}
         for host_id, options in self.configuration_options['host'].items():
             host = self.host_information[host_id]['host']
             if options.get('loop_protect_external', False):
@@ -466,8 +465,8 @@ class FaucetTopoTestBase(FaucetTestBase):
             else:
                 int_hosts.append(host)
                 int_or_ext = 0
-            for link in self.host_links[host_id]:
-                dp_hosts[self.dp_name(link)][int_or_ext].append(host)
+            for link in self.host_information[host_id]['ports']:
+                dp_hosts[self.topo.switches_by_id[link[0]]][int_or_ext].append(host)
         return set(int_hosts), set(ext_hosts), dp_hosts
 
     def verify_protected_connectivity(self):

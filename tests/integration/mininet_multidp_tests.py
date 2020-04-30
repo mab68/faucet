@@ -377,7 +377,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
         # Part 2: Test the code on pipeline reconfiguration path.
         conf = self._get_faucet_conf()
         loop_interface = None
-        for interface, interface_conf in conf['dps'][self.dp_name(1)]['interfaces'].items():
+        for interface, interface_conf in conf['dps'][self.topo.switches_by_id[1]]['interfaces'].items():
             if 'stack' in interface_conf:
                 continue
             if not interface_conf.get('loop_protect_external', False):
@@ -393,15 +393,15 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
     def _mark_external(self, loop_interface, protect_external):
         """Change the loop interfaces loop_protect_external option"""
         conf = self._get_faucet_conf()
-        conf['dps'][self.dp_name(1)]['interfaces'][loop_interface]['loop_protect_external'] = protect_external
+        conf['dps'][self.topo.switches_by_id[1]]['interfaces'][loop_interface]['loop_protect_external'] = protect_external
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=False, change_expected=True)
 
     def test_missing_ext(self):
         """Test stacked dp with all external ports down on a switch"""
-        self.validate_with_externals_down_fails(self.dp_name(0))
-        self.validate_with_externals_down_fails(self.dp_name(1))
+        self.validate_with_externals_down_fails(self.topo.switches_by_id[0])
+        self.validate_with_externals_down_fails(self.topo.switches_by_id[1])
 
 
 class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTest):
@@ -1696,7 +1696,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         # Cold start switch, cold-start twice to get back to initial condition
         cold_start_dpid = self.dpids[cold_start_dp_index]
         conf = self._get_faucet_conf()
-        interfaces_conf = conf['dps'][self.dp_name(cold_start_dp_index)]['interfaces']
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[cold_start_dp_index]]['interfaces']
         for port, port_conf in interfaces_conf.items():
             if 'lacp' not in port_conf and 'stack' not in port_conf:
                 # Change host VLAN to enable cold-starting on faucet-2
