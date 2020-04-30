@@ -657,7 +657,7 @@ class FaucetTestBase(unittest.TestCase):
                         self.quiet_commands(host, ['ip netns add %s' % hostns])
                 return
             self._stop_net()
-            last_error_txt += '\n\n' + self._dump_controller_logs()
+            #last_error_txt += '\n\n' + self._dump_controller_logs()
             error('%s: %s' % (self._test_name(), last_error_txt))
             time.sleep(mininet_test_util.MIN_PORT_AGE)
         self.fail(last_error_txt)
