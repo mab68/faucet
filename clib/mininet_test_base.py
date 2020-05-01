@@ -2153,7 +2153,7 @@ dbs:
 
     def port_labels(self, port_no):
         port_name = 'b%u' % port_no
-        return {'port': port_name, 'port_description': port_name}
+        return {'port': port_name, 'port_description': r'.+'}
 
     def set_dpid_names(self, dpid_names):
         self.dpid_names = copy.deepcopy(dpid_names)

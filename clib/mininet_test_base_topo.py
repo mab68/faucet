@@ -373,7 +373,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def verify_one_stack_down(self, stack_offset_port, coldstart=False):
         """Test conditions when one stack port is down"""
         self.retry_net_ping()
-        stack_port, remote_stack_port = self.get_switch_peer_links(0)[stack_offset_port]
+        stack_port, remote_stack_port = self.topo.get_switch_peer_links(0)[stack_offset_port]
         self.set_port_down(stack_port, wait=False)
         # self.dpids[1] is the intermediate switch.
         self.set_port_down(remote_stack_port, self.dpids[1], wait=False)

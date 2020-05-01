@@ -1089,7 +1089,6 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
             switch_links=switch_links,
             link_vlans=link_vlans,
             n_vlans=self.NUM_VLANS,
-            acl_options=self.acls(),
             dp_options=dp_options,
             host_options=host_options,
         )
@@ -1290,7 +1289,6 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
             switch_links=switch_links,
             link_vlans=link_vlans,
             n_vlans=self.NUM_VLANS,
-            acl_options=self.acls(),
             dp_options=dp_options,
             host_options=host_options,
         )
