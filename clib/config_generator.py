@@ -67,6 +67,25 @@ class FaucetTopoGenerator(Topo):
         """Returns list of DPIDs in switch index order"""
         return [self.dpids_by_id[key] for key in sorted(self.dpids_by_id)]
 
+    def create_full_port_map(self):
+        """ """
+        port_maps = {}
+        for i, name in self.switches_by_id.items():
+            ports = self.ports[switch_name].keys()
+            port_maps.update({'%s:%s' % (i, n): port for n, port in enumerate(ports)})
+        return port_maps
+
+    def create_host_port_map(self):
+        """ """
+        host_port_map = {}
+        for host, name in self.hosts_by_id.items():
+            host_port_map.setdefault(host, {})
+            for port, link in self.ports[name].items():
+                switch_id = self.nodeInfo(link[0])['switch_n']
+                host_port_map[host].setdefault(switch_id, [])
+                host_port_map[host][switch_id].append(link[1])
+        return host_port_map
+
     def create_port_maps(self):
         """Return a port map for each switch/dpid keyed by dpid"""
         port_maps = {}
@@ -93,7 +112,7 @@ class FaucetTopoGenerator(Topo):
         peer_links = []
         for port, link in self.ports[host_name].items():
             peer_name = link[0]
-            switch_id = self.g.node[peer_name]['switch_n']
+            switch_id = self.nodeInfo(peer_name)['switch_n']
             peer_links.append((switch_id, link[1]))
         return peer_links
 
@@ -415,15 +434,16 @@ class FaucetTopoGenerator(Topo):
                 link_name = 'link #%s to %s:%s' % (link_key, dst_node, dst_port)
                 options = {}
                 dst_id = dst_info['switch_n']
-                if link_options:
-                    for pair in [(src_id, dst_id), (dst_id, src_id)]:
-                        options.update(link_options.get(pair, {}))
+                if link_options and (src_id, dst_id) in link_options:
+                    options.update(link_options[(src_id, dst_id)])
+                    #for pair in [(src_id, dst_id), (dst_id, src_id)]:
+                    #    options.update(link_options.get(pair, {}))
             else:
                 # Generate host-switch config link
                 src_port, dst_port = link_info['port1'], None
                 link_name = 'link #%s to %s' % (link_key, dst_node)
                 host_n = dst_info['host_n']
-                if link_options and host_n in host_options:
+                if host_options and host_n in host_options:
                     options = host_options[host_n]
             dp_config['interfaces'][src_port] = get_interface_config(
                 link_name, src_port, dst_node, dst_port, vlans, options)

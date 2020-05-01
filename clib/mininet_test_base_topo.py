@@ -156,7 +156,9 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.dpid = self.dpids[0]
         self.port_maps = self.topo.create_port_maps()
         self.port_map = self.port_maps[self.dpid]
-        # TODO: This should be integrated into mininet test base...
+        self.host_port_maps = self.topo.create_host_port_map()
+        # TODO: It might be better to have the host_port_maps
+        #   [host_n][switch_n] = [port, ...]
         dpid_names = {}
         for i in self.topo.switches_by_id:
             dpid = self.topo.dpids_by_id[i]

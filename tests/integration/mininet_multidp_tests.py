@@ -102,7 +102,7 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                         }
         vlan_options.update(self.vlan_options())
         if self.link_acls():
-            for link, acls in self.link_acls():
+            for link, acls in self.link_acls().items():
                 if isinstance(link, tuple):
                     # link ACL
                     link_options.setdefault(link, {})
@@ -526,6 +526,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
 
     def acls(self):
         map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
+        # 3 hosts on each DP (3 DPS)
         return {
             1: [
                 {'rule': {
@@ -533,7 +534,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'nw_dst': '10.1.0.2',
                     'actions': {
                         'output': {
-                            'port': map1['port_2']
+                            'port': self.host_port_maps[1][0][0] #map1['port_2'] # Host 1
                         }
                     },
                 }},
@@ -543,8 +544,8 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'actions': {
                         'output': {
                             'ports': [
-                                map1['port_2'],
-                                map1['port_4']]
+                                self.host_port_maps[1][0][0],#map1['port_2'], # host 1
+                                self.host_port_maps[][0][0]]#map1['port_4']]  # link (0, 1)
                         }
                     },
                 }},
@@ -552,7 +553,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': {
-                            'port': map1['port_4']
+                            'port': self.host_port_maps[][0][0]#map1['port_4'] # link (0, 1) faucet-1 -> faucet-2
                         }
                     },
                 }},
@@ -567,7 +568,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': {
-                            'port': map2['port_5']
+                            'port': self.host_port_maps[][1][0]#map2['port_5'] # link (1, 2) faucet-2 -> faucet-3
                         }
                     },
                 }},
@@ -583,7 +584,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'nw_dst': '10.1.0.7',
                     'actions': {
                         'output': {
-                            'port': map3['port_1']
+                            'port': self.host_port_maps[6][2][0]#map3['port_1'] # host 6
                         }
                     },
                 }},
@@ -592,7 +593,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'dl_dst': 'ff:ff:ff:ff:ff:ff',
                     'actions': {
                         'output': {
-                            'ports': [map3['port_1']]
+                            'ports': [self.host_port_maps[6][2][0]]#map3['port_1']
                         }
                     },
                 }},
@@ -614,8 +615,10 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
     def link_acls(self):
         return {
             0: [1], # Host 0 dp 0 'acls_in': [1]
-            3: [2], # Host 3 dp 1 'acls_in': [1]
-            6: [3]  # Host 6 dp 2 'acls_in': [1]
+            (1, 0): [2],
+            (): [3]
+            #3: [2], # Host 3 dp 1 'acls_in': [2]
+            #6: [3]  # Host 6 dp 2 'acls_in': [3]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
@@ -627,22 +630,30 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
 
     def test_unicast(self):
         """Hosts in stack topology can appropriately reach each other over unicast."""
-        hosts = self.hosts_name_ordered()
+        host0 = self.net.get(self.topo.hosts_by_id[0])
+        host1 = self.net.get(self.topo.hosts_by_id[1])
+        host3 = self.net.get(self.topo.hosts_by_id[3])
+        host6 = self.net.get(self.topo.hosts_by_id[6])
+        host7 = self.net.get(self.topo.hosts_by_id[7])
         self.verify_stack_up()
-        self.verify_tp_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
-        self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
-        self.verify_tp_dst_notblocked(5000, hosts[0], hosts[6], table_id=None)
-        self.verify_tp_dst_blocked(5000, hosts[0], hosts[7], table_id=None)
+        self.verify_tp_dst_notblocked(5000, host0, host1, table_id=None)
+        self.verify_tp_dst_blocked(5000, host0, host3, table_id=None)
+        self.verify_tp_dst_notblocked(5000, host0, host6, table_id=None)
+        self.verify_tp_dst_blocked(5000, host0, host7, table_id=None)
         self.verify_no_cable_errors()
 
     def test_broadcast(self):
         """Hosts in stack topology can appropriately reach each other over broadcast."""
-        hosts = self.hosts_name_ordered()
+        host0 = self.net.get(self.topo.hosts_by_id[0])
+        host1 = self.net.get(self.topo.hosts_by_id[1])
+        host3 = self.net.get(self.topo.hosts_by_id[3])
+        host6 = self.net.get(self.topo.hosts_by_id[6])
+        host7 = self.net.get(self.topo.hosts_by_id[7])
         self.verify_stack_up()
-        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1])
-        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3])
-        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[6])
-        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[7])
+        self.verify_bcast_dst_notblocked(5000, host0, host1)
+        self.verify_bcast_dst_blocked(5000, host0, host3)
+        self.verify_bcast_dst_notblocked(5000, host0, host6)
+        self.verify_bcast_dst_blocked(5000, host0, host7)
         self.verify_no_cable_errors()
 
 
@@ -754,22 +765,30 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
 
     def test_unicast(self):
         """Hosts in stack topology can appropriately reach each other over unicast."""
-        hosts = self.hosts_name_ordered()
+        host0 = self.net.get(self.topo.hosts_by_id[0])
+        host1 = self.net.get(self.topo.hosts_by_id[1])
+        host3 = self.net.get(self.topo.hosts_by_id[3])
+        host6 = self.net.get(self.topo.hosts_by_id[6])
+        host7 = self.net.get(self.topo.hosts_by_id[7])
         self.verify_stack_up()
-        self.verify_tp_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
-        self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
-        self.verify_tp_dst_notblocked(5000, hosts[0], hosts[6], table_id=None)
-        self.verify_tp_dst_blocked(5000, hosts[0], hosts[7], table_id=None)
+        self.verify_tp_dst_notblocked(5000, host0, host1, table_id=None)
+        self.verify_tp_dst_blocked(5000, host0, host3, table_id=None)
+        self.verify_tp_dst_notblocked(5000, host0, host6, table_id=None)
+        self.verify_tp_dst_blocked(5000, host0, host7, table_id=None)
         self.verify_no_cable_errors()
 
     def test_broadcast(self):
         """Hosts in stack topology can appropriately reach each other over broadcast."""
-        hosts = self.hosts_name_ordered()
+        host0 = self.net.get(self.topo.hosts_by_id[0])
+        host1 = self.net.get(self.topo.hosts_by_id[1])
+        host3 = self.net.get(self.topo.hosts_by_id[3])
+        host6 = self.net.get(self.topo.hosts_by_id[6])
+        host7 = self.net.get(self.topo.hosts_by_id[7])
         self.verify_stack_up()
-        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1])
-        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3])
-        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[6])
-        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[7])
+        self.verify_bcast_dst_notblocked(5000, host0, host1)
+        self.verify_bcast_dst_blocked(5000, host0, host3)
+        self.verify_bcast_dst_notblocked(5000, host0, host6)
+        self.verify_bcast_dst_blocked(5000, host0, host7)
         self.verify_no_cable_errors()
 
 
@@ -885,6 +904,7 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
 
     def acls(self):
         """Return ACL config"""
+        # Tunnel from host 0 (switch 0) to host 1 (switch 0)
         return {
             1: [
                 {'rule': {
@@ -897,7 +917,7 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
                                 'type': 'vlan',
                                 'tunnel_id': 200,
                                 'dp': self.topo.switches_by_id[0],
-                                'port': self.port_map['port_2']}
+                                'port': self.host_port_maps[1][0][0]}
                         }
                     }
                 }}
@@ -915,7 +935,12 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
         self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
                     switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
         self.verify_stack_up()
-        src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
+        # TODO: Shouldn't have hosts by name order (should have by index order...)
+        # TODO: Need host 0, another host and host 1
+        #src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
+        src_host = self.net.get(self.topo.hosts_by_id[0])
+        dst_host = self.net.get(self.topo.hosts_by_id[1])
+        other_host = self.net.get(self.topo.hosts_by_id[2])
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
 
@@ -929,8 +954,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
 
     def acls(self):
         """Return config ACL options"""
-        dpid2 = self.dpids[1]
-        port2_1 = self.port_maps[dpid2]['port_1']
+        # Tunnel from host 0 (switch 0) to host 2 (switch 1)
         return {
             1: [
                 {'rule': {
@@ -943,7 +967,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
                                 'type': 'vlan',
                                 'tunnel_id': 200,
                                 'dp': self.topo.switches_by_id[1],
-                                'port': port2_1}
+                                'port': self.host_port_maps[2][1][0]}
                         }
                     }
                 }}
@@ -967,13 +991,17 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.verify_stack_up()
-        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        src_host = self.net.get(self.topo.hosts_by_id[0])
+        dst_host = self.net.get(self.topo.hosts_by_id[2])
+        other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
     def test_tunnel_path_rerouted(self):
         """Test a tunnel path is rerouted when a link is down."""
         self.verify_stack_up()
-        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        src_host = self.net.get(self.topo.hosts_by_id[0])
+        dst_host = self.net.get(self.topo.hosts_by_id[2])
+        other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         first_stack_port = self.get_switch_peer_links(0)[0][0]
         self.one_stack_port_down(self.dpid, self.DP_NAME, first_stack_port)
@@ -1006,9 +1034,8 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
     SOFTWARE_ONLY = True
 
     def acls(self):
+        # Tunnel from host 0 (switch 0) to host 2 (switch 1)
         """Return config ACL options"""
-        dpid2 = self.dpids[1]
-        port2_1 = self.port_maps[dpid2]['port_1']
         return {
             1: [
                 {'rule': {
@@ -1021,7 +1048,7 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
                                 'type': 'vlan',
                                 'tunnel_id': 300,
                                 'dp': self.topo.switches_by_id[1],
-                                'port': port2_1}
+                                'port': self.host_port_maps[2][1][0]}
                         }
                     }
                 }},
@@ -1067,7 +1094,9 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
         #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
         self.verify_stack_up()
         # Ensure connection to the host on the other end of the tunnel can exist
-        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        src_host = self.net.get(self.topo.hosts_by_id[0]) # h_{0,100}
+        other_host = self.net.get(self.topo.hosts_by_id[1]) # h_{1,100}
+        dst_host = self.net.get(self.topo.hosts_by_id[2]) # h_{2,200}
         self.verify_tunnel_established(src_host, dst_host, other_host)
         # Ensure a connection to a host not in the tunnel can exist
         #   this implies that the packet is also sent through the pipeline
@@ -1085,6 +1114,7 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
 
     def acls(self):
         """Return ACL config"""
+        # Tunnel from host 0 (switch 0) to host 1 (switch 0)
         return {
             1: [
                 {'rule': {
@@ -1096,8 +1126,8 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
                             {'tunnel': {
                                 'type': 'vlan',
                                 'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[1],
-                                'port': self.port_map['port_2']}}
+                                'dp': self.topo.switches_by_id[0],
+                                'port': self.host_port_maps[1][0][0]}}
                         ]
                     }
                 }}
@@ -1105,7 +1135,7 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
         }
 
     def link_acls(self):
-        """DP link to list of acls to apply"""
+        """DP to acl port mapping"""
         return {
             0: [1] # Host 0 'acls_in': [1]
         }
@@ -1115,7 +1145,9 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
         self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
                     switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
         self.verify_stack_up()
-        src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
+        src_host = self.net.get(self.topo.hosts_by_id[0])
+        dst_host = self.net.get(self.topo.hosts_by_id[1])
+        other_host = self.net.get(self.topo.hosts_by_id[2])
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
 
@@ -1129,8 +1161,6 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
 
     def acls(self):
         """Return config ACL options"""
-        dpid2 = self.dpids[1]
-        port2_1 = self.port_maps[dpid2]['port_1']
         return {
             1: [
                 {'rule': {
@@ -1143,7 +1173,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
                                 'type': 'vlan',
                                 'tunnel_id': 200,
                                 'dp': self.topo.switches_by_id[1],
-                                'port': port2_1}}
+                                'port': self.host_port_maps[2][1][0]}}
                         ]
                     }
                 }}
@@ -1167,17 +1197,20 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
     def test_tunnel_established(self):
         """Test a tunnel path can be created."""
         self.verify_stack_up()
-        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        src_host = self.net.get(self.topo.hosts_by_id[0])
+        dst_host = self.net.get(self.topo.hosts_by_id[2])
+        other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host)
 
     def test_tunnel_path_rerouted(self):
         """Test a tunnel path is rerouted when a link is down."""
         self.verify_stack_up()
-        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        src_host = self.net.get(self.topo.hosts_by_id[0])
+        dst_host = self.net.get(self.topo.hosts_by_id[2])
+        other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         first_stack_port = self.get_switch_peer_links(0)[0][0]
         self.one_stack_port_down(self.dpid, self.DP_NAME, first_stack_port)
-        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
 
@@ -1207,8 +1240,6 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
 
     def acls(self):
         """Return config ACL options"""
-        dpid2 = self.dpids[1]
-        port2_1 = self.port_maps[dpid2]['port_1']
         return {
             1: [
                 {'rule': {
@@ -1221,7 +1252,7 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
                                 'type': 'vlan',
                                 'tunnel_id': 300,
                                 'dp': self.topo.switches_by_id[1],
-                                'port': port2_1}}
+                                'port': self.host_port_maps[2][1][0]}}
                         ]
                     }
                 }},
@@ -1267,7 +1298,9 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
         #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
         self.verify_stack_up()
         # Ensure connection to the host on the other end of the tunnel can exist
-        src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
+        src_host = self.net.get(self.topo.hosts_by_id[0]) # h_{0,100}
+        other_host = self.net.get(self.topo.hosts_by_id[1]) # h_{1,100}
+        dst_host = self.net.get(self.topo.hosts_by_id[2]) # h_{2,200}
         self.verify_tunnel_established(src_host, dst_host, other_host)
         # Ensure a connection to a host not in the tunnel can exist
         #   this implies that the packet is also sent through the pipeline
