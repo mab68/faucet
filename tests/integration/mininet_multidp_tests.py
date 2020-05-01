@@ -611,21 +611,11 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
         }
 
     # DP-to-acl_in port mapping.
-    def acl_in_dp(self):
-        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
+    def link_acls(self):
         return {
-            0: {
-                # Port 1, acl_in = 1
-                map1['port_1']: 1,
-            },
-            1: {
-                # Port 4, acl_in = 2
-                map2['port_4']: 2,
-            },
-            2: {
-                # Port 4, acl_in = 3
-                map3['port_4']: 3,
-            },
+            0: [1], # Host 0 dp 0 'acls_in': [1]
+            3: [2], # Host 3 dp 1 'acls_in': [1]
+            6: [3]  # Host 6 dp 2 'acls_in': [1]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
@@ -748,22 +738,11 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
             ],
         }
 
-    # DP-to-acl_in port mapping.
-    def acl_in_dp(self):
-        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
+    def link_acls(self):
         return {
-            0: {
-                # Port 1, acl_in = 1
-                map1['port_1']: 1,
-            },
-            1: {
-                # Port 4, acl_in = 2
-                map2['port_4']: 2,
-            },
-            2: {
-                # Port 4, acl_in = 3
-                map3['port_4']: 3,
-            },
+            0: [1], # Host 0 dp 0 'acls_in': [1]
+            3: [2], # Host 3 dp 1 'acls_in': [1]
+            6: [3]  # Host 6 dp 2 'acls_in': [1]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
@@ -860,13 +839,9 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
         }
 
     # DP-to-acl_in port mapping.
-    def acl_in_dp(self):
-        port_1 = self.port_map['port_1']
+    def link_acls(self):
         return {
-            0: {
-                # First port, acl_in = 1
-                port_1: 1,
-            },
+            0: [1] # Host 0 'acls_in': [1]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
@@ -929,14 +904,10 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
             ]
         }
 
-    def acl_in_dp(self):
+    def link_acls(self):
         """DP to acl port mapping"""
-        port_1 = self.port_map['port_1']
         return {
-            0: {
-                # First port 1, acl_in = 1
-                port_1: 1,
-            }
+            0: [1] # Host 0 'acls_in': [1]
         }
 
     def test_tunnel_established(self):
@@ -979,14 +950,10 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
             ]
         }
 
-    def acl_in_dp(self):
+    def link_acls(self):
         """DP-to-acl port mapping"""
-        port_1 = self.port_map['port_1']
         return {
-            0: {
-                # First port 1, acl_in = 1
-                port_1: 1,
-            }
+            0: [1] # Host 0 'acls_in': [1]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
