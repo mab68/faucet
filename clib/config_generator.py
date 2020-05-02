@@ -70,7 +70,7 @@ class FaucetTopoGenerator(Topo):
     def create_link_port_map(self):
         """Switch pair link map to list of ports for that pair"""
         port_maps = {}
-        for i, name in self.switches_by_id.keys():
+        for i, name in self.switches_by_id.items():
             for port, link in self.ports[name].items():
                 if self.isSwitch(link[0]):
                     peer_id = self.nodeInfo(link[0])['switch_n']
