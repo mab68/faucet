@@ -67,16 +67,19 @@ class FaucetTopoGenerator(Topo):
         """Returns list of DPIDs in switch index order"""
         return [self.dpids_by_id[key] for key in sorted(self.dpids_by_id)]
 
-    def create_full_port_map(self):
-        """ """
+    def create_link_port_map(self):
+        """Switch pair link map to list of ports for that pair"""
         port_maps = {}
-        for i, name in self.switches_by_id.items():
-            ports = self.ports[switch_name].keys()
-            port_maps.update({'%s:%s' % (i, n): port for n, port in enumerate(ports)})
+        for i, name in self.switches_by_id.keys():
+            for port, link in self.ports[name].items():
+                if self.isSwitch(link[0]):
+                    peer_id = self.nodeInfo(link[0])['switch_n']
+                    port_maps.setdefault((i,peer_id), [])
+                    port_maps[(i,peer_id)].append(port)
         return port_maps
 
     def create_host_port_map(self):
-        """ """
+        """Host map to linked switches to list of ports from switch to host"""
         host_port_map = {}
         for host, name in self.hosts_by_id.items():
             host_port_map.setdefault(host, {})
@@ -97,6 +100,7 @@ class FaucetTopoGenerator(Topo):
 
     def get_switch_peer_links(self, switch_index):
         """Returns a list of (port, peer_port) pairs for switch-switch links from switch_index"""
+        # TODO: Redundant
         switch_name = self.switches_by_id[switch_index]
         ports = self.ports[switch_name]
         peer_links = []
@@ -107,6 +111,7 @@ class FaucetTopoGenerator(Topo):
 
     def get_host_peer_links(self, host_index):
         """Returns a list of (peer_index, peer_port) pairs for host-switch links from host_index"""
+        # TODO: Redundant
         host_name = self.hosts_by_id[host_index]
         ports = self.ports[host_name]
         peer_links = []

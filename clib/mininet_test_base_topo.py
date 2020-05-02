@@ -159,6 +159,8 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.host_port_maps = self.topo.create_host_port_map()
         # TODO: It might be better to have the host_port_maps
         #   [host_n][switch_n] = [port, ...]
+        self.link_port_maps = self.topo.create_link_port_map()
+        # [(u, v)] = [port, port, ...]
         dpid_names = {}
         for i in self.topo.switches_by_id:
             dpid = self.topo.dpids_by_id[i]

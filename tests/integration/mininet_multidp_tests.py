@@ -545,7 +545,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                         'output': {
                             'ports': [
                                 self.host_port_maps[1][0][0],#map1['port_2'], # host 1
-                                self.host_port_maps[][0][0]]#map1['port_4']]  # link (0, 1)
+                                self.link_port_maps[(0,1)][0]]#map1['port_4']]  # link (0, 1)
                         }
                     },
                 }},
@@ -553,7 +553,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': {
-                            'port': self.host_port_maps[][0][0]#map1['port_4'] # link (0, 1) faucet-1 -> faucet-2
+                            'port': self.link_port_maps[(0,1)][0]#map1['port_4'] # link (0, 1) faucet-1 -> faucet-2
                         }
                     },
                 }},
@@ -568,7 +568,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': {
-                            'port': self.host_port_maps[][1][0]#map2['port_5'] # link (1, 2) faucet-2 -> faucet-3
+                            'port': self.link_port_maps[(1,2)][0]#map2['port_5'] # link (1, 2) faucet-2 -> faucet-3
                         }
                     },
                 }},
@@ -616,9 +616,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
         return {
             0: [1], # Host 0 dp 0 'acls_in': [1]
             (1, 0): [2],
-            (): [3]
-            #3: [2], # Host 3 dp 1 'acls_in': [2]
-            #6: [3]  # Host 6 dp 2 'acls_in': [3]
+            (2, 1): [3]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
@@ -664,7 +662,6 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
     NUM_HOSTS = 3
 
     def acls(self):
-        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
         return {
             1: [
                 {'rule': {
@@ -672,7 +669,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'nw_dst': '10.1.0.2',
                     'actions': {
                         'output': [
-                            {'port': map1['port_2']}
+                            {'port': self.host_port_maps[1][0][0]}
                         ]
                     },
                 }},
@@ -682,8 +679,8 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'actions': {
                         'output': [
                             {'ports': [
-                                map1['port_2'],
-                                map1['port_4']]}
+                                self.host_port_maps[1][0][0],
+                                self.link_port_maps[(0,1)][0]]}
                         ]
                     },
                 }},
@@ -691,7 +688,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': [
-                            {'port': map1['port_4']}
+                            {'port': self.link_port_maps[(0,1)][0]}
                         ]
                     },
                 }},
@@ -706,7 +703,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': [
-                            {'port': map2['port_5']}
+                            {'port': self.link_port_maps[(1,2)][0]}
                         ]
                     },
                 }},
@@ -722,7 +719,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'nw_dst': '10.1.0.7',
                     'actions': {
                         'output': {
-                            'port': map3['port_1']
+                            'port': self.host_port_maps[6][2][0]
                         }
                     },
                 }},
@@ -731,7 +728,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'dl_dst': 'ff:ff:ff:ff:ff:ff',
                     'actions': {
                         'output': [
-                            {'ports': [map3['port_1']]}
+                            {'ports': [self.host_port_maps[6][2][0]]}
                         ]
                     },
                 }},
@@ -752,8 +749,8 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
     def link_acls(self):
         return {
             0: [1], # Host 0 dp 0 'acls_in': [1]
-            3: [2], # Host 3 dp 1 'acls_in': [1]
-            6: [3]  # Host 6 dp 2 'acls_in': [1]
+            (1, 0): [2],
+            (2, 1): [3]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
