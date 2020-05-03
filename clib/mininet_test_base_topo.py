@@ -403,7 +403,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             if self.topo.isSwitch(src_node):
                 if self.topo.isSwitch(dst_node):
                     switch_to_switch_links += 1
-        num_arp_expected = self.topo.switch_to_switch_links * 2
+        num_arp_expected = switch_to_switch_links * 2
         tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
         tcpdump_txt = self.tcpdump_helper(
             tcpdump_host, tcpdump_filter, [
