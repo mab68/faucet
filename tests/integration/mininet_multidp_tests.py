@@ -239,8 +239,8 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
     def wait_for_all_lacp_up(self):
         """Wait for all LACP ports to be up"""
         (first_lacp_port, second_lacp_port, remote_first_lacp_port, _) = self.lacp_ports()
-        self.wait_for_lacp_port_up(first_lacp_port, self.dpid, self.DP_NAME)
-        self.wait_for_lacp_port_up(second_lacp_port, self.dpid, self.DP_NAME)
+        self.wait_for_lacp_port_up(first_lacp_port, self.dpids[0], self.topo.switches_by_id[0])
+        self.wait_for_lacp_port_up(second_lacp_port, self.dpids[0], self.topo.switches_by_id[0])
         self.wait_until_matching_flow(
             self.match_bcast, self._FLOOD_TABLE, actions=[self.action_str % first_lacp_port])
         self.wait_until_matching_flow(
@@ -264,7 +264,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
             other_remote_lacp_port = list(remote_ports - {remote_lacp_port})[0]
             self.set_port_down(local_lacp_port, wait=False)
             self.wait_for_lacp_port_none(
-                local_lacp_port, self.dpid, self.DP_NAME)
+                local_lacp_port, self.dpids[0], self.topo.switches_by_id[0])
             self.wait_for_lacp_port_none(
                 remote_lacp_port, self.dpids[1], self.topo.switches_by_id[1])
             self.wait_until_matching_flow(
@@ -417,7 +417,7 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTest):
                     switch_to_switch_links=2, use_external=True)
         self.verify_stack_up()
         int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
-        _, root_ext_hosts = dp_hosts[self.DP_NAME]
+        _, root_ext_hosts = dp_hosts[self.switches_by_id[0]]
 
         for int_host in int_hosts:
             # All internal hosts can reach other internal hosts.
@@ -1001,7 +1001,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         first_stack_port = self.topo.get_switch_peer_links(0)[0][0]
-        self.one_stack_port_down(self.dpid, self.DP_NAME, first_stack_port)
+        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
@@ -1207,7 +1207,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         first_stack_port = self.topo.get_switch_peer_links(0)[0][0]
-        self.one_stack_port_down(self.dpid, self.DP_NAME, first_stack_port)
+        self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
 

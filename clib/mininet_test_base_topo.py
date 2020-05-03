@@ -101,7 +101,7 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def host_ip_address(self, host_index, vlan_index):
         """Create a string of the host IP address"""
-        if isinstance(vlan_index, tuple):
+        if isinstance(vlan_index, list):
             vlan_index = vlan_index[0]
         return '10.%u.0.%u/%u' % (vlan_index+1, host_index+1, self.NETPREFIX)
 
@@ -236,7 +236,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             if 'lacp' in options:
                 host = self.host_information[host_id]['host']
                 # LACP must be configured with host ports down
-                for link in self.topo.get_host_peer_links:
+                for link in self.topo.get_host_peer_links(host_id):
                     i, port = link
                     self.set_port_down(port, self.topo.dpids_by_id[i])
                 orig_ip = host.IP()
@@ -263,7 +263,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                         'ip link set dev %s master %s' % (bond_member, bond_name),))
                 bond_index += 1
                 # Return the ports to UP
-                for link in self.topo.get_host_peer_links:
+                for link in self.topo.get_host_peer_links(host_id):
                     i, port = link
                     self.set_port_up(port, self.topo.dpids_by_id[i])
 
