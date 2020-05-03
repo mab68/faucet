@@ -36,17 +36,19 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
         # Create link type for the switch-switch links
         link_vlans = {}
         vlans = None if stack else list(range(n_vlans))
-        for link in switch_links:
-            link_vlans[link] = vlans
+        for dp in dp_links.nodes():
+            for link in dp_links.edges(dp):
+                link_vlans[link] = vlans
         # Create link configuration options for DP interfaces
         link_options = {}
-        for link in switch_links:
-            if lacp_trunk:
-                link_options.setdefault(link, {})
-                link_options[link] = {
-                    'lacp': 1,
-                    'lacp_active': True
-                }
+        for dp in dp_links.nodes():
+            for link in dp_links.edges(dp):
+                if lacp_trunk:
+                    link_options.setdefault(link, {})
+                    link_options[link] = {
+                        'lacp': 1,
+                        'lacp_active': True
+                    }
         # Create host link topology and vlan information
         host_links = {}
         host_vlans = {}
@@ -1070,7 +1072,7 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
             })
         dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
-        link_vlans = {edge: None for edge in switch_links}
+        link_vlans = {edge: None for edge in edges}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
         host_options = {0: {'acls_in': [1]}}
