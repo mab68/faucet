@@ -1072,7 +1072,7 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
             })
         dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
-        link_vlans = {edge: None for edge in edges}
+        link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
         host_options = {0: {'acls_in': [1]}}

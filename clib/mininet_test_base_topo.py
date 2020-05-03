@@ -179,6 +179,8 @@ class FaucetTopoTestBase(FaucetTestBase):
             include=include,
             include_optional=include_optional
         )
+        self.host_links = host_links
+        self.switch_links = switch_links
         self.n_vlans = n_vlans
         self.routers = routers
         self.configuration_options = {
@@ -228,6 +230,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     def setup_lacp_bonds(self):
         """Search through host options for lacp hosts and configure accordingly"""
         # TODO: This should be moved to a mininet host object
+        # TODO: Need to resolve host links (remember from parameters or something else...)
         host_options = self.configuration_options['host']
         if not host_options:
             return
