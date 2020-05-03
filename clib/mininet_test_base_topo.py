@@ -208,7 +208,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             self.set_host_ip(host, ip_interface)
             self.host_information[host_id] = {
                 'host': host,
-                'ip': host.IP(),
+                'ip': ip_interface,
                 'mac': host.MAC(),
                 'vlan': vlan,
                 'bond': None,
@@ -397,7 +397,12 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def verify_no_arp_storm(self, ping_host, tcpdump_host):
         """Check that there is no excess ARP packets in the network"""
-        # TODO: What????
+        switch_to_switch_links = 0
+        for link in self.topo.links():
+            src_node, dst_node = links
+            if self.topo.isSwitch(src_node):
+                if self.topo.isSwitch(dst_node):
+                    switch_to_switch_links += 1
         num_arp_expected = self.topo.switch_to_switch_links * 2
         tcpdump_filter = 'arp and ether src %s' % ping_host.MAC()
         tcpdump_txt = self.tcpdump_helper(
