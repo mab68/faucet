@@ -171,7 +171,7 @@ class FaucetTopoGenerator(Topo):
         if not port_order:
             return list(range(max_length + 1))
         extend_order = []
-        start_port = max(port_order)
+        start_port = max(port_order) + 1
         for i in port_order:
             extend_order.append(start_port + i)
             if len(port_order) + len(extend_order) >= max_length:
@@ -276,7 +276,7 @@ class FaucetTopoGenerator(Topo):
             vlans (list/None/int): Type of the link
         """
         port1, port2 = None, None
-        delay, htb = None, None
+        opts = {}
         if self.isSwitch(node):
             # Node is a switch, create port
             port1 = self._create_next_port(node)
@@ -285,15 +285,14 @@ class FaucetTopoGenerator(Topo):
             port2 = self._create_next_port(peer_node)
         else:
             # Peer node is a host, use delay & htb options
-            delay = self.DELAY
-            htb = True
+            opts['delay'] = self.delay
+            opts['use_htb'] = True
         return self.addLink(
             node,
             peer_node,
             port1=port1,
             port2=port2,
-            delay=delay,
-            use_htb=htb,
+            **opts,
             config_vlans=vlans)
 
     def add_switch_topology(self, switch_links, link_vlans):
