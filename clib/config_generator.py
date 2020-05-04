@@ -285,7 +285,7 @@ class FaucetTopoGenerator(Topo):
             port2 = self._create_next_port(peer_node)
         else:
             # Peer node is a host, use delay & htb options
-            opts['delay'] = self.delay
+            opts['delay'] = self.DELAY
             opts['use_htb'] = True
         return self.addLink(
             node,
