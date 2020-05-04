@@ -107,7 +107,7 @@ class FaucetTopoGenerator(Topo):
         #     switch_name = self.switches_by_id[i]
         #     ports = self.ports[switch_name].keys()
         #     port_maps[dpid] = {'port_%d' % i: port for i, port in enumerate(ports)}
-        return self._create_port_map, self._create_host_port_map(), self._create_link_port_map
+        return self._create_port_map(), self._create_host_port_map(), self._create_link_port_map
 
     # def get_switch_peer_links(self, switch_index):
     #     """Returns a list of (port, peer_port) pairs for switch-switch links from switch_index"""
