@@ -164,6 +164,37 @@ class FaucetTopoTest(TestCase):
         self.serial += 1
         return self.serial
 
+    def test_port_order(self):
+        """Test port order extension"""
+        port_order = [3, 2, 1, 0]
+        extended = FaucetFakeOFTopoGenerator.extend_port_order(port_order, max_length=8)
+        self.assertEqual(extended, [3, 2, 1, 0, 7, 6, 5, 4])
+        port_order = [1, 2, 3, 4, 0]
+        extended = FaucetFakeOFTopoGenerator.extend_port_order(port_order, max_length=10)
+        self.assertEqual(extended, [1, 2, 3, 4, 0, 6, 7, 8, 9, 5])
+
+    def test_build(self):
+        """Test the topology is built correctly"""
+        topo = FaucetFakeOFTopoGenerator(
+            'test_build', '', '',
+            host_links, host_vlans, switch_links, link_vlans)
+
+    def test_start_port(self):
+        """ """
+        start_port = 
+
+    def test_hw_build(self):
+        """Test the topology is built with hardware requirements"""
+        hw_dpid = 0x123
+        hw_ports = {}
+
+    def test_host_options(self):
+        """Test the topology correctly provides mininet host options"""
+        host_options = {}
+
+    def test_get_config(self):
+        """Test the config generator for the topology"""
+
     def test_topo(self):
         n_vlans = 3
         dp_links = networkx.cycle_graph(5)

@@ -41,18 +41,43 @@ class FaucetTopoTestBase(FaucetTestBase):
     faucet_vips = None
 
     def _init_faucet_config(self):
+        """Initialize & normalize faucet configuration file"""
         # TODO: Shouldn't need to join the config headers...
-        faucet_config = '\n'.join((
-            self.get_config_header(
-                self.CONFIG_GLOBAL,
-                self.debug_log_path, self.dpid, self.hardware),
-            self.CONFIG))
+        #faucet_config = '\n'.join((
+        #    self.get_config_header(
+        #        self.CONFIG_GLOBAL,
+        #        self.debug_log_path, self.dpid, self.hardware),
+        #    self.CONFIG))
         # TODO: %faucet_1??
         config_vars = {}
         for config_var in (self.config_ports, self.port_map):
             config_vars.update(config_var)
         faucet_config = faucet_config % config_vars
         self._write_yaml_conf(self.faucet_config_path, yaml.safe_load(faucet_config))
+
+    def get_gauge_watcher_config(self):
+        """ """
+        return """
+    port_stats:
+        dps: ['%s']
+        type: 'port_stats'
+        interval: 5
+        db: 'stats_file'
+    port_state:
+        dps: ['%s']
+        type: 'port_state'
+        interval: 5
+        db: 'state_file'
+    flow_table:
+        dps: ['%s']
+        type: 'flow_table'
+        interval: 5
+        db: 'flow_dir'
+""" % (self.topo.switches_by_id[0], self.topo.switches_by_id[0], self.topo.switches_by_id[0])
+
+    def first_switch(self):
+        """Return the first switch"""
+        return self.net.get(self.topo.switches_by_id[0])
 
     def mininet_host_options(self):
         """Additional mininet host options"""

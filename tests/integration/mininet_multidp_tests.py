@@ -77,7 +77,9 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                         values[link] = True
                 host_options.setdefault(host, {})
                 host_options[host]['loop_protect_external'] = False
-        host_options.update(self.host_options())
+        for host in host_links.keys():
+            for h_key, h_value in self.host_options().items():
+                host_options[host][h_key] = h_value
         # Create DP configuration options
         dp_options = {}
         for dp in range(n_dps):
@@ -90,7 +92,8 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                 dp_options[dp]['stack'] = {'priority': 1}
             if lacp_trunk:
                 dp_options[dp]['lacp_timeout'] = 10
-        dp_options.update(self.dp_options())
+            for dp_key, dp_value in self.dp_options().items():
+                dp_options[dp][dp_key] = dp_value
         # Create VLAN configuration options
         vlan_options = {}
         if routers:
@@ -102,7 +105,10 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                             'faucet_vips': [self.faucet_vip(vlan)],
                             'targeted_gw_resolution': False
                         }
-        vlan_options.update(self.vlan_options())
+        for vlan in range(n_vlans):
+            vlan_options.setdefault(vlan, {})
+            for vlan_key, vlan_value in self.vlan_options().items():
+                vlan_options[vlan][vlan_key] = vlan_value
         if self.link_acls():
             for link, acls in self.link_acls().items():
                 if isinstance(link, tuple):
@@ -1070,8 +1076,10 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-        dp_options[0]['stack'] = {'priority': 1}
-        switch_links = list(network_graph.edges())
+            for key, value in self.dp_options().items():
+                dp_options[dp][key] = value
+            if dp == 0:
+                dp_options[0]['stack'] = {'priority': 1}
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
@@ -1274,8 +1282,10 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-        dp_options[0]['stack'] = {'priority': 1}
-        switch_links = list(network_graph.edges())
+            for key, value in self.dp_options().items():
+                dp_options[dp][key] = value
+            if dp == 0:
+                dp_options[0]['stack'] = {'priority': 1}
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
@@ -1333,8 +1343,10 @@ class FaucetSingleUntaggedIPV4RoutingWithStackingTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-        dp_options[0]['stack'] = {'priority': 1}
-        dp_options.update({dp: self.dp_options() for dp in range(n_dps)})
+            for key, value in self.dp_options().items():
+                dp_options[dp][key] = value
+            if dp == 0:
+                dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         routed_vlans = 2
@@ -1473,8 +1485,10 @@ class FaucetSingleUntaggedVlanStackFloodTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-        dp_options[0]['stack'] = {'priority': 1}
-        dp_options.update({dp: self.dp_options() for dp in range(n_dps)})
+            for key, value in self.dp_options().items():
+                dp_options[dp][key] = value
+            if dp == 0:
+                dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [1]}
@@ -1540,8 +1554,10 @@ class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-        dp_options[0]['stack'] = {'priority': 1}
-        switch_links = list(network_graph.edges())
+            for key, value in self.dp_options().items():
+                dp_options[dp][key] = value
+            if dp == 0:
+                dp_options[0]['stack'] = {'priority': 1}
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [2]}
         host_vlans = {0: 0, 1: 0}
@@ -1580,8 +1596,10 @@ class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-        dp_options[0]['stack'] = {'priority': 1}
-        switch_links = list(network_graph.edges())
+            for key, value in self.dp_options().items():
+                dp_options[dp][key] = value
+            if dp == 0:
+                dp_options[0]['stack'] = {'priority': 1}
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [1], 2: [2]}
         host_vlans = {0: 0, 1: 1, 2: 0}
@@ -1640,8 +1658,10 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-        dp_options[0]['stack'] = {'priority': 1}
-        dp_options.update({dp: self.dp_options() for dp in range(self.NUM_DPS)})
+            for key, value in self.dp_options().items():
+                dp_options[dp][key] = value
+            if dp == 0:
+                dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], self.LACP_HOST: lacp_host_links, 3: [1], 4: [1]}
@@ -1803,8 +1823,10 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-        dp_options[0]['stack'] = {'priority': 1}
-        dp_options.update({dp: self.dp_options() for dp in range(self.NUM_DPS)})
+            for key, value in self.dp_options().items():
+                dp_options[dp][key] = value
+            if dp == 0:
+                dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [1], 2: [2], 3: [0, 0, 2, 2]}

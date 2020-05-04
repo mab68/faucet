@@ -396,14 +396,14 @@ class FaucetTopoGenerator(Topo):
                 interface_config = {
                     'name': 'b%u' % src_port,
                     'description': 'untagged %s' % link_name,
-                    'native_vlan': self.vlan_vid(vlans)
+                    'native_vlan': self.vlan_name(vlans)
                 }
             elif isinstance(vlans, list):
                 # Tagged link
                 interface_config = {
                     'name': 'b%u' % src_port,
                     'description': 'tagged %s' % link_name,
-                    'tagged_vlans': [self.vlan_vid(vlan) for vlan in vlans]
+                    'tagged_vlans': [self.vlan_name(vlan) for vlan in vlans]
                 }
             elif dst_node and dst_port and vlans is None:
                 # Stack link
@@ -412,7 +412,7 @@ class FaucetTopoGenerator(Topo):
                     'description': 'stack %s' % link_name,
                     'stack': {
                         'dp': dst_node,
-                        'port': 'b%u' % dst_port
+                        'port': dst_port
                     }
                 }
             else:
