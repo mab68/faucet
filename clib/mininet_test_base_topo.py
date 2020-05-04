@@ -370,10 +370,11 @@ class FaucetTopoTestBase(FaucetTestBase):
         for _ in range(timeout):
             links = 0
             links_up = 0
-            for i, name in self.topo.switches_by_id.items():
-                for link in self.topo.get_switch_peer_links(i):
-                    dpid = self.dpids[i]
-                    status = self.stack_port_status(dpid, name, link[0])
+            for link, ports in self.link_port_maps.items():
+                for port in ports:
+                    dpid = self.topo.dpids_by_id[link[0]]
+                    name = self.topo.switches_by_id[link[0]]
+                    status = self.stack_port_status(dpid, name, port)
                     links += 1
                     if status == 3: # STACK_STATE_UP
                         links_up += 1

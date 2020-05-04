@@ -1007,6 +1007,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
         dst_host = self.net.get(self.topo.hosts_by_id[2])
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
+        first_stack_port = self.link_port_maps[()][0]
         first_stack_port = self.topo.get_switch_peer_links(0)[0][0]
         self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
