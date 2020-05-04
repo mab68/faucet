@@ -52,7 +52,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         config_vars = {}
         for config_var in (self.config_ports, self.port_map):
             config_vars.update(config_var)
-        faucet_config = faucet_config % config_vars
+        faucet_config = self.CONFIG % config_vars
         self._write_yaml_conf(self.faucet_config_path, yaml.safe_load(faucet_config))
 
     def get_gauge_watcher_config(self):
