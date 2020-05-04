@@ -173,7 +173,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         self.dpids = self.topo.get_dpids()
         self.dpid = self.dpids[0]
         self.port_maps = {dpid: {} for dpid in self.dpids}
-        self.port_map = self.port_maps[self.dpid]
+        self.port_map = {'': None}
         self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
         dpid_names = {}
         for i in self.topo.switches_by_id:
