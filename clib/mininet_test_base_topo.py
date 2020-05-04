@@ -42,13 +42,6 @@ class FaucetTopoTestBase(FaucetTestBase):
 
     def _init_faucet_config(self):
         """Initialize & normalize faucet configuration file"""
-        # TODO: Shouldn't need to join the config headers...
-        #faucet_config = '\n'.join((
-        #    self.get_config_header(
-        #        self.CONFIG_GLOBAL,
-        #        self.debug_log_path, self.dpid, self.hardware),
-        #    self.CONFIG))
-        # TODO: %faucet_1??
         config_vars = {}
         for config_var in (self.config_ports, self.port_map):
             config_vars.update(config_var)
@@ -179,13 +172,9 @@ class FaucetTopoTestBase(FaucetTestBase):
         )
         self.dpids = self.topo.get_dpids()
         self.dpid = self.dpids[0]
-        self.port_maps = self.topo.create_port_maps()
+        self.port_maps = {dpid: {} for dpid in self.dpids}
         self.port_map = self.port_maps[self.dpid]
-        self.host_port_maps = self.topo.create_host_port_map()
-        # TODO: It might be better to have the host_port_maps
-        #   [host_n][switch_n] = [port, ...]
-        self.link_port_maps = self.topo.create_link_port_map()
-        # [(u, v)] = [port, port, ...]
+        self.host_port_maps, self.link_port_maps = self.topo.create_port_maps()
         dpid_names = {}
         for i in self.topo.switches_by_id:
             dpid = self.topo.dpids_by_id[i]
@@ -204,8 +193,6 @@ class FaucetTopoTestBase(FaucetTestBase):
             include=include,
             include_optional=include_optional
         )
-        self.host_links = host_links
-        self.switch_links = switch_links
         self.n_vlans = n_vlans
         self.routers = routers
         self.configuration_options = {
@@ -225,7 +212,6 @@ class FaucetTopoTestBase(FaucetTestBase):
             host routes for routed hosts
         """
         super().start_net()
-        # TODO: We do not need this information really.
         # Create a dictionary of host information
         self.host_information = {}
         for host_id, host_name in self.topo.hosts_by_id.items():
@@ -239,23 +225,19 @@ class FaucetTopoTestBase(FaucetTestBase):
                 'mac': host.MAC(),
                 'vlan': vlan,
                 'bond': None,
-                'ports': self.topo.get_host_peer_links(host_id)
+                'ports': self.host_port_maps[host_id]
             }
         # Store faucet vip interfaces
         self.faucet_vips = {}
         for vlan in range(self.n_vlans):
             self.faucet_vips[vlan] = ipaddress.ip_interface(self.faucet_vip(vlan))
         # Setup the linux bonds for LACP connected hosts
-        # TODO: Create 
         self.setup_lacp_bonds()
         # Add host routes to hosts for inter vlan routing
-        # TODO: Create intervlan routes with 
         self.setup_intervlan_host_routes()
 
     def setup_lacp_bonds(self):
         """Search through host options for lacp hosts and configure accordingly"""
-        # TODO: This should be moved to a mininet host object
-        # TODO: Need to resolve host links (remember from parameters or something else...)
         host_options = self.configuration_options['host']
         if not host_options:
             return
@@ -264,11 +246,13 @@ class FaucetTopoTestBase(FaucetTestBase):
             if 'lacp' in options:
                 host = self.host_information[host_id]['host']
                 # LACP must be configured with host ports down
-                for link in self.topo.get_host_peer_links(host_id):
-                    i, port = link
-                    self.set_port_down(port, self.topo.dpids_by_id[i])
+                for dp, ports in self.host_port_maps[host_id].items():
+                    for port in ports:
+                        self.set_port_down(port, self.topo.dpids_by_id[dp])
                 orig_ip = host.IP()
-                lacp_switches = [self.net.switches[i] for i in self.host_links[host_id]]
+                lacp_switches = [
+                    self.net.get(self.topo.switches_by_id[i])
+                        for i in self.host_port_maps[host_id].keys()]
                 bond_members = [
                     pair[0].name for switch in lacp_switches for pair in host.connectionsTo(switch)]
                 bond_name = 'bond%u' % (bond_index)
@@ -291,9 +275,9 @@ class FaucetTopoTestBase(FaucetTestBase):
                         'ip link set dev %s master %s' % (bond_member, bond_name),))
                 bond_index += 1
                 # Return the ports to UP
-                for link in self.topo.get_host_peer_links(host_id):
-                    i, port = link
-                    self.set_port_up(port, self.topo.dpids_by_id[i])
+                for dp, ports in self.host_port_maps[host_id].items():
+                    for port in ports:
+                        self.set_port_up(port, self.topo.dpids_by_id[dp])
 
     def setup_intervlan_host_routes(self):
         """Configure host routes between hosts that belong on routed VLANs"""
@@ -314,12 +298,10 @@ class FaucetTopoTestBase(FaucetTestBase):
                             self.add_host_route(dst_host, src_ip, dst_faucet_vip.ip)
 
     def debug(self):
-        """Print host information when debugging"""
+        """Print additional information when debugging"""
         try:
             super(FaucetTopoTestBase, self).debug()
         except Exception:
-            # TODO: Can print more information
-            # TODO: Fetch host_information
             pprint.pprint(self.host_information)
             raise
 
@@ -427,7 +409,7 @@ class FaucetTopoTestBase(FaucetTestBase):
         """Check that there is no excess ARP packets in the network"""
         switch_to_switch_links = 0
         for link in self.topo.links():
-            src_node, dst_node = links
+            src_node, dst_node = link
             if self.topo.isSwitch(src_node):
                 if self.topo.isSwitch(dst_node):
                     switch_to_switch_links += 1
@@ -509,8 +491,8 @@ class FaucetTopoTestBase(FaucetTestBase):
             else:
                 int_hosts.append(host)
                 int_or_ext = 0
-            for link in self.host_information[host_id]['ports']:
-                dp_hosts[self.topo.switches_by_id[link[0]]][int_or_ext].append(host)
+            for dp, ports in self.host_port_maps[host_id].items():
+                dp_hosts[self.topo.switches_by_id[dp]][int_or_ext].append(host_id)
         return set(int_hosts), set(ext_hosts), dp_hosts
 
     def verify_protected_connectivity(self):
@@ -662,15 +644,15 @@ details partner lacp pdu:
                 if key == 'lacp':
                     # Is LACP host
                     host_information = self.host_information[host_id]
-                    if dpid in host_information['ports']:
-                        # LACP host has links to dpid
-                        lacp_ports = host_information['ports'][dpid]
-                        for port in lacp_ports:
-                            # Obtain up LACP ports for that dpid
-                            port_labels = self.port_labels(port)
-                            lacp_state = self.scrape_prometheus_var(
-                                'port_lacp_state', port_labels, default=0, dpid=dpid)
-                            lacp_up_ports += 1 if lacp_state == 3 else 0
+                    for dp, ports in self.host_port_maps.items():
+                        if dpid == self.topo.dpids_by_id[dp]:
+                            # Host has links to dpid
+                            for port in ports:
+                                # Obtain up LACP ports for that dpid
+                                port_labels = self.port_labels(port)
+                                lacp_state = self.scrape_prometheus_var(
+                                    'port_lacp_state', port_labels, default=0, dpid=dpid)
+                                lacp_up_ports += 1 if lacp_state == 3 else 0
         return lacp_up_ports
 
     def verify_num_lag_up_ports(self, expected_up_ports, dpid):
@@ -711,19 +693,22 @@ details partner lacp pdu:
         """Verify LAG connectivity"""
         lacp_ports = self.host_information[host_id]['ports']
         # All ports down
-        for dpid, ports in lacp_ports.items():
+        for dp, ports in lacp_ports.items():
+            dpid = self.topo.dpids_by_id[dp]
             for port in ports:
                 self.set_port_down(port, dpid)
             self.verify_num_lag_up_ports(0, dpid)
         # Pick a port to set up
-        up_dpid = random.choice(list(lacp_ports.keys()))
+        up_dp = random.choice(list(lacp_ports.keys()))
+        up_dpid = self.topo.dpids_by_id[up_dp]
         up_port = random.choice(lacp_ports[up_dpid])
         self.set_port_up(up_port, up_dpid)
         self.verify_num_lag_up_ports(1, up_dpid)
         # Ensure connectivity with one port
         self.verify_lag_host_connectivity()
         # Set the other ports to UP
-        for dpid, ports in lacp_ports.items():
+        for dp, ports in lacp_ports.items():
+            dpid = self.topo.dpids_by_id[dp]
             for port in ports:
                 self.set_port_up(port, dpid)
             self.verify_num_lag_up_ports(len(ports), dpid)
@@ -732,7 +717,7 @@ details partner lacp pdu:
         self.verify_lag_host_connectivity()
         # Tear down first port
         self.set_port_down(up_port, up_dpid)
-        self.verify_num_lag_up_ports(len(lacp_ports[up_dpid])-1, up_dpid)
+        self.verify_num_lag_up_ports(len(lacp_ports[up_dp])-1, up_dpid)
         # Ensure connectivity with new ports only
         self.verify_lag_host_connectivity()
 

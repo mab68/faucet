@@ -195,27 +195,27 @@ class FaucetTopoTest(TestCase):
     def test_get_config(self):
         """Test the config generator for the topology"""
 
-    def test_topo(self):
-        n_vlans = 3
-        dp_links = networkx.cycle_graph(5)
-        switch_links = list(dp_links.edges())
-        link_vlans = {}
-        for link in switch_links:
-            link_vlans[link] = None
-        host_links = {}
-        h = 0
-        for dp in dp_links.nodes():
-            host_links.setdefault(h, [])
-            host_links[h].append(dp)
-            h += 1
-        host_vlans = {}
-        for h in host_links.keys():
-            host_vlans[h] = 0
-        port_order = [3, 2, 1, 0]
-        topo = FaucetFakeOFTopoGenerator(
-            '', '', '',
-            host_links, host_vlans, switch_links, link_vlans,
-            port_order=port_order, get_serialno=self.get_serialno)
+    # def test_topo(self):
+    #     n_vlans = 3
+    #     dp_links = networkx.cycle_graph(5)
+    #     switch_links = list(dp_links.edges())
+    #     link_vlans = {}
+    #     for link in switch_links:
+    #         link_vlans[link] = None
+    #     host_links = {}
+    #     h = 0
+    #     for dp in dp_links.nodes():
+    #         host_links.setdefault(h, [])
+    #         host_links[h].append(dp)
+    #         h += 1
+    #     host_vlans = {}
+    #     for h in host_links.keys():
+    #         host_vlans[h] = 0
+    #     port_order = [3, 2, 1, 0]
+    #     topo = FaucetFakeOFTopoGenerator(
+    #         '', '', '',
+    #         host_links, host_vlans, switch_links, link_vlans,
+    #         port_order=port_order, get_serialno=self.get_serialno)
 
 
 if __name__ == "__main__":

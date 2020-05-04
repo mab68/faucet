@@ -533,7 +533,6 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
     NUM_HOSTS = 3
 
     def acls(self):
-        map1, map2, map3 = [self.port_maps[dpid] for dpid in self.dpids]
         # 3 hosts on each DP (3 DPS)
         return {
             1: [
@@ -1080,6 +1079,7 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
                 dp_options[dp][key] = value
             if dp == 0:
                 dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
@@ -1286,6 +1286,7 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
                 dp_options[dp][key] = value
             if dp == 0:
                 dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
@@ -1558,6 +1559,7 @@ class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
                 dp_options[dp][key] = value
             if dp == 0:
                 dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [2]}
         host_vlans = {0: 0, 1: 0}
@@ -1600,6 +1602,7 @@ class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
                 dp_options[dp][key] = value
             if dp == 0:
                 dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [1], 2: [2]}
         host_vlans = {0: 0, 1: 1, 2: 0}
@@ -1707,7 +1710,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         """Down a port on port_dpid_index, cold-start on cold_start_dp, UP previous port"""
         # Bring a LACP port DOWN
         chosen_dpid = self.dpids[port_dp_index]
-        port_no = self.host_information[self.LACP_HOST]['ports'][chosen_dpid][0]
+        port_no = self.host_port_maps[self.LACP_HOST][port_dp_index][0]
         self.set_port_down(port_no, chosen_dpid)
         self.verify_num_lag_up_ports(1, chosen_dpid)
         # Cold start switch, cold-start twice to get back to initial condition
@@ -1723,8 +1726,8 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
                 # VLAN changed so just delete the host information instead of recomputing
                 #   routes etc..
                 for _id in self.host_information:
-                    if cold_start_dpid in self.host_information[_id]['ports']:
-                        ports = self.host_information[_id]['ports'][cold_start_dpid]
+                    if cold_start_dp_index in self.host_port_maps[_id]:
+                        ports = self.host_port_maps[_id][cold_start_dp_index]
                         if port in ports:
                             del self.host_information[_id]
                             break
@@ -1736,7 +1739,8 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.set_port_up(port_no, chosen_dpid)
         self.verify_num_lag_up_ports(2, chosen_dpid)
         # Take down all of the other ports
-        for dpid, ports in self.host_information[self.LACP_HOST]['ports'].items():
+        for dp, ports in self.host_port_maps[self.LACP_HOST].items():
+            dpid = self.topo.dpids_by_id[dp]
             if dpid != chosen_dpid:
                 for port in ports:
                     if port != port_no:
@@ -1767,10 +1771,11 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
         chosen_dpid = self.dpids[0]
-        port_no = self.host_information[self.LACP_HOST]['ports'][chosen_dpid][0]
+        port_no = self.host_port_maps[self.LACP_HOST][0][0]
         self.set_port_down(port_no, chosen_dpid)
         self.set_port_up(port_no, chosen_dpid)
-        for dpid, ports in self.host_information[self.LACP_HOST]['ports'].items():
+        for dp, ports in self.host_port_maps[self.LACP_HOST].items():
+            dpid = self.topo.dpids_by_id[dp]
             for port in ports:
                 if dpid != chosen_dpid and port != port_no:
                     self.set_port_down(port, dpid)
@@ -1916,8 +1921,8 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         self.require_linux_bond_up(self.LACP_HOST)
         self.verify_lag_host_connectivity()
         root_dpid = self.dpids[0]
-        lacp_ports = self.host_information[self.LACP_HOST]['ports']
-        for port in lacp_ports[root_dpid]:
+        lacp_ports = self.host_port_maps[self.LACP_HOST][0]
+        for port in lacp_ports:
             self.set_port_down(port, root_dpid)
         self.verify_num_lag_up_ports(0, root_dpid)
         self.verify_lag_host_connectivity()

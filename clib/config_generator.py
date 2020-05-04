@@ -67,7 +67,7 @@ class FaucetTopoGenerator(Topo):
         """Returns list of DPIDs in switch index order"""
         return [self.dpids_by_id[key] for key in sorted(self.dpids_by_id)]
 
-    def create_link_port_map(self):
+    def _create_link_port_map(self):
         """Switch pair link map to list of ports for that pair"""
         port_maps = {}
         for i, name in self.switches_by_id.items():
@@ -78,7 +78,7 @@ class FaucetTopoGenerator(Topo):
                     port_maps[(i,peer_id)].append(port)
         return port_maps
 
-    def create_host_port_map(self):
+    def _create_host_port_map(self):
         """Host map to linked switches to list of ports from switch to host"""
         host_port_map = {}
         for host, name in self.hosts_by_id.items():
@@ -90,36 +90,38 @@ class FaucetTopoGenerator(Topo):
         return host_port_map
 
     def create_port_maps(self):
-        """Return a port map for each switch/dpid keyed by dpid"""
-        port_maps = {}
-        for i, dpid in self.dpids_by_id.items():
-            switch_name = self.switches_by_id[i]
-            ports = self.ports[switch_name].keys()
-            port_maps[dpid] = {'port_%d' % i: port for i, port in enumerate(ports)}
-        return port_maps
-
-    def get_switch_peer_links(self, switch_index):
-        """Returns a list of (port, peer_port) pairs for switch-switch links from switch_index"""
+        """Return host port maps and link port maps"""
+        #"""Return a port map for each switch/dpid keyed by dpid"""
         # TODO: Redundant
-        switch_name = self.switches_by_id[switch_index]
-        ports = self.ports[switch_name]
-        peer_links = []
-        for port, link in self.ports[switch_name].items():
-            if self.isSwitch(link[0]):
-                peer_links.append((port, link[1]))
-        return peer_links
+        # port_maps = {}
+        # for i, dpid in self.dpids_by_id.items():
+        #     switch_name = self.switches_by_id[i]
+        #     ports = self.ports[switch_name].keys()
+        #     port_maps[dpid] = {'port_%d' % i: port for i, port in enumerate(ports)}
+        return self._create_host_port_map(), self._create_link_port_map
 
-    def get_host_peer_links(self, host_index):
-        """Returns a list of (peer_index, peer_port) pairs for host-switch links from host_index"""
-        # TODO: Redundant
-        host_name = self.hosts_by_id[host_index]
-        ports = self.ports[host_name]
-        peer_links = []
-        for port, link in self.ports[host_name].items():
-            peer_name = link[0]
-            switch_id = self.nodeInfo(peer_name)['switch_n']
-            peer_links.append((switch_id, link[1]))
-        return peer_links
+    # def get_switch_peer_links(self, switch_index):
+    #     """Returns a list of (port, peer_port) pairs for switch-switch links from switch_index"""
+    #     # TODO: Redundant
+    #     switch_name = self.switches_by_id[switch_index]
+    #     ports = self.ports[switch_name]
+    #     peer_links = []
+    #     for port, link in self.ports[switch_name].items():
+    #         if self.isSwitch(link[0]):
+    #             peer_links.append((port, link[1]))
+    #     return peer_links
+
+    # def get_host_peer_links(self, host_index):
+    #     """Returns a list of (peer_index, peer_port) pairs for host-switch links from host_index"""
+    #     # TODO: Redundant
+    #     host_name = self.hosts_by_id[host_index]
+    #     ports = self.ports[host_name]
+    #     peer_links = []
+    #     for port, link in self.ports[host_name].items():
+    #         peer_name = link[0]
+    #         switch_id = self.nodeInfo(peer_name)['switch_n']
+    #         peer_links.append((switch_id, link[1]))
+    #     return peer_links
 
     def dp_dpid(self, i):
         """DP DPID"""
