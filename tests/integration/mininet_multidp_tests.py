@@ -425,7 +425,7 @@ class FaucetSingleStackStringOf3DPExtLoopProtUntaggedTest(FaucetMultiDPTest):
                     switch_to_switch_links=2, use_external=True)
         self.verify_stack_up()
         int_hosts, ext_hosts, dp_hosts = self.map_int_ext_hosts()
-        _, root_ext_hosts = dp_hosts[self.switches_by_id[0]]
+        _, root_ext_hosts = dp_hosts[self.topo.switches_by_id[0]]
 
         for int_host in int_hosts:
             # All internal hosts can reach other internal hosts.
@@ -474,13 +474,21 @@ class FaucetStackRingOfDPTest(FaucetMultiDPTest):
         self.retry_net_ping()
         self.verify_traveling_dhcp_mac()
         # Move through each DP breaking either side of the ring
-        for i, dp_name in self.topo.switches_by_id.items():
-            dpid = self.dpids[i]
-            for link in self.topo.get_switch_peer_links(i):
-                port = link[0]
-                self.one_stack_port_down(dpid, dp_name, port)
+        for link, ports in self.link_port_maps.items():
+            u, v = link
+            dpid = self.topo.dpids_by_id[u]
+            name = self.topo.switches_by_id[u]
+            for port in ports:
+                self.one_stack_port_down(dpid, name, port)
                 self.retry_net_ping()
-                self.one_stack_port_up(dpid, dp_name, port)
+                self.one_stack_port_up(dpid, name, port)
+        # for i, dp_name in self.topo.switches_by_id.items():
+        #     dpid = self.dpids[i]
+        #     for link in self.topo.get_switch_peer_links(i):
+        #         port = link[0]
+        #         self.one_stack_port_down(dpid, dp_name, port)
+        #         self.retry_net_ping()
+        #         self.one_stack_port_up(dpid, dp_name, port)
 
 
 class FaucetSingleStack4RingOfDPTest(FaucetStackRingOfDPTest):
@@ -1007,8 +1015,8 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
         dst_host = self.net.get(self.topo.hosts_by_id[2])
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
-        first_stack_port = self.link_port_maps[()][0]
-        first_stack_port = self.topo.get_switch_peer_links(0)[0][0]
+        first_stack_port = self.link_port_maps[(0, 1)][0]
+        #first_stack_port = self.topo.get_switch_peer_links(0)[0][0]
         self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
@@ -1217,7 +1225,8 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
         dst_host = self.net.get(self.topo.hosts_by_id[2])
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
-        first_stack_port = self.topo.get_switch_peer_links(0)[0][0]
+        #first_stack_port = self.topo.get_switch_peer_links(0)[0][0]
+        first_stack_port = self.link_port_maps[(0, 1)][0]
         self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
 
@@ -1865,7 +1874,9 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.require_linux_bond_up(self.LACP_HOST)
         lacp_host = self.host_information[self.LACP_HOST]['host']
-        lacp_switches = {self.net.switches[i] for i in self.host_links[self.LACP_HOST]}
+        lacp_switches = {
+            self.net.get(self.topo.switches_by_id[i])
+                for i in self.host_port_maps[self.LACP_HOST]}
         lacp_intfs = sorted({
             pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)})
         dst_host_id = 1
@@ -1942,7 +1953,9 @@ class FaucetSingleMCLAGComplexTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.require_linux_bond_up(self.LACP_HOST)
         lacp_host = self.host_information[self.LACP_HOST]['host']
-        lacp_switches = {self.net.switches[i] for i in self.host_links[self.LACP_HOST]}
+        lacp_switches = {
+            self.net.get(self.topo.switches_by_id[i])
+                for i in self.host_port_maps[self.LACP_HOST]}
         lacp_intfs = {
             pair[0].name for switch in lacp_switches for pair in lacp_host.connectionsTo(switch)}
         dst_host = self.host_information[1]['host']

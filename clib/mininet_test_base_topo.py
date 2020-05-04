@@ -68,6 +68,12 @@ class FaucetTopoTestBase(FaucetTestBase):
         db: 'flow_dir'
 """ % (self.topo.switches_by_id[0], self.topo.switches_by_id[0], self.topo.switches_by_id[0])
 
+    def _dp_ports(self):
+        """ """
+        # TODO: Used in start_net to set port up
+        #   should also use the dpid to set the proper port up???
+        return list()
+
     def first_switch(self):
         """Return the first switch"""
         return self.net.get(self.topo.switches_by_id[0])
@@ -251,7 +257,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                 orig_ip = host.IP()
                 lacp_switches = [
                     self.net.get(self.topo.switches_by_id[i])
-                        for i in self.host_port_maps[host_id].keys()]
+                        for i in self.host_port_maps[host_id]]
                 bond_members = [
                     pair[0].name for switch in lacp_switches for pair in host.connectionsTo(switch)]
                 bond_name = 'bond%u' % (bond_index)
@@ -643,8 +649,7 @@ details partner lacp pdu:
             for key in options.keys():
                 if key == 'lacp':
                     # Is LACP host
-                    host_information = self.host_information[host_id]
-                    for dp, ports in self.host_port_maps.items():
+                    for dp, ports in self.host_port_maps[host_id].items():
                         if dpid == self.topo.dpids_by_id[dp]:
                             # Host has links to dpid
                             for port in ports:
@@ -691,7 +696,7 @@ details partner lacp pdu:
 
     def verify_lag_connectivity(self, host_id):
         """Verify LAG connectivity"""
-        lacp_ports = self.host_information[host_id]['ports']
+        lacp_ports = self.topo.host_port_maps[host_id]
         # All ports down
         for dp, ports in lacp_ports.items():
             dpid = self.topo.dpids_by_id[dp]
