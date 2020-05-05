@@ -482,13 +482,6 @@ class FaucetStackRingOfDPTest(FaucetMultiDPTest):
                 self.one_stack_port_down(dpid, name, port)
                 self.retry_net_ping()
                 self.one_stack_port_up(dpid, name, port)
-        # for i, dp_name in self.topo.switches_by_id.items():
-        #     dpid = self.dpids[i]
-        #     for link in self.topo.get_switch_peer_links(i):
-        #         port = link[0]
-        #         self.one_stack_port_down(dpid, dp_name, port)
-        #         self.retry_net_ping()
-        #         self.one_stack_port_up(dpid, dp_name, port)
 
 
 class FaucetSingleStack4RingOfDPTest(FaucetStackRingOfDPTest):

@@ -69,14 +69,16 @@ class FaucetTopoTestBase(FaucetTestBase):
 """ % (self.topo.switches_by_id[0], self.topo.switches_by_id[0], self.topo.switches_by_id[0])
 
     def _dp_ports(self):
-        """ """
-        # TODO: Used in start_net to set port up
-        #   should also use the dpid to set the proper port up???
-        return list()
+        """Return ports on the first DP"""
+        return list(self.topo.ports[self.topo.switches_by_id[0]].keys())
 
     def first_switch(self):
         """Return the first switch"""
         return self.net.get(self.topo.switches_by_id[0])
+
+    def _annotate_interfaces_conf(self, yaml_conf):
+        """We don't need to annotate the interfaces"""
+        return yaml_conf
 
     def mininet_host_options(self):
         """Additional mininet host options"""
