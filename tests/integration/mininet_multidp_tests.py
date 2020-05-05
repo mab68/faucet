@@ -14,7 +14,40 @@ from clib.mininet_test_base_topo import FaucetTopoTestBase
 class FaucetMultiDPTest(FaucetTopoTestBase):
     """Converts old FaucetStringOfDPTest class to a more generalized test topology & config builder"""
 
+    def mininet_host_options(self):
+        """Additional mininet host options"""
+        return {}
+
+    def include(self):
+        """Additional include files"""
+        return []
+
+    def include_optional(self):
+        """Additional optional-include files"""
+        return []
+
+    def dp_options(self):
+        """Additional DP options"""
+        return {}
+
+    def host_options(self):
+        """Additional host options"""
+        return {}
+
+    def link_options(self):
+        """Additional link options"""
+        return {}
+
+    def vlan_options(self):
+        """Additional VLAN options"""
+        return {}
+
+    def router_options(self):
+        """Additional router options"""
+        return {}
+
     def link_acls(self):
+        """Host index or (switch index, switch index) link to acls_in mapping"""
         return {}
 
     def setUp(self):
@@ -49,6 +82,12 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
                         'lacp': 1,
                         'lacp_active': True
                     }
+        if self.link_options():
+            for dp in dp_links.nodes():
+                for link in dp_links.edges(dp):
+                    link_options.setdefault(link, {})
+                    for opt_key, opt_value in self.link_options().items():
+                        link_options[link][opt_key] = opt_value
         # Create host link topology and vlan information
         host_links = {}
         host_vlans = {}
@@ -214,8 +253,15 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         """Return LACP ports"""
         # We sort non_host_links by port because FAUCET sorts its ports
         # and only floods out of the first active LACP port in that list
-        first_link, second_link = sorted(self.topo.get_switch_peer_links(0))
-        first_lacp_port, remote_first_lacp_port = first_link
+        sname = self.topo.switches_by_id[0]
+        dname = self.topo.switches_by_id[1]
+        first_link, second_link = None, None
+        for sport, link in self.topo.ports[sname].items():
+            if link[0] == dname:
+                if first_link is None:
+                    first_link = (sport, link[1])
+                else:
+                    second_link = (sport, link[1])
         second_lacp_port, remote_second_lacp_port = second_link
         return (first_lacp_port, second_lacp_port,
                 remote_first_lacp_port, remote_second_lacp_port)
@@ -868,13 +914,15 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
             0: [1] # Host 0 'acls_in': [1]
         }
 
+    def include_optional(self):
+        return [self.acls_config, self.missing_config]
+
     def setUp(self):  # pylint: disable=invalid-name
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
-        missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
+        self.missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
         super(FaucetStringOfDPACLOverrideTest, self).set_up(
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
-            include_optional=[self.acls_config, missing_config])
+            n_untagged=self.NUM_HOSTS)
 
     def test_port5001_blocked(self):
         """Test that TCP port 5001 is blocked."""

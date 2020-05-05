@@ -40,6 +40,7 @@ class FaucetTopoTestBase(FaucetTestBase):
     host_information = None
     faucet_vips = None
 
+
     def _init_faucet_config(self):
         """Initialize & normalize faucet configuration file"""
         config_vars = {}
@@ -48,8 +49,16 @@ class FaucetTopoTestBase(FaucetTestBase):
         faucet_config = self.CONFIG % config_vars
         self._write_yaml_conf(self.faucet_config_path, yaml.safe_load(faucet_config))
 
+    def _annotate_interfaces_conf(self, yaml_conf):
+        """We don't need to annotate the interfaces"""
+        return yaml_conf
+
+    def _dp_ports(self):
+        """Return ports on the first DP"""
+        return list(self.topo.ports[self.topo.switches_by_id[0]].keys())
+
     def get_gauge_watcher_config(self):
-        """ """
+        """Return gauge watcher config"""
         return """
     port_stats:
         dps: ['%s']
@@ -68,52 +77,13 @@ class FaucetTopoTestBase(FaucetTestBase):
         db: 'flow_dir'
 """ % (self.topo.switches_by_id[0], self.topo.switches_by_id[0], self.topo.switches_by_id[0])
 
-    def _dp_ports(self):
-        """Return ports on the first DP"""
-        return list(self.topo.ports[self.topo.switches_by_id[0]].keys())
-
     def first_switch(self):
         """Return the first switch"""
         return self.net.get(self.topo.switches_by_id[0])
 
-    def _annotate_interfaces_conf(self, yaml_conf):
-        """We don't need to annotate the interfaces"""
-        return yaml_conf
-
-    def mininet_host_options(self):
-        """Additional mininet host options"""
-        return {}
 
     def acls(self):
         """Defined configuration ACLs"""
-        return {}
-
-    def include(self):
-        """Additional include files"""
-        return []
-
-    def include_optional(self):
-        """Additional optional-include files"""
-        return []
-
-    def dp_options(self):
-        """Additional DP options"""
-        return {}
-
-    def host_options(self):
-        """Additional host options"""
-        return {}
-
-    def link_options(self):
-        """Additional link options"""
-        return {}
-
-    def vlan_options(self):
-        """Additional VLAN options"""
-        return {}
-
-    def router_options(self):
-        """Additional router options"""
         return {}
 
 

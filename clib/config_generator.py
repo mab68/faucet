@@ -104,19 +104,6 @@ class FaucetTopoGenerator(Topo):
         """Return host port maps and link port maps"""
         return self._create_port_map(), self._create_host_port_map(), self._create_link_port_map()
 
-    def get_switch_peer_links(self, switch_index):
-        """Returns a list of (port, peer_port) pairs for switch-switch links from switch_index"""
-        # TODO: Redundant
-        # Can use ports[src][sport] = (dst, dport) for reverse port solving
-        # Can use link_port_maps[(src, dst)] = [port1, port2] for link-port finding
-        switch_name = self.switches_by_id[switch_index]
-        ports = self.ports[switch_name]
-        peer_links = []
-        for port, link in self.ports[switch_name].items():
-            if self.isSwitch(link[0]):
-                peer_links.append((port, link[1]))
-        return peer_links
-
     def dp_dpid(self, i):
         """DP DPID"""
         if i == 0 and self.hw_dpid:

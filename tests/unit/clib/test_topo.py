@@ -231,7 +231,7 @@ class FaucetTopoTest(TestCase):
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)
         self.assertEqual(topo.dpids_by_id[0], hw_dpid)
-        self.assertEqual(topo.ports[topo.switches_by_id[0]].keys(), [1, 2])
+        self.assertEqual(list(topo.ports[topo.switches_by_id[0]].keys()), [1, 2])
 
     def test_no_links(self):
         """Test single switch topology"""
