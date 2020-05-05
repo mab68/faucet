@@ -498,7 +498,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                 int_hosts.append(host)
                 int_or_ext = 0
             for dp, ports in self.host_port_maps[host_id].items():
-                dp_hosts[self.topo.switches_by_id[dp]][int_or_ext].append(host_id)
+                dp_hosts[self.topo.switches_by_id[dp]][int_or_ext].append(host)
         return set(int_hosts), set(ext_hosts), dp_hosts
 
     def verify_protected_connectivity(self):
@@ -706,7 +706,7 @@ details partner lacp pdu:
         # Pick a port to set up
         up_dp = random.choice(list(lacp_ports.keys()))
         up_dpid = self.topo.dpids_by_id[up_dp]
-        up_port = random.choice(lacp_ports[up_dpid])
+        up_port = random.choice(lacp_ports[up_dp])
         self.set_port_up(up_port, up_dpid)
         self.verify_num_lag_up_ports(1, up_dpid)
         # Ensure connectivity with one port

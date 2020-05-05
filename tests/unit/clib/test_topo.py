@@ -212,11 +212,9 @@ class FaucetTopoTest(TestCase):
             start_port=start_port, port_order=port_order,
             get_serialno=self.get_serialno)
         s1_name = topo.switches_by_id[0]
-        s1_ports = list(topo.ports[s1_name].keys())
-        self.assertEqual(s1_ports, expected_ports[:2])
+        self.assertEqual(topo.ports[s1_name].keys(), expected_ports[:2])
         s2_name = topo.switches_by_id[1]
-        s2_ports = list(topo.ports[s2_name].keys())
-        self.assertEqual(s2_ports, expected_ports[:2])
+        self.assertEqual(topo.ports[s2_name].keys(), expected_ports[:2])
 
     def test_hw_build(self):
         """Test the topology is built with hardware requirements"""

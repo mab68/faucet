@@ -20,6 +20,7 @@ import random
 import networkx
 import yaml
 
+from mininet.log import output
 from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch
 from clib import mininet_test_util
 from mininet.topo import Topo
@@ -326,7 +327,7 @@ class FaucetTopoGenerator(Topo):
             host_name = self.hosts_by_id[h]
             for dp in links:
                 if dp not in self.switches_by_id:
-                    self.create_switch(dp)
+                    self._add_faucet_switch(dp)
                 switch_name = self.switches_by_id[dp]
                 self._add_link(switch_name, host_name, vlans)
 
