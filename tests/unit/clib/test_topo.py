@@ -244,8 +244,8 @@ class FaucetTopoTest(TestCase):
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)
-        self.assertEqual(len(topo.hosts), 1)
-        self.assertEqual(len(topo.switches), 1)
+        self.assertEqual(len(topo.hosts()), 1)
+        self.assertEqual(len(topo.switches()), 1)
         self.assertEqual(len(topo.links()), 1)
         host_name = topo.hosts_by_id[0]
         switch_name = topo.switches_by_id[0]
@@ -272,8 +272,8 @@ class FaucetTopoTest(TestCase):
         host0, host1 = topo.hosts_by_id.values()
         dp0, dp1 = topo.switches_by_id.values()
         links = topo.links()
-        self.assertIn((host0, dp0), links)
-        self.assertIn((host1, dp1), links)
+        self.assertIn((dp0, host0), links)
+        self.assertIn((dp1, host1), links)
         self.assertIn((dp0, dp1), links)
         self.assertEqual(links.count((dp0, dp1)), 3)
 

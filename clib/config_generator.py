@@ -21,7 +21,7 @@ import networkx
 import yaml
 
 from mininet.log import output
-from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch
+from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch, NoControllerFaucetSwitch
 from clib import mininet_test_util
 from mininet.topo import Topo
 
@@ -92,6 +92,7 @@ class FaucetTopoGenerator(Topo):
 
     def _create_port_map(self):
         """ """
+        # TODO: Redundant
         port_maps = {}
         for i, dpid in self.dpids_by_id.items():
             switch_name = self.switches_by_id[i]
@@ -202,33 +203,26 @@ class FaucetTopoGenerator(Topo):
         """
         # TODO: host IP address
         # TODO: LACP host
-        # TODO: Maybe save original VLANs for later use/generating addresses
-        # TODO: parse cls option in self.host_options first
         sid_prefix = self._generate_sid_prefix()
         host_opts = self.host_options.get(host_index, {})
-        host_name, host_cls = None, None
-        if isinstance(vlans, int):
-            host_vlans = None
-            host_name = 'u%s%1.1u' % (sid_prefix, host_index + 1)
-            host_cls = FaucetHost
-        elif isinstance(vlans, list):
-            host_vlans = [self.vlan_vid(vlan) for vlan in vlans]
-            host_name = 't%s%1.1u' % (sid_prefix, host_index + 1)
-            host_cls = VLANHost
-        elif 'cls' in host_opts:
+        host_name = None
+        if 'cls' in host_opts:
             host_name = 'e%s%1.1u' % (sid_prefix, host_index + 1)
-            host_cls = host_opts['cls']
-            host_opts = host_opts.copy()
-            host_opts.pop('cls')
         else:
-            raise GenerationError('Unknown host type')
+            if isinstance(vlans, int):
+                host_name = 'u%s%1.1u' % (sid_prefix, host_index + 1)
+                host_opts['cls'] = FaucetHost
+            elif isinstance(vlans, list):
+                host_name = 't%s%1.1u' % (sid_prefix, host_index + 1)
+                host_opts['vlans'] = [self.vlan_vid(vlan) for vlan in vlans]
+                host_opts['cls'] = VLANHost
+            else:
+                raise GenerationError('Unknown host type')
         self.hosts_by_id[host_index] = host_name
         return self.addHost(
-            name=host_name,
-            vlans=host_vlans,
-            cls=host_cls,
             cpu=self.CPUF,
             host_n=host_index,
+            name=host_name,
             config_vlans=vlans,
             **host_opts)
 
