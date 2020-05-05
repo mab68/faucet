@@ -15,11 +15,7 @@ from clib.config_generator import FaucetTopoGenerator
 
 
 class FaucetTopoTestBase(FaucetTestBase):
-    """
-    Extension to the base test for the integration test suite to help set up arbitrary topologies
-    This is supposed to be called with clib.mininet_topo_generator to take networkx graph
-        generators and produce a set of switch-switch links and host-switch links
-    """
+    """Extension to the base test for the integration test suite to help set up arbitrary topologies"""
 
     NETPREFIX = 24
     IPV = 4
