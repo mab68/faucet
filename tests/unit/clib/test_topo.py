@@ -192,10 +192,10 @@ class FaucetTopoTest(TestCase):
             get_serialno=self.get_serialno)
         s1_name = topo.switches_by_id[0]
         s1_ports = list(topo.ports[s1_name].keys())
-        self.assertEqual(s1_ports, port_order)
+        self.assertEqual(s1_ports, expected_ports[:2])
         s2_name = topo.switches_by_id[1]
         s2_ports = list(topo.ports[s2_name].keys())
-        self.assertEqual(s2_ports, port_order)
+        self.assertEqual(s2_ports, expected_ports[:2])
 
     def test_start_port(self):
         """Test the topology start port parameter option"""
@@ -205,7 +205,7 @@ class FaucetTopoTest(TestCase):
         switch_links = [(0, 1)]
         link_vlans = {(0, 1): [0]}
         port_order = [3, 2, 1, 0]
-        expected_ports = [self.START_PORT + port for port in port_order]
+        expected_ports = [start_port + port for port in port_order]
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
             host_links, host_vlans, switch_links, link_vlans,
@@ -244,7 +244,7 @@ class FaucetTopoTest(TestCase):
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
             host_links, host_vlans, switch_links, link_vlans,
-            start_port=self.START_PORT, port_order=PORT_ORDER,
+            start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)
         self.assertEqual(len(topo.hosts), 1)
         self.assertEqual(len(topo.switches), 1)
@@ -267,7 +267,7 @@ class FaucetTopoTest(TestCase):
 
     def test_host_options(self):
         """Test the topology correctly provides mininet host options"""
-        host_options = {0: {'inNamespace': True, 'ip': '127.0.0.1'}, 1: {'cls': self.FakeHost}}
+        host_options = {0: {'inNamespace': True, 'ip': '127.0.0.1'}, 1: {'cls': self.FakeExtendedHost}}
         host_links = {0: [0], 1: [0]}
         host_vlans = {0: 0, 1: None}
         switch_links = []

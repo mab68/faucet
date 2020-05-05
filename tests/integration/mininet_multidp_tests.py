@@ -72,11 +72,11 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
             for host, links in host_links.items():
                 make_external = False
                 for link in links:
-                    if values[link]:
+                    if not values[link]:
                         make_external = True
                         values[link] = True
                 host_options.setdefault(host, {})
-                host_options[host]['loop_protect_external'] = False
+                host_options[host]['loop_protect_external'] = make_external
         for host in host_links.keys():
             for h_key, h_value in self.host_options().items():
                 host_options[host][h_key] = h_value
