@@ -159,6 +159,13 @@ class FaucetTopoTest(TestCase):
 
     serial = 0
 
+    START_PORT = 5
+    PORT_ORDER = [0, 1, 2, 3]
+
+    class FakeExtendedHost:
+        """Fake class for a mininet extended host"""
+        pass
+
     def get_serialno(self, *_args, **_kwargs):
         """"Return mock serial number"""
         self.serial += 1
@@ -172,50 +179,72 @@ class FaucetTopoTest(TestCase):
         port_order = [1, 2, 3, 4, 0]
         extended = FaucetFakeOFTopoGenerator.extend_port_order(port_order, max_length=10)
         self.assertEqual(extended, [1, 2, 3, 4, 0, 6, 7, 8, 9, 5])
+        host_links = {0: [0], 1: [1]}
+        host_vlans = {0: 0, 1: 0}
+        switch_links = [(0, 1)]
+        link_vlans = {(0, 1): [0]}
+        topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=self.START_PORT, port_order=[3, 2, 1, 0])
+        s1_name = topo.switches_by_id[0]
+        s1_ports = list(topo.ports[s1_name].keys())
+
+        s2_name = topo.switches_by_id[1]
+        s2_ports = list(topo.ports[s2_name].keys())
+
+    def test_no_links(self):
+        """Test single switch topology"""
+        host_links = {0: [0]}
+        host_vlans = {0: 0}
+        switch_links = {}
+        link_vlans = {}
+        topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=self.START_PORT, port_order=PORT_ORDER)
 
     def test_build(self):
         """Test the topology is built correctly"""
+        host_links = {0: [0], 1: [1]}
+        host_vlans = {0: 0, 1: [0, 1]}
+        switch_links = [(0, 1), (0, 1), (0, 1)]
+        link_vlans = {(0, 1): [0, 1], (0, 1): 0, (0, 1): None}
         topo = FaucetFakeOFTopoGenerator(
-            'test_build', '', '',
-            host_links, host_vlans, switch_links, link_vlans)
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=self.START_PORT, port_order=PORT_ORDER)
 
     def test_start_port(self):
-        """ """
-        start_port = 
+        """Test the topology start port"""
+        start_port = 55
+        topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=start_port, port_order=PORT_ORDER)
 
     def test_hw_build(self):
         """Test the topology is built with hardware requirements"""
         hw_dpid = 0x123
-        hw_ports = {}
+        hw_ports = {1:'p1', 2:'p2', 3:'p3', 4:'p4', 5:'p5', 6:'p6'}
+        topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            hw_dpid=hw_dpid, hw_ports=hw_ports,
+            start_port=self.START_PORT, port_order=self.PORT_ORDER)
 
     def test_host_options(self):
         """Test the topology correctly provides mininet host options"""
-        host_options = {}
-
-    def test_get_config(self):
-        """Test the config generator for the topology"""
-
-    # def test_topo(self):
-    #     n_vlans = 3
-    #     dp_links = networkx.cycle_graph(5)
-    #     switch_links = list(dp_links.edges())
-    #     link_vlans = {}
-    #     for link in switch_links:
-    #         link_vlans[link] = None
-    #     host_links = {}
-    #     h = 0
-    #     for dp in dp_links.nodes():
-    #         host_links.setdefault(h, [])
-    #         host_links[h].append(dp)
-    #         h += 1
-    #     host_vlans = {}
-    #     for h in host_links.keys():
-    #         host_vlans[h] = 0
-    #     port_order = [3, 2, 1, 0]
-    #     topo = FaucetFakeOFTopoGenerator(
-    #         '', '', '',
-    #         host_links, host_vlans, switch_links, link_vlans,
-    #         port_order=port_order, get_serialno=self.get_serialno)
+        host_options = {0: {'inNamespace': True, 'ip': '127.0.0.1'}, 1: {'cls': FakeHost}}
+        host_links = {0: [0], 1: [0]}
+        host_vlans = {0: 0, 1: None}
+        switch_links = []
+        link_vlans = {}
+        topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            host_options=host_options,
+            start_port=self.START_PORT, port_order=self.PORT_ORDER)
 
 
 if __name__ == "__main__":

@@ -1732,7 +1732,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
                 # Change host VLAN to enable cold-starting on faucet-2
                 curr_vlan = port_conf['native_vlan']
                 port_conf['native_vlan'] = (
-                    self.vlan_name(1) if curr_vlan == self.vlan_name(0) else self.vlan_name(0))
+                    self.topo.vlan_name(1) if curr_vlan == self.topo.vlan_name(0) else self.topo.vlan_name(0))
                 # VLAN changed so just delete the host information instead of recomputing
                 #   routes etc..
                 for _id in self.host_information:
