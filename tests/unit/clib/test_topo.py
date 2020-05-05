@@ -155,7 +155,7 @@ class FaucetStringOfDPSwitchTopoTest(TestCase):
 
 
 class FaucetTopoTest(TestCase):
-    """ """
+    """Tests for Faucet test suite mininet Topo class generator"""
 
     serial = 0
 
@@ -212,9 +212,9 @@ class FaucetTopoTest(TestCase):
             start_port=start_port, port_order=port_order,
             get_serialno=self.get_serialno)
         s1_name = topo.switches_by_id[0]
-        self.assertEqual(topo.ports[s1_name].keys(), expected_ports[:2])
+        self.assertEqual(list(topo.ports[s1_name].keys()), expected_ports[:2])
         s2_name = topo.switches_by_id[1]
-        self.assertEqual(topo.ports[s2_name].keys(), expected_ports[:2])
+        self.assertEqual(list(topo.ports[s2_name].keys()), expected_ports[:2])
 
     def test_hw_build(self):
         """Test the topology is built with hardware requirements"""
@@ -262,6 +262,20 @@ class FaucetTopoTest(TestCase):
             host_links, host_vlans, switch_links, link_vlans,
             start_port=self.START_PORT, port_order=self.PORT_ORDER,
             get_serialno=self.get_serialno)
+        self.assertEqual(len(topo.dpids_by_id), 2)
+        self.assertEqual(len(topo.hosts_by_id), 2)
+        self.assertEqual(len(topo.switches_by_id), 2)
+        port_maps, host_port_maps, link_port_maps = topo.create_port_maps()
+        self.assertEqual(len(link_port_maps[(0, 1)]), 3)
+        self.assertEqual(len(host_port_maps[0]), 1)
+        self.assertEqual(len(host_port_maps[1]), 1)
+        host0, host1 = topo.hosts_by_id.values()
+        dp0, dp1 = topo.switches_by_id.values()
+        links = topo.links()
+        self.assertIn((host0, dp0), links)
+        self.assertIn((host1, dp1), links)
+        self.assertIn((dp0, dp1), links)
+        self.assertEqual(links.count((dp0, dp1)), 3)
 
     def test_host_options(self):
         """Test the topology correctly provides mininet host options"""

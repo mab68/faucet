@@ -217,7 +217,7 @@ class FaucetTopoGenerator(Topo):
             host_cls = VLANHost
         elif 'cls' in host_opts:
             host_name = 'e%s%1.1u' % (sid_prefix, host_index + 1)
-            host_cls = self.host_opts['cls']
+            host_cls = host_opts['cls']
             host_opts = host_opts.copy()
             host_opts.pop('cls')
         else:
@@ -249,7 +249,7 @@ class FaucetTopoGenerator(Topo):
             self.dpids_by_id[switch_index] = self.hw_dpid
             dpid = str(int(self.hw_dpid) + 1)
             output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)\n' % (
-                raw_dpid, int(raw_dpid), dpid, int(dpid)))
+                self.hw_dpid, int(self.hw_dpid), dpid, int(dpid)))
             switch_cls = NoControllerFaucetSwitch
         else:
             dpid = self.dp_dpid(switch_index)
