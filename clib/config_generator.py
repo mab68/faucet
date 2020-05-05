@@ -202,6 +202,7 @@ class FaucetTopoGenerator(Topo):
         # TODO: host IP address
         # TODO: LACP host
         # TODO: Maybe save original VLANs for later use/generating addresses
+        # TODO: parse cls option in self.host_options first
         sid_prefix = self._generate_sid_prefix()
         host_opts = self.host_options.get(host_index, {})
         host_name, host_cls = None, None

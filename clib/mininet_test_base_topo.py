@@ -696,7 +696,7 @@ details partner lacp pdu:
 
     def verify_lag_connectivity(self, host_id):
         """Verify LAG connectivity"""
-        lacp_ports = self.topo.host_port_maps[host_id]
+        lacp_ports = self.host_port_maps[host_id]
         # All ports down
         for dp, ports in lacp_ports.items():
             dpid = self.topo.dpids_by_id[dp]
