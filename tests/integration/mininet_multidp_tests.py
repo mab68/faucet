@@ -262,6 +262,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
                     first_link = (sport, link[1])
                 else:
                     second_link = (sport, link[1])
+        first_lacp_port, remote_first_lacp_port = first_link
         second_lacp_port, remote_second_lacp_port = second_link
         return (first_lacp_port, second_lacp_port,
                 remote_first_lacp_port, remote_second_lacp_port)
@@ -1125,8 +1126,6 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-            for key, value in self.dp_options().items():
-                dp_options[dp][key] = value
             if dp == 0:
                 dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
@@ -1333,8 +1332,6 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-            for key, value in self.dp_options().items():
-                dp_options[dp][key] = value
             if dp == 0:
                 dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
@@ -1606,8 +1603,6 @@ class FaucetUntaggedStackTransitTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-            for key, value in self.dp_options().items():
-                dp_options[dp][key] = value
             if dp == 0:
                 dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
@@ -1649,8 +1644,6 @@ class FaucetUntaggedStackTransitVLANTest(FaucetTopoTestBase):
                 'ofchannel_log': self.debug_log_path + str(dp) if self.debug_log_path else None,
                 'hardware': self.hardware if dp == 0 and self.hw_dpid else 'Open vSwitch'
             })
-            for key, value in self.dp_options().items():
-                dp_options[dp][key] = value
             if dp == 0:
                 dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
