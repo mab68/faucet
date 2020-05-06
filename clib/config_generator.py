@@ -13,17 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
-
 import string
 import random
-import networkx
 import yaml
 
 from mininet.log import output
-from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch, NoControllerFaucetSwitch
-from clib import mininet_test_util
 from mininet.topo import Topo
+
+from clib import mininet_test_util
+from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch, NoControllerFaucetSwitch
 
 
 class GenerationError(Exception):
@@ -32,7 +30,7 @@ class GenerationError(Exception):
 
 
 class FaucetTopoGenerator(Topo):
-    """ """
+    """Creates a mininet topology and then provides a method to generate a YAML config file"""
 
     # Host CPU option
     CPUF = 0.5
@@ -75,7 +73,7 @@ class FaucetTopoGenerator(Topo):
             for port, link in self.ports[name].items():
                 if self.isSwitch(link[0]):
                     peer_id = self.nodeInfo(link[0])['switch_n']
-                    port_maps.setdefault((i,peer_id), [])
+                    port_maps.setdefault((i, peer_id), [])
                     port_maps[(i,peer_id)].append(port)
         return port_maps
 
@@ -84,15 +82,14 @@ class FaucetTopoGenerator(Topo):
         host_port_map = {}
         for host, name in self.hosts_by_id.items():
             host_port_map.setdefault(host, {})
-            for port, link in self.ports[name].items():
+            for link in self.ports[name].values():
                 switch_id = self.nodeInfo(link[0])['switch_n']
                 host_port_map[host].setdefault(switch_id, [])
                 host_port_map[host][switch_id].append(link[1])
         return host_port_map
 
     def _create_port_map(self):
-        """ """
-        # TODO: Redundant s
+        """TODO: Redundant"""
         port_maps = {}
         for i, dpid in self.dpids_by_id.items():
             switch_name = self.switches_by_id[i]
@@ -114,15 +111,15 @@ class FaucetTopoGenerator(Topo):
             if dpid not in self.dpids_by_id.values():
                 return str(dpid)
 
-    def vlan_name(self, i):
+    def vlan_name(i):
         """VLAN name"""
         return 'vlan-%i' % (i+1)
 
-    def vlan_vid(self, i):
+    def vlan_vid(i):
         """VLAN VID value"""
         return (i+1) * 100
 
-    def router_name(self, i):
+    def router_name(i):
         """Router name"""
         return 'router-%s' % (i+1)
 
@@ -504,7 +501,7 @@ class FaucetTopoGenerator(Topo):
             acl_options (dict): Acls in use in the Faucet configuration file
             dp_options (dict): Additional options for each DP, keyed by DP index
             host_options (dict): Additional options for each host, keyed by host index
-            link_options (dict): Additional options for each link, keyed by switch indices tuple (u, v)
+            link_options (dict): Additional options for each link, keyed by indices tuple (u, v)
             vlan_options (dict): Additional options for each VLAN, keyed by vlan index
             routers (dict): Router index to list of VLANs in the router
             router_options (dict): Additional options for each router, keyed by router index
@@ -526,7 +523,7 @@ class FaucetTopoGenerator(Topo):
 
 
 class FaucetFakeOFTopoGenerator(FaucetTopoGenerator):
-    """ """
+    """Generates Faucet topologies for Unittests"""
 
     # NOTE: For now, we dont actually create the objects for the unittests
     #   so we can leave them as they are in the FaucetTopoGenerator function

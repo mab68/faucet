@@ -261,6 +261,7 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
                     first_link = (sport, link[1])
                 else:
                     second_link = (sport, link[1])
+        first_link, second_link = sorted([first_link, second_link])
         first_lacp_port, remote_first_lacp_port = first_link
         second_lacp_port, remote_second_lacp_port = second_link
         return (first_lacp_port, second_lacp_port,
