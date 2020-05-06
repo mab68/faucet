@@ -111,15 +111,15 @@ class FaucetTopoGenerator(Topo):
             if dpid not in self.dpids_by_id.values():
                 return str(dpid)
 
-    def vlan_name(i):
+    def vlan_name(self, i):
         """VLAN name"""
         return 'vlan-%i' % (i+1)
 
-    def vlan_vid(i):
+    def vlan_vid(self, i):
         """VLAN VID value"""
         return (i+1) * 100
 
-    def router_name(i):
+    def router_name(self, i):
         """Router name"""
         return 'router-%s' % (i+1)
 
