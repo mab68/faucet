@@ -60,7 +60,7 @@ class FaucetTopoTest(TestCase):
         host_vlans = {0: 0, 1: 0}
         switch_links = [(0, 1)]
         link_vlans = {(0, 1): [0]}
-        port_order = [3, 2, 1, 0]
+        port_order = [0, 1, 2, 3]
         expected_ports = [start_port + port for port in port_order]
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',

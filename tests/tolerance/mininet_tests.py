@@ -57,6 +57,11 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
     # Number of links between switches
     N_DP_LINKS = None
 
+    host_links = None
+    switch_links = None
+    routers = None
+    stack_roots = None
+
     def setUp(self):
         pass
 
@@ -107,6 +112,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         self.host_links = host_links
         self.switch_links = switch_links
         self.routers = routers
+        self.stack_roots = stack_roots
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -170,12 +176,12 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         """
         index = args[0]
         dpid = self.dpids[index]
-        switch_name = self.topo.dpid_names[dpid]
+        switch_name = self.topo.switches_by_id[index]
         switch = next((switch for switch in self.net.switches if switch.name == switch_name), None)
         if switch is None:
             return
         self.dump_switch_flows(switch)
-        name = '%s:%s DOWN' % (self.dp_name(index), self.dpids[index])
+        name = '%s:%s DOWN' % (self.topo.switches_by_id[index], self.dpids[index])
         self.topo_watcher.add_switch_fault(index, name)
         switch.stop()
         switch.cmd(self.VSCTL, 'del-controller', switch.name, '|| true')
@@ -189,8 +195,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         dpid_list = self.topo_watcher.get_eligable_switch_events()
         if len(self.stack_roots.keys()) <= 1:
             # Prevent only root from being destroyed
-            sorted_roots = {
-                k: v for k, v in sorted(self.stack_roots.items(), key=lambda item: item[1])}
+            sorted_roots = dict(sorted(self.stack_roots.items(), key=lambda item: item[1]))
             for root_index in sorted_roots.keys():
                 root_dpid = self.dpids[root_index]
                 if root_dpid in dpid_list:
@@ -214,16 +219,16 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         dst_i = args[1]
         src_dpid = self.dpids[src_i]
         dst_dpid = self.dpids[dst_i]
-        s1 = self.dp_name(src_i)
-        s2 = self.dp_name(dst_i)
+        s1 = self.topo.switches_by_id[src_id]
+        s2 = self.topo.switches_by_id[dst_i]
         for link in self.topo.dpid_peer_links(src_dpid):
             port, peer_dpid, peer_port = link.port, link.peer_dpid, link.peer_port
-            status = self.stack_port_status(src_dpid, self.dp_name(src_i), port)
+            status = self.stack_port_status(src_dpid, s1, port)
             if peer_dpid == dst_dpid and status == 3:
                 self.set_port_down(port, src_dpid)
                 self.set_port_down(peer_port, dst_dpid)
-                self.wait_for_stack_port_status(src_dpid, self.dp_name(src_i), port, 4)
-                self.wait_for_stack_port_status(dst_dpid, self.dp_name(dst_i), peer_port, 4)
+                self.wait_for_stack_port_status(src_dpid, s1, port, 4)
+                self.wait_for_stack_port_status(dst_dpid, s2, peer_port, 4)
                 name = 'Link %s[%s]:%s-%s[%s]:%s DOWN' % (
                     s1, src_dpid, port, s2, dst_dpid, peer_port)
                 self.topo_watcher.add_link_fault(src_i, dst_i, name)
@@ -351,9 +356,10 @@ class FaucetSingleFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
 
     def test_ftp2_all_random_link_failures(self):
         """Test fat-tree-pod-2 randomly tearing down only switch-switch links"""
-        fault_events = [(self.random_dp_link_fault, (None,)) for _ in range(len(dp_links))]
+        network_graph = networkx.cycle_graph(self.NUM_DPS)
+        fault_events = [(self.random_dp_link_fault, (None,)) for _ in range(len(network_graph.edges()))]
         stack_roots = {2*i: 1 for i in range(self.NUM_DPS//2)}
-        self.set_up(networkx.cycle_graph(self.NUM_DPS), stack_roots)
+        self.set_up(network_graph, stack_roots)
         self.network_function(fault_events=fault_events)
 
     def test_ftp2_edge_root_link_fault(self):
