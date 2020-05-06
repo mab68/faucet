@@ -68,7 +68,7 @@ class FaucetTopoTest(TestCase):
             start_port=start_port, port_order=port_order,
             get_serialno=self.get_serialno)
         s1_name = topo.switches_by_id[0]
-        self.assertEqual(list(topo.ports[s1_name].keys()), expected_ports[:2])
+        self.assertEqual(list(topo.ports[s1_name].keys()), expected_ports[:2], '%s' % topo.ports[s1_name].keys())
         s2_name = topo.switches_by_id[1]
         self.assertEqual(list(topo.ports[s2_name].keys()), expected_ports[:2])
 

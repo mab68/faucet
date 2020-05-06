@@ -14,7 +14,6 @@ import networkx
 from networkx.generators.atlas import graph_atlas_g
 
 from clib.clib_mininet_test_main import test_main
-from clib.mininet_test_topo_generator import FaucetTopoGenerator
 
 import mininet_tests
 

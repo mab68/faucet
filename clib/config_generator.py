@@ -40,11 +40,11 @@ class FaucetTopoGenerator(Topo):
     DELAY = '1ms'
 
     # Switch index map to switch name
-    switches_by_id = None
+    switches_by_id = {}
     # Switch index map to switch dpid
-    dpids_by_id = None
+    dpids_by_id = {}
     # Host index map to host name
-    hosts_by_id = None
+    hosts_by_id = {}
 
     # Generated hardware switch name
     hw_name = None
@@ -153,6 +153,8 @@ class FaucetTopoGenerator(Topo):
         """
         if not port_order:
             return list(range(max_length + 1))
+        if len(port_order) >= max_length:
+            return port_order
         extend_order = []
         start_port = max(port_order) + 1
         for i in port_order:
