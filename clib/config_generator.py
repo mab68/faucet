@@ -74,7 +74,7 @@ class FaucetTopoGenerator(Topo):
                 if self.isSwitch(link[0]):
                     peer_id = self.nodeInfo(link[0])['switch_n']
                     port_maps.setdefault((i, peer_id), [])
-                    port_maps[(i,peer_id)].append(port)
+                    port_maps[(i, peer_id)].append(port)
         return port_maps
 
     def _create_host_port_map(self):
@@ -89,7 +89,7 @@ class FaucetTopoGenerator(Topo):
         return host_port_map
 
     def _create_port_map(self):
-        """TODO: Redundant"""
+        """Create a map from port to the true port"""
         port_maps = {}
         for i, dpid in self.dpids_by_id.items():
             switch_name = self.switches_by_id[i]
@@ -187,7 +187,6 @@ class FaucetTopoGenerator(Topo):
             host_index (int): Host index to generate the host name
             vlans (list/None/int): Type of host/vlans the host belongs to
         """
-        # TODO: Setup host IP address for VLANs, host Routes, LACP host
         sid_prefix = self._generate_sid_prefix()
         host_opts = self.host_options.get(host_index, {})
         host_name = None
