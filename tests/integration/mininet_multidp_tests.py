@@ -7,7 +7,6 @@ import networkx
 from mininet.log import error
 
 from clib.mininet_test_base import IPV4_ETH, IPV6_ETH
-from clib.mininet_test_topo_generator import FaucetTopoGenerator
 from clib.mininet_test_base_topo import FaucetTopoTestBase
 
 
