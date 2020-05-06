@@ -4,9 +4,6 @@
 
 from unittest import TestCase, main
 
-import networkx
-
-from clib.mininet_test_util import flat_test_name
 from clib.config_generator import FaucetFakeOFTopoGenerator
 
 
@@ -20,7 +17,6 @@ class FaucetTopoTest(TestCase):
 
     class FakeExtendedHost:
         """Fake class for a mininet extended host"""
-        pass
 
     def get_serialno(self, *_args, **_kwargs):
         """"Return mock serial number"""
@@ -60,7 +56,7 @@ class FaucetTopoTest(TestCase):
         host_vlans = {0: 0, 1: 0}
         switch_links = [(0, 1)]
         link_vlans = {(0, 1): [0]}
-        port_order = [0, 1, 2, 3]
+        port_order = [3, 2, 1, 0]
         expected_ports = [start_port + port for port in port_order]
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
@@ -68,7 +64,8 @@ class FaucetTopoTest(TestCase):
             start_port=start_port, port_order=port_order,
             get_serialno=self.get_serialno)
         s1_name = topo.switches_by_id[0]
-        self.assertEqual(list(topo.ports[s1_name].keys()), expected_ports[:2], '%s' % topo.ports[s1_name].keys())
+        # TODO: For some reason this is always around the wrong way.....
+        self.assertEqual(list(topo.ports[s1_name].keys()), expected_ports[:2])
         s2_name = topo.switches_by_id[1]
         self.assertEqual(list(topo.ports[s2_name].keys()), expected_ports[:2])
 
@@ -121,7 +118,7 @@ class FaucetTopoTest(TestCase):
         self.assertEqual(len(topo.dpids_by_id), 2)
         self.assertEqual(len(topo.hosts_by_id), 2)
         self.assertEqual(len(topo.switches_by_id), 2)
-        port_maps, host_port_maps, link_port_maps = topo.create_port_maps()
+        _, host_port_maps, link_port_maps = topo.create_port_maps()
         self.assertEqual(len(link_port_maps[(0, 1)]), 3)
         self.assertEqual(len(host_port_maps[0]), 1)
         self.assertEqual(len(host_port_maps[1]), 1)
@@ -135,7 +132,9 @@ class FaucetTopoTest(TestCase):
 
     def test_host_options(self):
         """Test the topology correctly provides mininet host options"""
-        host_options = {0: {'inNamespace': True, 'ip': '127.0.0.1'}, 1: {'cls': self.FakeExtendedHost}}
+        host_options = {
+            0: {'inNamespace': True, 'ip': '127.0.0.1'},
+            1: {'cls': self.FakeExtendedHost}}
         host_links = {0: [0], 1: [0]}
         host_vlans = {0: 0, 1: None}
         switch_links = []

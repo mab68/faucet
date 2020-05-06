@@ -82,8 +82,9 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             host_vlans = {}
             host_n = 0
             for dp in network_graph.nodes():
-                for _ in range(self.NUM_HOSTS):
+                for v in range(self.NUM_VLANS):
                     host_links[host_n] = [dp]
+                    host_vlans[host_n] = v
                     host_n += 1
         dp_options = {}
         for i in network_graph.nodes():
