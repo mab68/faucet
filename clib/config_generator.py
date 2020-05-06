@@ -1,3 +1,6 @@
+
+"""Mininet Topo class with YAML config generator"""
+
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2019 The Contributors
 #
@@ -26,7 +29,6 @@ from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch, NoControl
 
 class GenerationError(Exception):
     """Indicates a problem with generating the configuration file"""
-    pass
 
 
 class FaucetTopoGenerator(Topo):
@@ -279,14 +281,14 @@ class FaucetTopoGenerator(Topo):
             switch_topology (list): List of link tuples of switch indices (u, v)
             link_vlans (dict): Link tuple of switch indices (u, v) mapping to vlans
         """
-        for u, v in switch_links:
-            if u not in self.switches_by_id:
-                self._add_faucet_switch(u)
-            if v not in self.switches_by_id:
-                self._add_faucet_switch(v)
-            u_name = self.switches_by_id[u]
-            v_name = self.switches_by_id[v]
-            self._add_link(u_name, v_name, link_vlans[(u, v)])
+        for u_id, v_id in switch_links:
+            if u_id not in self.switches_by_id:
+                self._add_faucet_switch(u_id)
+            if v_id not in self.switches_by_id:
+                self._add_faucet_switch(v_id)
+            u_name = self.switches_by_id[u_id]
+            v_name = self.switches_by_id[v_id]
+            self._add_link(u_name, v_name, link_vlans[(u_id, v_id)])
 
     def add_host_topology(self, host_links, host_vlans):
         """
@@ -298,15 +300,15 @@ class FaucetTopoGenerator(Topo):
             host_links (dict): Host index key to list of dp indices
             host_vlans (dict): Host index key to vlan index/indices
         """
-        for h, links in host_links.items():
-            vlans = host_vlans[h]
-            if h not in self.hosts_by_id:
-                self._add_host(h, vlans)
-            host_name = self.hosts_by_id[h]
-            for dp in links:
-                if dp not in self.switches_by_id:
-                    self._add_faucet_switch(dp)
-                switch_name = self.switches_by_id[dp]
+        for h_id, links in host_links.items():
+            vlans = host_vlans[h_id]
+            if h_id not in self.hosts_by_id:
+                self._add_host(h_id, vlans)
+            host_name = self.hosts_by_id[h_id]
+            for dp_i in links:
+                if dp_i not in self.switches_by_id:
+                    self._add_faucet_switch(dp_i)
+                switch_name = self.switches_by_id[dp_i]
                 self._add_link(switch_name, host_name, vlans)
 
     def build(self, ovs_type, ports_sock, test_name,
