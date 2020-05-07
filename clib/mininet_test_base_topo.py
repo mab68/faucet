@@ -376,7 +376,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                     stack_link = (sport, link[1])
                     break
                 count += 1
-        stack_port, remote_stack_port = stack_link
+        stack_port, remote_stack_port = stack_link # pytype: disable=attribute-error
         self.set_port_down(stack_port, wait=False)
         # self.dpids[1] is the intermediate switch.
         self.set_port_down(remote_stack_port, self.dpids[1], wait=False)
