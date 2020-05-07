@@ -293,8 +293,6 @@ class FaucetStringOfDPLACPUntaggedTest(FaucetMultiDPTest):
         """Wait for LACP state NOSYNC"""
         self.wait_for_lacp_state(port_no, 5, dpid, dp_name)
 
-
-
     def wait_for_all_lacp_up(self):
         """Wait for all LACP ports to be up"""
         (first_lacp_port, second_lacp_port, remote_first_lacp_port, _) = self.lacp_ports()
@@ -605,7 +603,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'nw_dst': '10.1.0.2',
                     'actions': {
                         'output': {
-                            'port': self.host_port_maps[1][0][0] #map1['port_2'] # Host 1
+                            'port': self.host_port_maps[1][0][0]  # Host 1
                         }
                     },
                 }},
@@ -615,8 +613,8 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'actions': {
                         'output': {
                             'ports': [
-                                self.host_port_maps[1][0][0],#map1['port_2'], # host 1
-                                self.link_port_maps[(0,1)][0]]#map1['port_4']]  # link (0, 1)
+                                self.host_port_maps[1][0][0],  # Host 1
+                                self.link_port_maps[(0,1)][0]]  # link (0, 1)
                         }
                     },
                 }},
@@ -624,7 +622,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': {
-                            'port': self.link_port_maps[(0,1)][0]#map1['port_4'] # link (0, 1) faucet-1 -> faucet-2
+                            'port': self.link_port_maps[(0,1)][0]  # link (0, 1)
                         }
                     },
                 }},
@@ -639,7 +637,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': {
-                            'port': self.link_port_maps[(1,2)][0]#map2['port_5'] # link (1, 2) faucet-2 -> faucet-3
+                            'port': self.link_port_maps[(1,2)][0]  # link (1, 2)
                         }
                     },
                 }},
@@ -655,7 +653,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'nw_dst': '10.1.0.7',
                     'actions': {
                         'output': {
-                            'port': self.host_port_maps[6][2][0]#map3['port_1'] # host 6
+                            'port': self.host_port_maps[6][2][0]  # host 6
                         }
                     },
                 }},
@@ -664,7 +662,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
                     'dl_dst': 'ff:ff:ff:ff:ff:ff',
                     'actions': {
                         'output': {
-                            'ports': [self.host_port_maps[6][2][0]]#map3['port_1']
+                            'ports': [self.host_port_maps[6][2][0]]  # host 6
                         }
                     },
                 }},
@@ -740,7 +738,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'nw_dst': '10.1.0.2',
                     'actions': {
                         'output': [
-                            {'port': self.host_port_maps[1][0][0]}
+                            {'port': self.host_port_maps[1][0][0]}  # Host 0
                         ]
                     },
                 }},
@@ -750,8 +748,8 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'actions': {
                         'output': [
                             {'ports': [
-                                self.host_port_maps[1][0][0],
-                                self.link_port_maps[(0,1)][0]]}
+                                self.host_port_maps[1][0][0],  # Host 0
+                                self.link_port_maps[(0,1)][0]]}  # Link (0, 1)
                         ]
                     },
                 }},
@@ -759,7 +757,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': [
-                            {'port': self.link_port_maps[(0,1)][0]}
+                            {'port': self.link_port_maps[(0,1)][0]}  # Link (0, 1)
                         ]
                     },
                 }},
@@ -774,7 +772,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'dl_type': IPV4_ETH,
                     'actions': {
                         'output': [
-                            {'port': self.link_port_maps[(1,2)][0]}
+                            {'port': self.link_port_maps[(1,2)][0]}  # Link (0, 2)
                         ]
                     },
                 }},
@@ -790,7 +788,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'nw_dst': '10.1.0.7',
                     'actions': {
                         'output': {
-                            'port': self.host_port_maps[6][2][0]
+                            'port': self.host_port_maps[6][2][0]  # Host 6
                         }
                     },
                 }},
@@ -799,7 +797,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
                     'dl_dst': 'ff:ff:ff:ff:ff:ff',
                     'actions': {
                         'output': [
-                            {'ports': [self.host_port_maps[6][2][0]]}
+                            {'ports': [self.host_port_maps[6][2][0]]}  # Host 6
                         ]
                     },
                 }},
@@ -986,8 +984,8 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
                             'tunnel': {
                                 'type': 'vlan',
                                 'tunnel_id': 200,
-                                'dp': self.topo.switches_by_id[0],
-                                'port': self.host_port_maps[1][0][0]}
+                                'dp': self.topo.switches_by_id[0],  # Switch 0
+                                'port': self.host_port_maps[1][0][0]}  # Switch 0 host 1
                         }
                     }
                 }}
@@ -1005,9 +1003,6 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
         self.set_up(stack=True, n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS,
                     switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
         self.verify_stack_up()
-        # TODO: Shouldn't have hosts by name order (should have by index order...)
-        # TODO: Need host 0, another host and host 1
-        #src_host, dst_host, other_host = self.hosts_name_ordered()[:3]
         src_host = self.net.get(self.topo.hosts_by_id[0])
         dst_host = self.net.get(self.topo.hosts_by_id[1])
         other_host = self.net.get(self.topo.hosts_by_id[2])
@@ -1074,7 +1069,6 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
         first_stack_port = self.link_port_maps[(0, 1)][0]
-        #first_stack_port = self.topo.get_switch_peer_links(0)[0][0]
         self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
         src_host, other_host, dst_host = self.hosts_name_ordered()[:3]
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)

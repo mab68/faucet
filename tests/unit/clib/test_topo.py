@@ -152,6 +152,46 @@ class FaucetTopoTest(TestCase):
                 self.assertIn(key, info)
                 self.assertEqual(value, info[key])
 
+    def test_link_port_map(self):
+        """Test correctly generated link port map"""
+        host_links = {0: [0], 1: [1]}
+        host_vlans = {0: 0, 1: 0}
+        switch_links = [(0, 1), (0, 1), (1, 2)]
+        link_vlans = {edge: None for edge in switch_links}
+        topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=self.START_PORT, port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno)
+        link_port_maps = topo._create_link_port_map()
+        self.assertEqual(len(link_port_maps[(0, 1)]), 2)
+        self.assertEqual(len(link_port_maps[(1, 2)]), 1)
+        import sys
+        sys.sterr.write('%s\n' % link_port_maps)
+        self.assertEqual(
+            link_port_maps,
+            {(0, 1): [], (1, 2): []}
+        )
+    
+    def test_host_port_map(self):
+        """Test correctly generated host port map"""
+        host_links = {0: [0, 2], 1: [1]}
+        host_vlans = {0: 0, 1: 0}
+        switch_links = [(0, 1), (0, 1), (1, 2)]
+        link_vlans = {edge: None for edge in switch_links}
+        topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=self.START_PORT, port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno)
+        host_port_maps = topo._create_host_port_map()
+        import sys
+        sys.stderr.write('%s\n' % host_port_maps)
+        self.assertEqual(
+            host_port_maps,
+            {0: {0: [], 2: []}, 1: {1: []}}
+        )
+
 
 if __name__ == "__main__":
     main()
