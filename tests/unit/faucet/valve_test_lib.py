@@ -76,7 +76,7 @@ def build_dict(pkt):
     if icmpv6_pkt:
         type_ = icmpv6_pkt.type_
         if type_ == icmpv6.ND_ROUTER_ADVERT:
-            for option in icmpv6_pkt.options:
+            for option in icmpv6_pkt.data.options:
                 if hasattr(option, 'hw_src'):
                     pkt_dict['eth_src'] = option.hw_src
                 if hasattr(option, 'prefix'):
@@ -1097,13 +1097,23 @@ class ValveTestBases:
                 table_names (list): List of table names to verify additions
                 flowmods (list): The flowmods that create new rules the tables
             """
+            import sys
+            for table_name, table in self.valve.dp.tables.items():
+                sys.stderr.write('%s: %s\n' % (table_name, table.table_id))
+            for flowmod in flowmods:
+                sys.stderr.write('%s\n' % flowmod.table_id)
+            sys.stderr.write('%s\n' % flowmods)
+            before_state = str(self.table)
             before_count = {}
             for table_name in table_names:
                 table_id = self.valve.dp.tables[table_name].table_id
                 before_count[table_id] = len(self.table.tables[table_id])
             self.apply_ofmsgs(flowmods)
+            after_state = str(self.table)
+            diff = difflib.unified_diff(before_state.splitlines(), str(after_state).splitlines())
+            sys.stderr.write(after_state)
             for table_id, count in before_count.items():
-                self.assertGreater(len(self.table.tables[table_id]), count)
+                self.assertGreater(len(self.table.tables[table_id]), count, '\n'.join(diff))
 
 
     class ValveTestBig(ValveTestSmall):
@@ -1168,12 +1178,12 @@ class ValveTestBases:
                     tfm for tfm in tfm_body.properties
                         if isinstance(tfm, valve_of.parser.OFPTableFeaturePropOxm)]
                 tfm_setfields = []
-                tfm_matchfields = []
                 tfm_exactmatch = []
+                tfm_matchtypes = []
                 for oxm in tfm_oxm:
                     if oxm.type == valve_of.ofp.OFPTFPT_MATCH:
                         tfm_matchtypes.extend(oxm.oxm_ids)
-                    elif oxm.type = valve_of.ofp.OFPTFPT_WILDCARDS:
+                    elif oxm.type == valve_of.ofp.OFPTFPT_WILDCARDS:
                         tfm_exactmatch.extend(oxm.oxm_ids)
                     elif oxm.type == valve_of.ofp.OFPTFPT_APPLY_SETFIELD:
                         tfm_setfields.extend(oxm.oxm_ids)
@@ -1266,6 +1276,7 @@ class ValveTestBases:
                     for arp_pktout in packet_outs:
                         pkt = packet.Packet(arp_pktout.data)
                         exp_pkt = {
+                            'opcode': 2,
                             'arp_source_ip': '10.0.0.254',
                             'arp_target_ip': '10.0.0.1',
                             'eth_src': FAUCET_MAC,
@@ -1397,7 +1408,7 @@ class ValveTestBases:
             ip_gw = ipaddress.IPv4Address('10.0.0.1')
             route_add_replies = self.valve.add_route(
                 valve_vlan, ip_gw, ip_dst)
-            table_id = self.valve.dp.tables.get['ipv4_fib'].table_id
+            table_id = self.valve.dp.tables['ipv4_fib'].table_id
             table = self.table.tables[table_id]
             orig_size = len(table)
             orig_rules = '\n'.join(sorted([str(flowmod) for flowmod in table]))
@@ -1429,14 +1440,14 @@ class ValveTestBases:
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
             self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
-            self.verify_table_additions(['eth_src', 'eth_dst', 'flood', 'ipv4_fib'], fib_route_replies)
+            self.verify_table_additions(['eth_src', 'eth_dst', 'ipv4_fib'], fib_route_replies)
             # Verify adding default route via 10.0.0.2
             route_add_replies = self.valve.add_route(
                 self.valve.dp.vlans[0x100],
                 ipaddress.IPv4Address('10.0.0.2'),
-                ipaddress.IPv4Network('0.0.0.0/0'))))
+                ipaddress.IPv4Network('0.0.0.0/0'))
             self.assertTrue(route_add_replies)
-            self.verify_table_additions(['ipv4_fib'], route_add_replies)
+            self.verify_table_additions(['eth_src', 'eth_dst', 'ipv4_fib'], route_add_replies)
             self.verify_expiry()
 
         def test_host_ipv6_fib_route(self):
@@ -1451,7 +1462,7 @@ class ValveTestBases:
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
             self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
-            self.verify_table_additions(['eth_src', 'eth_dst', 'flood', 'ipv6_fib'], fib_route_replies)
+            self.verify_table_additions(['eth_src', 'eth_dst', 'ipv6_fib'], fib_route_replies)
             self.verify_expiry()
 
         def test_ping_unknown_neighbor(self):
@@ -1983,7 +1994,7 @@ meters:
                 exp_pkt = {
                     'chassis_id': FAUCET_MAC,
                     'system_name': 'faucet',
-                    'port_id' None,
+                    'port_id': None,
                     'eth_src': FAUCET_MAC,
                     'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
                     'tlvs': None
