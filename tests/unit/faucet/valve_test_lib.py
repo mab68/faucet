@@ -1087,7 +1087,7 @@ class ValveTestBases:
                     #   for a packet key
                     continue
                 self.assertEqual(
-                    expected_pkt[key], pkt_dict[key]
+                    expected_pkt[key], pkt_dict[key],
                     'Key: %s not matching (%s != %s)' % (key, expected_pkt[key], pkt_dict[key]))
 
         def verify_table_additions(self, table_names, flowmods):
