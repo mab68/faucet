@@ -226,9 +226,9 @@ class FaucetTopoTestBase(FaucetTestBase):
             if 'lacp' in options:
                 host = self.host_information[host_id]['host']
                 # LACP must be configured with host ports down
-                for dp, ports in self.host_port_maps[host_id].items():
+                for dp_i, ports in self.host_port_maps[host_id].items():
                     for port in ports:
-                        self.set_port_down(port, self.topo.dpids_by_id[dp])
+                        self.set_port_down(port, self.topo.dpids_by_id[dp_i])
                 orig_ip = host.IP()
                 lacp_switches = [
                     self.net.get(self.topo.switches_by_id[i])
@@ -255,9 +255,9 @@ class FaucetTopoTestBase(FaucetTestBase):
                         'ip link set dev %s master %s' % (bond_member, bond_name),))
                 bond_index += 1
                 # Return the ports to UP
-                for dp, ports in self.host_port_maps[host_id].items():
+                for dp_i, ports in self.host_port_maps[host_id].items():
                     for port in ports:
-                        self.set_port_up(port, self.topo.dpids_by_id[dp])
+                        self.set_port_up(port, self.topo.dpids_by_id[dp_i])
 
     def setup_intervlan_host_routes(self):
         """Configure host routes between hosts that belong on routed VLANs"""
@@ -369,13 +369,13 @@ class FaucetTopoTestBase(FaucetTestBase):
         """Test conditions when one stack port is down"""
         self.retry_net_ping()
         stack_link = None
-        c = 0
+        count = 0
         for sport, link in self.topo.ports[self.topo.switches_by_id[0]].items():
             if self.topo.isSwitch(link[0]):
-                if c == stack_offset_port:
+                if count == stack_offset_port:
                     stack_link = (sport, link[1])
                     break
-                c += 1
+                count += 1
         stack_port, remote_stack_port = stack_link
         self.set_port_down(stack_port, wait=False)
         # self.dpids[1] is the intermediate switch.
@@ -480,8 +480,8 @@ class FaucetTopoTestBase(FaucetTestBase):
             else:
                 int_hosts.append(host)
                 int_or_ext = 0
-            for dp in self.host_port_maps[host_id].keys():
-                dp_hosts[self.topo.switches_by_id[dp]][int_or_ext].append(host)
+            for dp_i in self.host_port_maps[host_id].keys():
+                dp_hosts[self.topo.switches_by_id[dp_i]][int_or_ext].append(host)
         return set(int_hosts), set(ext_hosts), dp_hosts
 
     def verify_protected_connectivity(self):
@@ -632,8 +632,8 @@ details partner lacp pdu:
             for key in options.keys():
                 if key == 'lacp':
                     # Is LACP host
-                    for dp, ports in self.host_port_maps[host_id].items():
-                        if dpid == self.topo.dpids_by_id[dp]:
+                    for dp_i, ports in self.host_port_maps[host_id].items():
+                        if dpid == self.topo.dpids_by_id[dp_i]:
                             # Host has links to dpid
                             for port in ports:
                                 # Obtain up LACP ports for that dpid
@@ -681,8 +681,8 @@ details partner lacp pdu:
         """Verify LAG connectivity"""
         lacp_ports = self.host_port_maps[host_id]
         # All ports down
-        for dp, ports in lacp_ports.items():
-            dpid = self.topo.dpids_by_id[dp]
+        for dp_i, ports in lacp_ports.items():
+            dpid = self.topo.dpids_by_id[dp_i]
             for port in ports:
                 self.set_port_down(port, dpid)
             self.verify_num_lag_up_ports(0, dpid)
@@ -695,8 +695,8 @@ details partner lacp pdu:
         # Ensure connectivity with one port
         self.verify_lag_host_connectivity()
         # Set the other ports to UP
-        for dp, ports in lacp_ports.items():
-            dpid = self.topo.dpids_by_id[dp]
+        for dp_i, ports in lacp_ports.items():
+            dpid = self.topo.dpids_by_id[dp_i]
             for port in ports:
                 self.set_port_up(port, dpid)
             self.verify_num_lag_up_ports(len(ports), dpid)
