@@ -222,8 +222,8 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         dst_dpid = self.dpids[dst_i]
         s1_name = self.topo.switches_by_id[src_i]
         s2_name = self.topo.switches_by_id[dst_i]
-        for sport, link in self.topo.ports[s1_name].items():
-            status = self.stack_port_status(src_dpid, s1_name, sport)
+        for port, link in self.topo.ports[s1_name].items():
+            status = self.stack_port_status(src_dpid, s1_name, port)
             if link[0] == s2_name and status == 3:
                 peer_port = link[1]
                 self.set_port_down(port, src_dpid)
