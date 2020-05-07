@@ -81,9 +81,9 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
             host_links = {}
             host_vlans = {}
             host_n = 0
-            for dp in network_graph.nodes():
+            for dp_i in network_graph.nodes():
                 for v in range(self.NUM_VLANS):
-                    host_links[host_n] = [dp]
+                    host_links[host_n] = [dp_i]
                     host_vlans[host_n] = v
                     host_n += 1
         dp_options = {}
@@ -220,18 +220,18 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         dst_i = args[1]
         src_dpid = self.dpids[src_i]
         dst_dpid = self.dpids[dst_i]
-        s1 = self.topo.switches_by_id[src_i]
-        s2 = self.topo.switches_by_id[dst_i]
-        for link in self.topo.dpid_peer_links(src_dpid):
-            port, peer_dpid, peer_port = link.port, link.peer_dpid, link.peer_port
-            status = self.stack_port_status(src_dpid, s1, port)
-            if peer_dpid == dst_dpid and status == 3:
+        s1_name = self.topo.switches_by_id[src_i]
+        s2_name = self.topo.switches_by_id[dst_i]
+        for sport, link in self.topo.ports[s1_name].items():
+            status = self.stack_port_status(src_dpid, s1_name, sport)
+            if link[0] == s2_name and status == 3:
+                peer_port = link[1]
                 self.set_port_down(port, src_dpid)
                 self.set_port_down(peer_port, dst_dpid)
-                self.wait_for_stack_port_status(src_dpid, s1, port, 4)
-                self.wait_for_stack_port_status(dst_dpid, s2, peer_port, 4)
+                self.wait_for_stack_port_status(src_dpid, s1_name, port, 4)
+                self.wait_for_stack_port_status(dst_dpid, s2_name, peer_port, 4)
                 name = 'Link %s[%s]:%s-%s[%s]:%s DOWN' % (
-                    s1, src_dpid, port, s2, dst_dpid, peer_port)
+                    s1_name, src_dpid, port, s2_name, dst_dpid, peer_port)
                 self.topo_watcher.add_link_fault(src_i, dst_i, name)
                 return
 
