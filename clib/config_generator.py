@@ -26,6 +26,8 @@ from mininet.topo import Topo
 from clib import mininet_test_util
 from clib.mininet_test_topo import FaucetHost, VLANHost, FaucetSwitch, NoControllerFaucetSwitch
 
+import sys
+
 
 class GenerationError(Exception):
     """Indicates a problem with generating the configuration file"""
@@ -178,6 +180,7 @@ class FaucetTopoGenerator(Topo):
             index = len(self.ports[switch_name])
         if self.hw_name and switch_name == self.hw_name and self.hw_ports:
             return self.hw_ports[self.port_order[index]]
+        sys.stderr.write('%s | %s' % (switch_name, self.start_port + self.port_order[index]))
         return self.start_port + self.port_order[index]
 
     def _add_host(self, host_index, vlans):
