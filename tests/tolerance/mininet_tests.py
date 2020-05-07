@@ -220,7 +220,7 @@ class FaucetFaultToleranceBaseTest(FaucetTopoTestBase):
         dst_i = args[1]
         src_dpid = self.dpids[src_i]
         dst_dpid = self.dpids[dst_i]
-        s1 = self.topo.switches_by_id[src_id]
+        s1 = self.topo.switches_by_id[src_i]
         s2 = self.topo.switches_by_id[dst_i]
         for link in self.topo.dpid_peer_links(src_dpid):
             port, peer_dpid, peer_port = link.port, link.peer_dpid, link.peer_port
