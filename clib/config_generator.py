@@ -180,7 +180,8 @@ class FaucetTopoGenerator(Topo):
             index = len(self.ports[switch_name])
         if self.hw_name and switch_name == self.hw_name and self.hw_ports:
             return self.hw_ports[self.port_order[index]]
-        sys.stderr.write('%s | %s' % (switch_name, self.start_port + self.port_order[index]))
+        sys.stderr.write('%s | %s\n' % (switch_name, self.start_port + self.port_order[index]))
+        sys.stderr.write('%s\n' % self.ports)
         return self.start_port + self.port_order[index]
 
     def _add_host(self, host_index, vlans):
@@ -292,6 +293,7 @@ class FaucetTopoGenerator(Topo):
             u_name = self.switches_by_id[u_id]
             v_name = self.switches_by_id[v_id]
             self._add_link(u_name, v_name, link_vlans[(u_id, v_id)])
+            sys.stderr.write('%s - %s | %s\n' % (u_name, v_name, self.ports))
 
     def add_host_topology(self, host_links, host_vlans):
         """
