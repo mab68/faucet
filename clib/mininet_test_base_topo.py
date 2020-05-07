@@ -15,7 +15,9 @@ from clib.config_generator import FaucetTopoGenerator
 
 
 class FaucetTopoTestBase(FaucetTestBase):
-    """Extension to the base test for the integration test suite to help set up arbitrary topologies"""
+    """
+    Extension to the base test for the integration test suite to help set up arbitrary topologies
+    """
 
     NETPREFIX = 24
     IPV = 4
@@ -128,7 +130,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             acl_options (dict): Acls in use in the Faucet configuration file
             dp_options (dict): Additional options for each DP, keyed by DP index
             host_options (dict): Additional options for each host, keyed by host index
-            link_options (dict): Additional options for each link, keyed by switch indices tuple (u, v)
+            link_options (dict): Additional options for each link, keyed by indices tuple (u, v)
             vlan_options (dict): Additional options for each VLAN, keyed by vlan index
             routers (dict): Router index to list of VLANs in the router
             router_options (dict): Additional options for each router, keyed by router index
@@ -230,7 +232,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                 orig_ip = host.IP()
                 lacp_switches = [
                     self.net.get(self.topo.switches_by_id[i])
-                        for i in self.host_port_maps[host_id]]
+                    for i in self.host_port_maps[host_id]]
                 bond_members = [
                     pair[0].name for switch in lacp_switches for pair in host.connectionsTo(switch)]
                 bond_name = 'bond%u' % (bond_index)
@@ -243,8 +245,8 @@ class FaucetTopoTestBase(FaucetTestBase):
                 # Configure bond interface
                 self.quiet_commands(host, (
                     ('ip link add %s address 0e:00:00:00:00:99 '
-                        'type bond mode 802.3ad lacp_rate fast miimon 100 '
-                        'xmit_hash_policy layer2+3') % (bond_name),
+                     'type bond mode 802.3ad lacp_rate fast miimon 100 '
+                     'xmit_hash_policy layer2+3') % (bond_name),
                     'ip add add %s/%s dev %s' % (orig_ip, self.NETPREFIX, bond_name),
                     'ip link set %s up' % bond_name))
                 # Add bond members
@@ -369,11 +371,11 @@ class FaucetTopoTestBase(FaucetTestBase):
         stack_link = None
         c = 0
         for sport, link in self.topo.ports[self.topo.switches_by_id[0]].items():
-           if self.topo.isSwitch(link[0]):
-               if c == stack_offset_port:
-                   stack_link = (sport, link[1])
-                   break
-               c += 1
+            if self.topo.isSwitch(link[0]):
+                if c == stack_offset_port:
+                    stack_link = (sport, link[1])
+                    break
+                c += 1
         stack_port, remote_stack_port = stack_link
         self.set_port_down(stack_port, wait=False)
         # self.dpids[1] is the intermediate switch.
@@ -478,7 +480,7 @@ class FaucetTopoTestBase(FaucetTestBase):
             else:
                 int_hosts.append(host)
                 int_or_ext = 0
-            for dp, ports in self.host_port_maps[host_id].items():
+            for dp in self.host_port_maps[host_id].keys():
                 dp_hosts[self.topo.switches_by_id[dp]][int_or_ext].append(host)
         return set(int_hosts), set(ext_hosts), dp_hosts
 

@@ -416,8 +416,6 @@ class FaucetTopoGenerator(Topo):
                 dst_id = dst_info['switch_n']
                 if link_options and (src_id, dst_id) in link_options:
                     options.update(link_options[(src_id, dst_id)])
-                    #for pair in [(src_id, dst_id), (dst_id, src_id)]:
-                    #    options.update(link_options.get(pair, {}))
             else:
                 # Generate host-switch config link
                 src_port, dst_port = link_info['port1'], None
@@ -425,7 +423,7 @@ class FaucetTopoGenerator(Topo):
                 host_n = dst_info['host_n']
                 if host_options and host_n in host_options:
                     options = host_options[host_n]
-            dp_config['interfaces'].setdefault(src_port,
+            dp_config['interfaces'].setdefault(src_port, # pytype: disable=attribute-error
                 get_interface_config(link_name, src_port, dst_node, dst_port, vlans, options))
 
         for links in self.links(withKeys=True, withInfo=True):
