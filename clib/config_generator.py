@@ -423,7 +423,8 @@ class FaucetTopoGenerator(Topo):
                 host_n = dst_info['host_n']
                 if host_options and host_n in host_options:
                     options = host_options[host_n]
-            dp_config['interfaces'].setdefault(src_port, # pytype: disable=attribute-error
+            dp_config['interfaces'].setdefault(  # pytype: disable=attribute-error
+                src_port,
                 get_interface_config(link_name, src_port, dst_node, dst_port, vlans, options))
 
         for links in self.links(withKeys=True, withInfo=True):

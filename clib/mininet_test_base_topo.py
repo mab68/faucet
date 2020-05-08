@@ -38,7 +38,6 @@ class FaucetTopoTestBase(FaucetTestBase):
     host_information = None
     faucet_vips = None
 
-
     def _init_faucet_config(self):
         """Initialize & normalize faucet configuration file"""
         config_vars = {}
@@ -84,11 +83,9 @@ class FaucetTopoTestBase(FaucetTestBase):
         port_name = 'b%u' % port_no
         return {'port': port_name, 'port_description': r'.+'}
 
-
     def acls(self):
         """Defined configuration ACLs"""
         return {}
-
 
     def faucet_vip(self, i):
         """Faucet VLAN VIP"""
@@ -112,7 +109,6 @@ class FaucetTopoTestBase(FaucetTestBase):
     def set_host_ip(self, host, host_ip):
         """Default method for setting a hosts IP address"""
         host.setIP(str(host_ip.ip), prefixLen=self.NETPREFIX)
-
 
     def build_net(self, host_links=None, host_vlans=None, switch_links=None,
                   link_vlans=None, mininet_host_options=None,
@@ -359,7 +355,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                     name = self.topo.switches_by_id[link[0]]
                     status = self.stack_port_status(dpid, name, port)
                     links += 1
-                    if status == 3: # STACK_STATE_UP
+                    if status == 3:  # STACK_STATE_UP
                         links_up += 1
             prop_up = links_up / links
             if prop_up >= prop:
@@ -378,7 +374,7 @@ class FaucetTopoTestBase(FaucetTestBase):
                     stack_link = (sport, link[1])
                     break
                 count += 1
-        stack_port, remote_stack_port = stack_link # pytype: disable=attribute-error
+        stack_port, remote_stack_port = stack_link  # pytype: disable=attribute-error
         self.set_port_down(stack_port, wait=False)
         # self.dpids[1] is the intermediate switch.
         self.set_port_down(remote_stack_port, self.dpids[1], wait=False)

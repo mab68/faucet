@@ -702,7 +702,7 @@ class FaucetSingleStackAclControlTest(FaucetMultiDPTest):
     def link_acls(self):
         """Host/link map to acls_in"""
         return {
-            0: [1], # Host 0 dp 0 'acls_in': [1]
+            0: [1],  # Host 0 dp 0 'acls_in': [1]
             (1, 0): [2],
             (2, 1): [3]
         }
@@ -839,7 +839,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
     def link_acls(self):
         """Host/link map to acls in"""
         return {
-            0: [1], # Host 0 dp 0 'acls_in': [1]
+            0: [1],  # Host 0 dp 0 'acls_in': [1]
             (1, 0): [2],
             (2, 1): [3]
         }
@@ -952,7 +952,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
     def link_acls(self):
         """Host/link port map to acls in"""
         return {
-            0: [1] # Host 0 'acls_in': [1]
+            0: [1]  # Host 0 'acls_in': [1]
         }
 
     def include_optional(self):
@@ -1022,7 +1022,7 @@ class FaucetTunnelSameDpTest(FaucetMultiDPTest):
     def link_acls(self):
         """DP to acl port mapping"""
         return {
-            0: [1] # Host 0 'acls_in': [1]
+            0: [1]  # Host 0 'acls_in': [1]
         }
 
     def test_tunnel_established(self):
@@ -1069,7 +1069,7 @@ class FaucetSingleTunnelTest(FaucetMultiDPTest):
     def link_acls(self):
         """DP-to-acl port mapping"""
         return {
-            0: [1] # Host 0 'acls_in': [1]
+            0: [1]  # Host 0 'acls_in': [1]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
@@ -1189,9 +1189,9 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
         #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
         self.verify_stack_up()
         # Ensure connection to the host on the other end of the tunnel can exist
-        src_host = self.net.get(self.topo.hosts_by_id[0]) # h_{0,100}
-        other_host = self.net.get(self.topo.hosts_by_id[1]) # h_{1,100}
-        dst_host = self.net.get(self.topo.hosts_by_id[2]) # h_{2,200}
+        src_host = self.net.get(self.topo.hosts_by_id[0])  # h_{0,100}
+        other_host = self.net.get(self.topo.hosts_by_id[1])  # h_{1,100}
+        dst_host = self.net.get(self.topo.hosts_by_id[2])  # h_{2,200}
         self.verify_tunnel_established(src_host, dst_host, other_host)
         # Ensure a connection to a host not in the tunnel can exist
         #   this implies that the packet is also sent through the pipeline
@@ -1232,7 +1232,7 @@ class FaucetTunnelSameDpOrderedTest(FaucetMultiDPTest):
     def link_acls(self):
         """DP to acl port mapping"""
         return {
-            0: [1] # Host 0 'acls_in': [1]
+            0: [1]  # Host 0 'acls_in': [1]
         }
 
     def test_tunnel_established(self):
@@ -1278,7 +1278,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
     def link_acls(self):
         """DP link to list of acls to apply"""
         return {
-            0: [1] # Host 0 'acls_in': [1]
+            0: [1]  # Host 0 'acls_in': [1]
         }
 
     def setUp(self):  # pylint: disable=invalid-name
@@ -1304,7 +1304,6 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTest):
         dst_host = self.net.get(self.topo.hosts_by_id[2])
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
-        #first_stack_port = self.topo.get_switch_peer_links(0)[0][0]
         first_stack_port = self.link_port_maps[(0, 1)][0]
         self.one_stack_port_down(self.dpids[0], self.topo.switches_by_id[0], first_stack_port)
         self.verify_tunnel_established(src_host, dst_host, other_host, packets=10)
@@ -1397,9 +1396,9 @@ class FaucetTunnelAllowOrderedTest(FaucetTopoTestBase):
         #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
         self.verify_stack_up()
         # Ensure connection to the host on the other end of the tunnel can exist
-        src_host = self.net.get(self.topo.hosts_by_id[0]) # h_{0,100}
-        other_host = self.net.get(self.topo.hosts_by_id[1]) # h_{1,100}
-        dst_host = self.net.get(self.topo.hosts_by_id[2]) # h_{2,200}
+        src_host = self.net.get(self.topo.hosts_by_id[0])  # h_{0,100}
+        other_host = self.net.get(self.topo.hosts_by_id[1])  # h_{1,100}
+        dst_host = self.net.get(self.topo.hosts_by_id[2])  # h_{2,200}
         self.verify_tunnel_established(src_host, dst_host, other_host)
         # Ensure a connection to a host not in the tunnel can exist
         #   this implies that the packet is also sent through the pipeline

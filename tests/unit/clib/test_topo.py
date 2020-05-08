@@ -77,7 +77,7 @@ class FaucetTopoTest(TestCase):
         switch_links = [(0, 1)]
         link_vlans = {(0, 1): [0]}
         hw_dpid = 0x123
-        hw_ports = {1:'p1', 2:'p2', 3:'p3', 4:'p4', 5:'p5', 6:'p6'}
+        hw_ports = {1: 'p1', 2: 'p2', 3: 'p3', 4: 'p4', 5: 'p5', 6: 'p6'}
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
             host_links, host_vlans, switch_links, link_vlans,
@@ -110,7 +110,7 @@ class FaucetTopoTest(TestCase):
         host_links = {0: [0], 1: [1]}
         host_vlans = {0: 0, 1: [0, 1]}
         switch_links = [(0, 1), (0, 1), (0, 1)]
-        link_vlans = {(0, 1): [0, 1], (0, 1): 0, (0, 1): None}
+        link_vlans = {(0, 1): [0, 1]}
         topo = FaucetFakeOFTopoGenerator(
             '', '', '',
             host_links, host_vlans, switch_links, link_vlans,
@@ -167,7 +167,7 @@ class FaucetTopoTest(TestCase):
         self.assertEqual(
             link_port_maps,
             {(0, 1): [5, 6], (1, 0): [5, 6], (1, 2): [7], (2, 1): [5]})
-    
+
     def test_host_port_map(self):
         """Test correctly generated host port map"""
         host_links = {0: [0, 2], 1: [1]}
