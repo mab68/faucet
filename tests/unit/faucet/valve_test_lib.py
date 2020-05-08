@@ -53,7 +53,7 @@ from faucet import valve_packet
 from faucet import valve_util
 from faucet.valve import TfmValve
 
-from fakeoftable import FakeOFTable
+from fakeoftable import FakeOFTable, FakeOFNetwork
 
 
 def build_pkt(pkt):
@@ -453,6 +453,444 @@ vlans:
 class ValveTestBases:
     """Insulate test base classes from unittest so we can reuse base clases."""
 
+    @staticmethod
+    def packet_outs_from_flows(flows):
+        """Return flows that are packetout actions."""
+        return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
+
+    @staticmethod
+    def flowmods_from_flows(flows):
+        """Return flows that are flowmods actions."""
+        return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPFlowMod)]
+
+    class ValveTestNetwork(unittest.TestCase):
+        """Base class for tests that require multiple DPs with their own FakeOFTables"""
+
+        # TODO: Pull from the ConfigGenerator class
+
+        # Default DP name
+        DP_NAME = 's1'
+
+        @staticmethod
+        def create_dp_name(i):
+            return 's%s' % i
+
+        # Default DP ID
+        DP_ID = 1
+
+        @staticmethod
+        def create_mac_str(i, j):
+            return '00:00:00:%02x:00:%02x' % (i, j)
+
+        BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
+        FAUCET_MAC = '0e:00:00:00:00:01'
+
+        @staticmethod
+        def create_vid(i):
+            return 0x100 * i | ofp.OFPVID_PRESENT
+
+        # Number of tables to configure in the FakeOFTable
+        NUM_TABLES = 10
+
+        LOGNAME = 'faucet'
+        ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')
+        REQUIRE_TFM = True
+        CONFIG_AUTO_REVERT = False
+
+        def __init__(self, *args, **kwargs):
+            self.dot1x = None
+            self.valves_manager = None
+            self.metrics = None
+            self.bgp = None
+            self.logger = None
+
+            self.faucet_event_sock = None
+            self.registry = None
+            self.sock = None
+            self.notifier = None
+
+            self.network = None
+            self.last_flows_to_dp = {}
+
+            self.tmpdir = None
+
+            self.mock_now_sec = 100
+            super(ValveTestBases.ValveTestNetwork, self).__init__(*args, **kwargs)
+
+        def mock_time(self, increment_sec=1):
+            """
+            Manage a mock timer for better unit test control
+            Args:
+                increment__sec (int): Amount to increment the current mock time
+            Returns:
+                current mock time
+            """
+            self.mock_now_sec += increment_sec
+            return self.mock_now_sec
+
+        def setup_valves(self, config, error_expected=0, log_stdout=False):
+            """
+            Set up test with config
+            Args:
+                config (str): The Faucet config file
+                error_expected (int): The error expected, if any
+                log_stdout: Whether to log to stdout or not
+            """
+            self.tmpdir = tempfile.mkdtemp()
+            self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
+            self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
+            logfile = 'STDOUT' if log_stdout else os.path.join(self.tmpdir, 'faucet.log')
+            self.logger = valve_util.get_logger(self.LOGNAME, logfile, logging.DEBUG, 0)
+            self.registry = CollectorRegistry()
+            self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry)
+            self.notifier = faucet_event.FaucetEventNotifier(
+                self.faucet_event_sock, self.metrics, self.logger)
+            self.bgp = faucet_bgp.FaucetBgp(
+                self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
+            self.dot1x = faucet_dot1x.FaucetDot1x(
+                self.logger, logfile, self.metrics, self.send_flows_to_dp_by_id)
+            self.valves_manager = valves_manager.ValvesManager(
+                self.LOGNAME, self.logger, self.metrics, self.notifier,
+                self.bgp, self.dot1x, self.CONFIG_AUTO_REVERT, self.send_flows_to_dp_by_id)
+            self.notifier.start()
+            initial_ofmsgs = self.update_config(
+                config, reload_expected=False,
+                error_expected=error_expected, configure_network=True)
+            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.sock.connect(self.faucet_event_sock)
+            if not error_expected:
+                for dp_id in self.valves_manager.valves:
+                    self.connect_dp(dp_id)
+
+        def teardown_valves(self):
+            """Tear down test valves"""
+            self.bgp.shutdown_bgp_speakers()
+            valve_util.close_logger(self.logger)
+            for valve in self.valves_manager.valves.values():
+                valve.close_logs()
+            self.sock.close()
+            shutil.rmtree(self.tmpdir)
+
+        def tearDown(self):
+            """Tear down the test"""
+            self.teardown_valves()
+
+        def apply_ofmsgs(self, ofmsgs, dp_id=None):
+            """
+            Prepare and apply ofmsgs to a DP FakeOFTable
+            Args:
+                dp_id: The dp_id of the FakeOFTable to apply the ofmsgs to
+            """
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            final_ofmsgs = valve.prepare_send_flows(ofmsgs)
+            self.network.apply_ofmsgs(dp_id, ofmsgs)
+            return final_ofmsgs
+
+        def send_flows_to_dp_by_id(self, valve, flows):
+            """Callback function for ValvesManager to simulate sending flows to a DP"""
+            flows = valve.prepare_send_flows(flows)
+            self.last_flows_to_dp[valve.dp.dp_id] = flows
+
+        def configure_network(self):
+            """Creates the FakeOFNetwork"""
+            for dp_id in self.valves_manager.valves:
+                self.last_flows_to_dp[dp_id] = []
+            self.network = FakeOFNetwork(self.valves_manager, self.NUM_TABLES, self.REQUIRE_TFM)
+
+        def update_config(self, config, reload_type='cold',
+                          reload_expected=True, error_expected=0,
+                          configure_network=False):
+            """
+            Updates the Faucet config and reloads Faucet
+            Args:
+                config (str): The configuration that will be loaded
+                reload_type ('cold' or 'warm'): Type of reload to cause
+                reload_expected (bool)
+                error_expected (int): The error number that is expected from the config
+            """
+            before_dp_status = int(self.get_prom('dp_status'))
+            existing_config = None
+            if os.path.exists(self.config_file):
+                with open(self.config_file) as config_file:
+                    existing_config = config_file.read()
+            with open(self.config_file, 'w') as config_file:
+                config_file.write(config)
+            content_change_expected = config != existing_config
+            self.assertEqual(
+                content_change_expected,
+                self.valves_manager.config_watcher.content_changed(self.config_file))
+            for dp_id in self.valves_manager.valves:
+                self.last_flows_to_dp[dp_id] = []
+            reload_ofmsgs = []
+            reload_func = partial(
+                self.valves_manager.request_reload_configs,
+                self.mock_time(10), self.config_file)
+            if error_expected:
+                reload_func()
+                if configure_network:
+                    self.configure_network()
+            else:
+                var = 'faucet_config_reload_%s_total' % reload_type
+                self.prom_inc(reload_func, var=var, inc_expected=reload_expected)
+                if configure_network:
+                    self.configure_network()
+                for dp_id, valve in self.valves_manager.valves.items():
+                    reload_ofmsgs = self.last_flows_to_dp.get(dp_id, [])
+                    if reload_ofmsgs is None:
+                        reload_ofmsgs = self.connect_dp(dp_id)
+                    else:
+                        self.apply_ofmsgs(reload_ofmsgs, dp_id)
+            self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
+            self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
+            return reload_ofmsgs
+
+        def connect_dp(self, dp_id=None):
+            """
+            Call to connect DP with all ports up
+            Args:
+                dp_id: ID for the DP that will be connected
+            Returns:
+                ofmsgs from connecting the DP
+            """
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            discovered_up_ports = set(valve.dp.ports.keys())
+            connect_msgs = (
+                valve.switch_features(None) +
+                valve.datapath_connect(self.mock_time(10), discovered_up_ports))
+            self.apply_ofmsgs(connect_msgs, dp_id)
+            self.valves_manager.update_config_applied(sent={dp_id: True})
+            self.assertEqual(1, int(self.get_prom('dp_status')))
+            self.assertTrue(valve.dp.to_conf())
+            return connect_msgs
+
+        def cold_start(self, dp_id=None):
+            """
+            Cold start a DP
+            Args:
+                dp_id: ID for the DP to cold start
+            Returns:
+                ofmsgs from re-connecting the DP
+            """
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            valve.datapath_disconnect()
+            return self.connect_dp(dp_id)
+
+        def get_prom(self, var, labels=None, bare=False, dp_id=None):
+            """Return a Prometheus variable value."""
+            if labels is None:
+                labels = {}
+            if not bare:
+                if dp_id is None:
+                    dp_id = self.DP_ID
+                if dp_id not in self.valves_manager.valves:
+                    dp_id = self.DP_ID
+                    dp_name = self.DP_NAME
+                else:
+                    valve = self.valves_manager.valves[dp_id]
+                    dp_name = valve.dp.name
+                labels.update({
+                    'dp_name': dp_name,
+                    'dp_id': '0x%x' % dp_id})
+            val = self.registry.get_sample_value(var, labels)
+            if val is None:
+                val = 0
+            return val
+
+        def prom_inc(self, func, var, labels=None, inc_expected=True, dp_id=None):
+            """Check Prometheus variable increments by 1 after calling a function."""
+            before = self.get_prom(var, labels, dp_id)
+            func()
+            after = self.get_prom(var, labels, dp_id)
+            msg = '%s %s before %f after %f' % (var, labels, before, after)
+            if inc_expected:
+                self.assertEqual(before + 1, after, msg=msg)
+            else:
+                self.assertEqual(before, after, msg=msg)
+
+        def rcv_packet(self, port, vid, match, dp_id=None):
+            """
+            Receives a packet by calling for the valve packet_in methods
+            Args:
+                port (int): The port receiving the packet
+                vid (int): The VLAN receiving the packet
+                match (dict): A dictionary keyed by header field names with values representing a packet
+                dp_id: The DP ID of the DP receiving the packet
+            Returns:
+                ofmsgs from receiving the packet
+            """
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            pkt = build_pkt(match)
+            vlan_pkt = pkt
+            if vid and vid not in match:
+                vlan_match = match
+                vlan_match['vid'] = vid
+                vlan_pkt = build_pkt(match)
+            msg = namedtuple(
+                'null_msg',
+                ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))(
+                    {'in_port': port}, port, vlan_pkt.data, len(vlan_pkt.data),
+                    valve.dp.cookie, valve_of.ofp.OFPR_ACTION)
+            for i in self.valves_manager.valves:
+                self.last_flows_to_dp[i] = []
+            now = self.mock_time(0)
+            packet_in_func = partial(self.valves_manager.valve_packet_in, now, valve, msg)
+            if dp_id == self.DP_ID:
+                self.prom_inc(packet_in_func, 'of_packet_ins_total')
+            else:
+                packet_in_func()
+            for i in self.valves_manager.valves:
+                rcv_packet_ofmsgs = self.last_flows_to_dp[i]
+                self.last_flows_to_dp[i] = []
+                self.apply_ofmsgs(rcv_packet_ofmsgs, i)
+            for valve_service in (
+                    'resolve_gateways', 'advertise', 'fast_advertise', 'state_expire'):
+                self.valves_manager.valve_flow_services(now, valve_service)
+            self.valves_manager.update_metrics(now)
+            return rcv_packet_ofmsgs
+
+        def rcv_lldp(self, port, other_dp, other_port, dp_id=None):
+            """
+            Receives an LLDP packet
+            Args:
+                port (Port): Port source object
+                other_dp (DP): Destination DP object
+                other_port (Port): Port destination object
+                dp_id: The DP ID of the DP receiving the packet
+            Returns:
+                ofmsgs from receiving the LLDP packets
+            """
+            if dp_id is None:
+                dp_id = self.DP_ID
+            tlvs = []
+            tlvs.extend(valve_packet.faucet_lldp_tlvs(other_dp))
+            tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(other_dp, other_port))
+            dp_mac = other_dp.faucet_dp_mac if other_dp.faucet_dp_mac else FAUCET_MAC
+            rcv_ofmsgs = self.rcv_packet(port.number, 0, {
+                'eth_src': dp_mac,
+                'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
+                'port_id': other_port.number,
+                'chassis_id': dp_mac,
+                'system_name': other_dp.name,
+                'org_tlvs': tlvs}, dp_id=dp_id)
+            return rcv_ofmsgs
+
+        def port_labels(self, port_no, dp_id=None):
+            """Get port labels"""
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            port = valve.dp.ports[port_no]
+            return {'port': port.name, 'port_description': port.description}
+
+        def port_expected_status(self, port_no, exp_status, dp_id=None):
+            """
+            Verify port has expected status
+            Args:
+                port_no (int): Port number of the port on the DP
+                exp_status (int): Expected status for the port
+                dp_id (int): DP ID of the DP that contains the port
+            """
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            if port_no not in valve.dp.ports:
+                return
+            labels = self.port_labels(port_no, dp_id)
+            status = int(self.get_prom('port_status', labels=labels, dp_id=dp_id))
+            self.assertEqual(
+                status, exp_status,
+                msg='status %u != expected %u for port %s' % (
+                    status, exp_status, labels))
+
+        def get_other_valves(self, valve):
+            """Return other running valves"""
+            return self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+
+        def set_port_down(self, port_no, dp_id=None):
+            """
+            Set port status of port to down
+            Args:
+                port_no (int): Port number to set to UP
+                dp_id (int): DP ID containing the port number
+            """
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            self.apply_ofmsgs(valve.port_status_handler(
+                port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN, [], self.mock_time(0)).get(valve, []))
+            self.port_expected_status(port_no, 0)
+
+        def set_port_up(self, port_no, dp_id=None):
+            """
+            Set port status of port to up
+            Args:
+                port_no (int): Port number to set to UP
+                dp_id (int): DP ID containing the port number
+            """
+            if dp_id is None:
+                dp_id = self.DP_ID
+            valve = self.valves_manager.valves[dp_id]
+            self.apply_ofmsgs(valve.port_status_handler(
+                port_no, ofp.OFPPR_ADD, 0, [], self.mock_time(0)).get(valve, []))
+            self.port_expected_status(port_no, 1)
+
+        def trigger_stack_ports(self, ignore_ports=[]):
+            """
+            Trigger a stack port by receiving an LLDP packet
+            Args:
+                ignore_ports (list): List of port objects to ignore when sending LLDP
+                    packets, this effectively takes the stack port down
+            """
+            # Expire all of the stack ports
+            if ignore_ports:
+                valves = [self.valves_manager.valves[port.dp_id] for port in ignore_ports]
+                max_interval = max([valve.dp.lldp_beacon['send_interval'] for valve in valves])
+                max_lost = max([port.max_lldp_lost for port in ignore_ports])
+                now = self.mock_time((max_interval * max_lost) + 1)
+                for dp_id in self.valves_manager.valves:
+                    self.last_flows_to_dp[dp_id] = []
+                self.valves_manager.valve_flow_services(now, 'fast_state_expire')
+                for dp_id in self.valves_manager.valves:
+                    self.apply_ofmsgs(self.last_flows_to_dp[dp_id], dp_id)
+                    self.last_flows_to_dp[dp_id] = []
+                for valve in self.valves_manager.valves.values():
+                    for port in valve.dp.ports.values():
+                        if port.stack:
+                            exp_state = 4
+                            self.assertEqual(
+                                port.dyn_stack_current_state, exp_state,
+                                '%s stack state %s != %s' % (
+                                    port, port.dyn_stack_current_state, exp_state))
+            # Send LLDP packets to reset the stack ports that we want to be up
+            for dp_id, valve in self.valves_manager.valves.items():
+                interval = valve.dp.lldp_beacon['send_interval']
+                for port in valve.dp.ports.values():
+                    if port in ignore_ports:
+                        continue
+                    if port.stack:
+                        peer_dp = port.stack['dp']
+                        peer_port = port.stack['port']
+                        self.rcv_lldp(port, peer_dp, peer_port, dp_id)
+            # Verify stack ports are in the correct state
+            for valve in self.valves_manager.valves.values():
+                for port in valve.dp.ports.values():
+                    if port.stack:
+                        exp_state = 3
+                        if port in ignore_ports:
+                            exp_state = 4
+                        self.assertEqual(
+                            port.dyn_stack_current_state, exp_state,
+                            '%s stack state %s != %s' % (
+                                port, port.dyn_stack_current_state, exp_state))
+
     class ValveTestSmall(unittest.TestCase):  # pytype: disable=module-attr
         """Base class for all Valve unit tests."""
 
@@ -775,16 +1213,6 @@ class ValveTestBases:
             self._update_port_map(port, True)
             self.trigger_all_ports(packets=packets)
 
-        @staticmethod
-        def packet_outs_from_flows(flows):
-            """Return flows that are packetout actions."""
-            return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
-
-        @staticmethod
-        def flowmods_from_flows(flows):
-            """Return flows that are flowmods actions."""
-            return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPFlowMod)]
-
         def learn_hosts(self):
             """Learn some hosts."""
             # TODO: verify learn caching.
@@ -1084,7 +1512,7 @@ class ValveTestBases:
                 'arp_source_ip': '8.8.8.8',
                 'arp_target_ip': '10.0.0.254'})
             # Must be no ARP reply to an ARP request not in our subnet.
-            self.assertFalse(self.packet_outs_from_flows(replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(replies))
 
         def test_arp_for_controller(self):
             """ARP request for controller VIP."""
@@ -1097,7 +1525,7 @@ class ValveTestBases:
                         'arp_source_ip': '10.0.0.1',
                         'arp_target_ip': '10.0.0.254'})
                     # TODO: check ARP reply is valid
-                    self.assertTrue(self.packet_outs_from_flows(arp_replies), msg=arp_mac)
+                    self.assertTrue(ValveTestBases.packet_outs_from_flows(arp_replies), msg=arp_mac)
 
         def test_arp_reply_from_host(self):
             """ARP reply for host."""
@@ -1109,7 +1537,7 @@ class ValveTestBases:
                 'arp_target_ip': '10.0.0.254'})
             # TODO: check ARP reply is valid
             self.assertTrue(arp_replies)
-            self.assertFalse(self.packet_outs_from_flows(arp_replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(arp_replies))
 
         def test_nd_for_controller(self):
             """IPv6 ND for controller VIP."""
@@ -1127,7 +1555,7 @@ class ValveTestBases:
                         'ipv6_dst': str(ip_gw_mcast),
                         'neighbor_solicit_ip': str(dst_ip)})
                     # TODO: check reply NA is valid
-                    packet_outs = self.packet_outs_from_flows(nd_replies)
+                    packet_outs = ValveTestBases.packet_outs_from_flows(nd_replies)
                     self.assertTrue(packet_outs)
 
         def test_nd_from_host(self):
@@ -1141,7 +1569,7 @@ class ValveTestBases:
                 'neighbor_advert_ip': 'fc00::1:1'})
             # TODO: check NA response flows are valid
             self.assertTrue(na_replies)
-            self.assertFalse(self.packet_outs_from_flows(na_replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(na_replies))
 
         def test_ra_for_controller(self):
             """IPv6 RA for controller."""
@@ -1154,7 +1582,7 @@ class ValveTestBases:
                 'ipv6_dst': router_solicit_ip,
                 'router_solicit_ip': router_solicit_ip})
             # TODO: check RA is valid
-            self.assertTrue(self.packet_outs_from_flows(ra_replies))
+            self.assertTrue(ValveTestBases.packet_outs_from_flows(ra_replies))
 
         def test_icmp_ping_controller(self):
             """IPv4 ping controller VIP."""
@@ -1165,7 +1593,7 @@ class ValveTestBases:
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.254',
                 'echo_request_data': self.ICMP_PAYLOAD})
-            packet_outs = self.packet_outs_from_flows(echo_replies)
+            packet_outs = ValveTestBases.packet_outs_from_flows(echo_replies)
             self.assertTrue(packet_outs)
             data = packet_outs[0].data
             self.assertTrue(data.endswith(self.ICMP_PAYLOAD), msg=data)
@@ -1194,7 +1622,7 @@ class ValveTestBases:
                 'arp_source_ip': '10.0.0.1',
                 'arp_target_ip': '10.0.0.254'})
             # TODO: check ARP reply is valid
-            self.assertTrue(self.packet_outs_from_flows(arp_replies))
+            self.assertTrue(ValveTestBases.packet_outs_from_flows(arp_replies))
             valve_vlan = self.valve.dp.vlans[0x100]
             ip_dst = ipaddress.IPv4Network('10.100.100.0/24')
             ip_gw = ipaddress.IPv4Address('10.0.0.1')
@@ -1225,7 +1653,7 @@ class ValveTestBases:
                 self.valve.dp.vlans[0x100],
                 ipaddress.IPv4Address('10.0.0.2'),
                 ipaddress.IPv4Network('0.0.0.0/0'))))
-            self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
             self.verify_expiry()
 
         def test_host_ipv6_fib_route(self):
@@ -1240,7 +1668,7 @@ class ValveTestBases:
             # TODO: verify learning rule contents
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
-            self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
+            self.assertFalse(ValveTestBases.packet_outs_from_flows(fib_route_replies))
             self.verify_expiry()
 
         def test_ping_unknown_neighbor(self):
@@ -1253,7 +1681,7 @@ class ValveTestBases:
                 'ipv4_dst': '10.0.0.99',
                 'echo_request_data': self.ICMP_PAYLOAD})
             # TODO: check proactive neighbor resolution
-            self.assertTrue(self.packet_outs_from_flows(echo_replies))
+            self.assertTrue(ValveTestBases.packet_outs_from_flows(echo_replies))
 
         def test_ping6_unknown_neighbor(self):
             """IPv6 ping unknown host on same subnet, causing proactive learning."""
@@ -1265,7 +1693,7 @@ class ValveTestBases:
                 'ipv6_dst': 'fc00::1:4',
                 'echo_request_data': self.ICMP_PAYLOAD})
             # TODO: check proactive neighbor resolution
-            self.assertTrue(self.packet_outs_from_flows(echo_replies))
+            self.assertTrue(ValveTestBases.packet_outs_from_flows(echo_replies))
 
         def test_icmpv6_ping_controller(self):
             """IPv6 ping controller VIP."""
@@ -1276,7 +1704,7 @@ class ValveTestBases:
                 'ipv6_src': 'fc00::1:1',
                 'ipv6_dst': 'fc00::1:254',
                 'echo_request_data': self.ICMP_PAYLOAD})
-            packet_outs = self.packet_outs_from_flows(echo_replies)
+            packet_outs = ValveTestBases.packet_outs_from_flows(echo_replies)
             self.assertTrue(packet_outs)
             data = packet_outs[0].data
             self.assertTrue(data.endswith(self.ICMP_PAYLOAD), msg=data)
