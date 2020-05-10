@@ -4,7 +4,7 @@
 
 from unittest import TestCase, main
 
-from clib.config_generator import FaucetFakeOFTopoGenerator
+from clib.mininet_test_base_topo import FaucetFakeOFTopoGenerator
 
 
 class FaucetTopoTest(TestCase):

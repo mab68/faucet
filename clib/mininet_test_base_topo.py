@@ -11,7 +11,7 @@ import yaml  # pytype: disable=pyi-error
 
 from clib.mininet_test_util import timeout_cmd
 from clib.mininet_test_base import FaucetTestBase, IPV4_ETH
-from clib.config_generator import FaucetTopoGenerator
+from clib.mininet_test_topo_generator import FaucetTopoGenerator
 
 
 class FaucetTopoTestBase(FaucetTestBase):
