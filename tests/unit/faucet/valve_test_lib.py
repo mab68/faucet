@@ -466,8 +466,6 @@ class ValveTestBases:
     class ValveTestNetwork(unittest.TestCase):
         """Base class for tests that require multiple DPs with their own FakeOFTables"""
 
-        # TODO: Pull from the ConfigGenerator class
-
         # Default DP name
         DP_NAME = 's1'
 
@@ -586,6 +584,14 @@ class ValveTestBases:
             valve = self.valves_manager.valves[dp_id]
             final_ofmsgs = valve.prepare_send_flows(ofmsgs)
             self.network.apply_ofmsgs(dp_id, ofmsgs)
+            for table_id, table in enumerate(self.network.tables[dp_id].tables):
+                used_size = len(table)
+                tfm_body = self.network.tables[dp_id].tfm.get(table_id, None)
+                if tfm_body:
+                    allocated_size = tfm_body.max_entries
+                    if used_size > allocated_size:
+                        excep_str = '%s : table %s %s/%s\n' % (dp_id, table_id, used_size, allocated_size)
+                        raise Exception(excep_str)
             return final_ofmsgs
 
         def send_flows_to_dp_by_id(self, valve, flows):

@@ -121,7 +121,7 @@ class FakeOFNetwork:
         self.valves_manager = valves_manager
         self.tables = {}
         for dp_id in self.valves_manager.valves:
-            self.tables[dp_id] = FakeOFTable(num_tables, requires_tfm)
+            self.tables[dp_id] = FakeOFTable(dp_id, num_tables, requires_tfm)
 
     def apply_ofmsgs(self, dp_id, ofmsgs):
         """Applies ofmsgs to a FakeOFTable for DP ID"""
@@ -224,7 +224,8 @@ class FakeOFTable:
     is_output.
     """
 
-    def __init__(self, num_tables=1, requires_tfm=True):
+    def __init__(self, dp_id, num_tables=1, requires_tfm=True):
+        self.dp_id = dp_id
         self.tables = [[] for _ in range(0, num_tables)]
         self.groups = {}
         self.requires_tfm = requires_tfm
@@ -355,15 +356,15 @@ class FakeOFTable:
         for table in tables:
             _flowmod_handlers[ofmsg.command](table, flowmod)
 
-        if tfm_body:
-            for table in tables:
-                entries = len(table)
-                if entries > tfm_body.max_entries:
-                    tfm_table_details = 'table %u %s full (max %u)' % (
-                        table_id, tfm_body.name, tfm_body.max_entries)
-                    flow_dump = '\n\n'.join(
-                        (tfm_table_details, str(ofmsg), str(tfm_body)))
-                    raise FakeOFTableException(flow_dump)
+        #if tfm_body:
+        #    for table in tables:
+        #        entries = len(table)
+        #        if entries > tfm_body.max_entries:
+        #            tfm_table_details = '%s : table %u %s full (%u/%u)' % (
+        #                self.dp_id, table_id, tfm_body.name, entries, tfm_body.max_entries)
+        #            flow_dump = '\n\n'.join(
+        #                (tfm_table_details, str(ofmsg), str(tfm_body)))
+        #            raise FakeOFTableException(flow_dump)
 
     def _apply_tfm(self, ofmsg):
         self.tfm = {body.table_id: body for body in ofmsg.body}
