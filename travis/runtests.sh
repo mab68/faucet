@@ -47,6 +47,10 @@ elif [ "${MATRIX_SHARD}" == "sanity" ] ; then
   FAUCET_TESTS="-u FaucetSanityTest"
 elif [ "${MATRIX_SHARD}" == "fault-tolerance" ] ; then
   FAUCET_TESTS="-t"
+elif [ "${MATRIX_SHARD}" == "generative-unit" ]; then
+  FAUCET_TESTS="--generative_unit"
+elif [ "${MATRIX_SHARD}" == "generative-integration" ]; then
+  FAUCET_TESTS="--generative_integration"
 else
   ALLTESTFILES="tests/integration/mininet_tests.py tests/integration/mininet_multidp_tests.py clib/clib_mininet_tests.py"
   ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES}|cut -f2 -d" "|sort`
@@ -96,6 +100,7 @@ if [ "${MATRIX_SHARD}" == "sanity" ] ; then
   sudo docker run $SHARDARGS -e FAUCET_TESTS="-ni FaucetSanityTest FaucetStackStringOfDPUntaggedTest" -e HWTESTS="1" -t ${FAUCET_TEST_IMG} || exit 1
 fi
 
+echo "${FAUCET_TESTS}"
 sudo docker run $SHARDARGS -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG} || exit 1
 
 if ls -1 /var/tmp/core* >/dev/null 2>&1 ; then
