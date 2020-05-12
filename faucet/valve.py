@@ -1817,7 +1817,6 @@ class Valve:
                 vlan.reset_ports(self.dp.ports.values())
                 ofmsgs.extend(self.switch_manager.update_vlan(vlan))
         ofmsgs.extend(self.switch_manager.add_port(port))
-        self.logger.info('stderr Warm reconfig native VLANs %s\n' % port)
         return ofmsgs
 
     def add_dot1x_native_vlan(self, port_num, vlan_name):
