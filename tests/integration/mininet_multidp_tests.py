@@ -2096,3 +2096,51 @@ class FaucetStackTopoChangeTest(FaucetMultiDPTest):
                     self.assertEqual(node_count, 3,
                                      'Number of nodes in graph object is %s (!=3)' % node_count)
         self.assertTrue(stack_event_found)
+
+
+class FaucetStackWarmStartTest(FaucetTopoTestBase):
+    """ """
+
+    NUM_DPS = 2
+    NUM_HOSTS = 1
+    NUM_VLANS = 2
+    SOFTWARE_ONLY = True
+
+    def setUp(self):
+        """Setup stack topology"""
+        super().setUp()
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            if dp_i == 0:
+                dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [1]}
+        host_vlans = {0: 0, 1: 1}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+        )
+        self.start_net()
+
+    def test_warmstart(self):
+        """Test warmstarting after tagged vlan change"""
+        conf = self._get_faucet_conf()
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
+        interfaces_conf[self.host_port_maps[1][1][0]]['native_vlan'] = self.topo.vlan_name(0)
+        self.reload_conf(
+            conf, self.faucet_config_path, restart=True,
+            cold_start=False, change_expected=True)
+        import time
+        time.sleep(5)
+        self.assertFalse(True)

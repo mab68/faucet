@@ -1381,6 +1381,12 @@ configuration.
         for conf_id, new_conf in new_subconf.items():
             old_conf = subconf.get(conf_id, None)
             if old_conf:
+                if conf_name == 'port':
+                    logger.info('%s %s' % (old_conf, new_conf))
+                    logger.info('OLD: %s: %s' % (frozenset(list(map(
+                        str, old_conf._conf_keys(old_conf, subconf=False, ignore_keys=ignore_keys)))), old_conf.conf_hash(False, ignore_keys)))
+                    logger.info('NEW: %s: %s' % (frozenset(list(map(
+                        str, new_conf._conf_keys(new_conf, subconf=False, ignore_keys=ignore_keys)))), new_conf.conf_hash(False, ignore_keys)))
                 if old_conf.ignore_subconf(
                         new_conf, ignore_keys=ignore_keys):
                     same_confs.add(conf_id)
@@ -1468,6 +1474,11 @@ configuration.
         _, deleted_ports, added_ports, changed_ports, same_ports, _ = self._get_conf_changes(
             logger, 'port', self.ports, new_dp.ports,
             diff=True, ignore_keys=frozenset(['acls_in']))
+
+        logger.info('PORT DELETED: %s\n' % deleted_ports)
+        logger.info('PORT ADDED: %s\n' % added_ports)
+        logger.info('PORT CHANGES: %s\n' % changed_ports)
+        logger.info('PORT SAME: %s\n' % same_ports)
 
         changed_acl_ports = set()
         all_ports_changed = False
@@ -1611,7 +1622,9 @@ configuration.
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
+                all_meters_changed (bool): True if all meters changed
                 deleted_meters (set): deleted meter numbers
+                added_meters (set): Added meter numbers
                 changed_meters (set): changed/added meter numbers
         """
         if new_dp._table_configs() != self._table_configs():

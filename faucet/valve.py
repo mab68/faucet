@@ -1804,6 +1804,7 @@ class Valve:
             self._inc_var('faucet_config_reload_%s' % restart_type)
             self.logger.info('%s starting' % restart_type)
         self.notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
+        self.logger.info('RESTART_TYPE: %s\n' % (restart_type))
         return ofmsgs
 
     def _warm_reconfig_port_native_vlans(self, port, new_dyn_dot1x_native_vlan):
@@ -1816,6 +1817,7 @@ class Valve:
                 vlan.reset_ports(self.dp.ports.values())
                 ofmsgs.extend(self.switch_manager.update_vlan(vlan))
         ofmsgs.extend(self.switch_manager.add_port(port))
+        self.logger.info('stderr Warm reconfig native VLANs %s\n' % port)
         return ofmsgs
 
     def add_dot1x_native_vlan(self, port_num, vlan_name):
