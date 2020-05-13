@@ -584,14 +584,82 @@ class ValveTestBases:
             valve = self.valves_manager.valves[dp_id]
             final_ofmsgs = valve.prepare_send_flows(ofmsgs)
             self.network.apply_ofmsgs(dp_id, ofmsgs)
-            for table_id, table in enumerate(self.network.tables[dp_id].tables):
-                used_size = len(table)
-                tfm_body = self.network.tables[dp_id].tfm.get(table_id, None)
-                if tfm_body:
-                    allocated_size = tfm_body.max_entries
-                    if used_size > allocated_size:
-                        excep_str = '%s : table %s %s/%s\n' % (dp_id, table_id, used_size, allocated_size)
-                        raise Exception(excep_str)
+            # num_ports = len(valve.dp.stack_ports) + 1
+            # num_vlans = len(valve.dp.vlans)
+            # table = self.network.tables[dp_id].tables[3]
+            # used_size = len(table)
+            # tfm_body = self.network.tables[dp_id].tfm.get(3, None)
+            # if tfm_body:
+            #     allocated_size = tfm_body.max_entries
+            #     excep_str = '%s : %s/%s ports: %s vlans: %s' % (dp_id, used_size, allocated_size, num_ports, num_vlans)
+            #     import sys
+            #     if num_vlans == 1:
+            #         if num_ports == 1 and used_size != 9:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 2 and used_size != 14:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 3 and used_size != 19:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 4 and used_size != 24:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 5 and used_size != 29:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 6 and used_size != 34:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 7 and used_size != 39:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 8 and used_size != 44:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports > 8:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #     elif num_vlans == 2:
+            #         if num_ports == 1 and used_size != 14:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 2 and used_size != 24:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 3 and used_size != 34:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 4 and used_size != 44:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 5 and used_size != 54:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 6 and used_size != 64:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 7 and used_size != 74:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 8 and used_size != 84:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports > 8:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #     elif num_vlans == 3:
+            #         if num_ports == 1 and used_size != 19:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 2 and used_size != 34:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 3 and used_size != 49:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 4 and used_size != 64:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 5 and used_size != 79:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 6 and used_size != 94:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 7 and used_size != 109:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports == 8 and used_size != 124:
+            #             sys.stderr.write('%s\n' % excep_str)
+            #         if num_ports > 8:
+            #             sys.stderr.write('%s\n' % excep_str)
+            # for table_id, table in enumerate(self.network.tables[dp_id].tables):
+            #     used_size = len(table)
+            #     tfm_body = self.network.tables[dp_id].tfm.get(table_id, None)
+            #     if tfm_body:
+            #         allocated_size = tfm_body.max_entries
+            #         #if used_size > allocated_size:
+            #         excep_str = '%s : table %s %s/%s ports: %s\n' % (dp_id, table_id, used_size, allocated_size, num_ports)
+            #         import sys
+            #         sys.stderr.write('%s' % excep_str)
+            #             #raise Exception(excep_str)
             return final_ofmsgs
 
         def send_flows_to_dp_by_id(self, valve, flows):

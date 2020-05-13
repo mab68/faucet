@@ -552,30 +552,36 @@ configuration.
             if self.has_externals:
                 scale_factor *= 2
 
-            # Table scales with number of VLANs only.
-            if table_config.vlan_scale:
-                scale_factor *= (len(self.vlans) * table_config.vlan_scale)
+            if table_config.name == 'flood':
+                # The better calculation for the flood table
+                size = (len(self.vlans) * (len(self.stack_ports) + 1) * 5) + 4
+                table_size_multiple = int(size / self.min_wildcard_table_size) + 1
+                size = table_size_multiple * self.min_wildcard_table_size
+            else:
+                # Table scales with number of VLANs only.
+                if table_config.vlan_scale:
+                    scale_factor *= (len(self.vlans) * table_config.vlan_scale)
 
-                if table_config.name == 'flood':
-                    # We need flows for all ports when using combinatorial port flood.
-                    if self.combinatorial_port_flood:
-                        scale_factor *= len(self.ports)
-                    # We need more flows for more broadcast rules.
-                    if self.restricted_bcast_arpnd_ports():
-                        scale_factor *= 2
+                    if table_config.name == 'flood':
+                        # We need flows for all ports when using combinatorial port flood.
+                        if self.combinatorial_port_flood:
+                            scale_factor *= len(self.ports)
+                        # We need more flows for more broadcast rules.
+                        if self.restricted_bcast_arpnd_ports():
+                            scale_factor *= 2
 
-            # Table scales with number of ports and VLANs.
-            elif table_config.vlan_port_scale:
-                scale_factor *= (len(self.vlans) * len(self.ports) * table_config.vlan_port_scale)
-                scale_factor *= self.port_table_scale_factor
+                # Table scales with number of ports and VLANs.
+                elif table_config.vlan_port_scale:
+                    scale_factor *= (len(self.vlans) * len(self.ports) * table_config.vlan_port_scale)
+                    scale_factor *= self.port_table_scale_factor
 
-            # Always multiple of min_wildcard_table_size
-            table_size_multiple = int(scale_factor / self.min_wildcard_table_size) + 1
-            size = table_size_multiple * self.min_wildcard_table_size
+                # Always multiple of min_wildcard_table_size
+                table_size_multiple = int(scale_factor / self.min_wildcard_table_size) + 1
+                size = table_size_multiple * self.min_wildcard_table_size
 
-            if not table_config.exact_match:
-                size = max(size, self.min_wildcard_table_size)
-                size = min(size, self.max_wildcard_table_size)
+                if not table_config.exact_match:
+                    size = max(size, self.min_wildcard_table_size)
+                    size = min(size, self.max_wildcard_table_size)
 
             # Hard override for size if present.
             size = self.table_sizes.get(table_name, size)
