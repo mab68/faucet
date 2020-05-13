@@ -553,7 +553,7 @@ configuration.
                 scale_factor *= 2
 
             if table_config.name == 'flood':
-                # The better calculation for the flood table
+                # The better calculation for the flood table sizes
                 size = (len(self.vlans) * (len(self.stack_ports) + 1) * 5) + 4
                 table_size_multiple = int(size / self.min_wildcard_table_size) + 1
                 size = table_size_multiple * self.min_wildcard_table_size
