@@ -1020,7 +1020,7 @@ class ValveTestBases:
             self.tmpdir = tempfile.mkdtemp()
             self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
             self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
-            self.table = FakeOFTable(self.NUM_TABLES)
+            self.table = FakeOFTable(self.DP_ID, self.NUM_TABLES)
             logfile = 'STDOUT' if log_stdout else os.path.join(self.tmpdir, 'faucet.log')
             self.logger = valve_util.get_logger(self.LOGNAME, logfile, logging.DEBUG, 0)
             self.registry = CollectorRegistry()
