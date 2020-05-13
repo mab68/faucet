@@ -1381,6 +1381,9 @@ configuration.
         for conf_id, new_conf in new_subconf.items():
             old_conf = subconf.get(conf_id, None)
             if old_conf:
+                if conf_name == 'port':
+                    logger.info('OLD %s\n' % list(map(str, old_conf._conf_keys(old_conf, subconf=False, ignore_keys=ignore_keys))))
+                    logger.info('NEW %s\n' % list(map(str, new_conf._conf_keys(new_conf, subconf=False, ignore_keys=ignore_keys))))
                 if old_conf.ignore_subconf(
                         new_conf, ignore_keys=ignore_keys):
                     same_confs.add(conf_id)

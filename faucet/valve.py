@@ -1203,7 +1203,7 @@ class Valve:
             if remote_port_state:
                 self.logger.info('LLDP on %s, %s from %s (remote %s, port %u) state %s' % (
                     chassis_id, port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id),
-                    remote_port_id, remote_port_state))
+                    remote_port_id, port.stack_state_name(remote_port_state)))
             port.dyn_lldp_beacon_recv_state = remote_port_state
 
         peer_mac_src = self.dp.ports[port.number].lldp_peer_mac
@@ -1752,6 +1752,8 @@ class Valve:
                 ofmsgs.append(valve_of.meteradd(
                     new_dp.meters.get(added_meter).entry, command=0))
 
+        self.logger.info('OLD DP %s\n' % object.__repr__(self.dp))
+        self.logger.info('NEW DP %s\n' % object.__repr__(new_dp))
         self.dp_init(new_dp)
 
         if changed_vids:
@@ -1769,6 +1771,16 @@ class Valve:
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
                 ofmsgs.extend(self.acl_manager.cold_start_port(port))
+        for port in self.dp.stack_ports:
+            # Quick and dirty optimization for warm starting with a stack topology
+            #   We want to keep state & not bring the port down
+            if port.number in all_up_port_nos or port.number in added_ports:
+                continue
+            ofmsgs.extend(self._port_delete_flows_state(port))
+            for manager in self._managers:
+                ofmsgs.extend(manager.add_port(port))
+            ofmsgs.extend(self.add_vlans(set(self.dp.vlans.values())))
+        self.logger.info('STACK STATES: %s\n' % {port: port.stack_state_name(port.dyn_stack_current_state) for port in self.dp.stack_ports})
         return False, ofmsgs
 
     def reload_config(self, _now, new_dp):
