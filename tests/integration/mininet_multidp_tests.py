@@ -2098,7 +2098,7 @@ class FaucetStackTopoChangeTest(FaucetMultiDPTest):
         self.assertTrue(stack_event_found)
 
 
-class FaucetStackWarmStartTest(FaucetTopoTestBase):
+class FaucetStackWarmStart2Test(FaucetTopoTestBase):
     """ """
 
     NUM_DPS = 3
@@ -2106,7 +2106,10 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
     NUM_VLANS = 2
     SOFTWARE_ONLY = True
 
-    def set_up(self, host_links=None, host_vlans=None):
+    def setUp(self):
+        """Ignore to allow for setting up network in each test"""
+
+    def set_up(self, host_vlans=None, build_router=False):
         """ """
         super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
@@ -2121,7 +2124,19 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
                 dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
-        if host_links is None and host_vlans is None:
+        host_links = {0: [0], 1: [1], 2: [2]}
+        if host_vlans is None:
+            host_vlans = {h_i: 0 for h_i in host_links.keys()}
+        routers = {}
+        vlan_options = {}
+        if build_router:
+            routers = {0: list(range(self.NUM_VLANS))}
+            for v_i in range(self.NUM_VLANS):
+                vlan_options[v_i] = {
+                    'faucet_mac': self.faucet_mac(v_i),
+                    'faucet_vips': [self.faucet_vip(v_i)],
+                    'targeted_gw_resolution': False
+                }
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2129,8 +2144,42 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
             link_vlans=link_vlans,
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
+            vlan_options=vlan_options,
+            routers=routers,
         )
         self.start_net()
+
+    def test_native_vlan(self):
+        """ """
+        host_vlans = {0: 0, 1: 0, 2: 1}
+        self.set_up(host_vlans=host_vlans)
+        self.verify_stack_up()
+        conf = self._get_faucet_conf()
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
+        interfaces_conf[self.host_port_maps[2][2][0]]['native_vlan'] = self.topo.vlan_name(0)
+        self.reload_conf(
+            conf, self.faucet_config_path, restart=True,
+            cold_start=False, change_expected=True)
+        self.verify_stack_up(timeout=1)
+        self.verify_intervlan_routing()
+        self.assertFalse(True)
+
+    # def test_routing(self):
+    #     """ """
+    #     # Changing a routed port forces a cold-start
+    #     host_vlans = {0: 0, 1: 0, 2: 1}
+    #     self.set_up(host_vlans=host_vlans, build_router=True)
+    #     self.verify_stack_up()
+    #     self.verify_intervlan_routing()
+    #     conf = self._get_faucet_conf()
+    #     interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
+    #     interfaces_conf[self.host_port_maps[2][2][0]]['native_vlan'] = self.topo.vlan_name(0)
+    #     self.reload_conf(
+    #         conf, self.faucet_config_path, restart=True,
+    #         cold_start=False, change_expected=True)
+    #     self.verify_stack_up(timeout=1)
+    #     self.verify_intervlan_routing()
+    #     self.assertFalse(True)
 
 class FaucetStackWarmStartTest(FaucetTopoTestBase):
     """ """
@@ -2157,17 +2206,6 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         link_vlans = {edge: None for edge in switch_links}
         host_links = {0: [0], 1: [1], 2: [2], 3: [2]}
         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
-        routers = {}
-        #routers = {0: list(range(self.NUM_VLANS))}
-        vlan_options = {}
-        # for v_i in range(self.NUM_VLANS):
-        #     vlan_options[v_i] = {
-        #         'faucet_mac': self.faucet_mac(v_i),
-        #         'faucet_vips': [self.faucet_vip(v_i)],
-        #         'targeted_gw_resolution': False
-        #     }
-        # TODO: When warm starting we will still want to update the rules (flooding & everything else)
-        #   but we don't want to take the port down
         self.build_net(
             host_links=host_links,
             host_vlans=host_vlans,
@@ -2175,21 +2213,20 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
             link_vlans=link_vlans,
             n_vlans=self.NUM_VLANS,
             dp_options=dp_options,
-            routers=routers,
-            vlan_options=vlan_options,
         )
         self.start_net()
 
-    def test_warmstart(self):
-        """Test warmstarting after tagged vlan change"""
+    def test_warmstart_native_vlan_change(self):
+        """Test warmstarting after native vlan change"""
         import time
         self.verify_stack_up()
         conf = self._get_faucet_conf()
         interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
         interfaces_conf[self.host_port_maps[2][2][0]]['native_vlan'] = self.topo.vlan_name(0)
+        interfaces_conf[self.host_port_maps[3][2][0]]['native_vlan'] = self.topo.vlan_name(0)
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
             cold_start=False, change_expected=True)
-        self.verify_stack_up()
+        self.verify_stack_up(timeout=1)
         self.verify_intervlan_routing()
         self.assertFalse(True)

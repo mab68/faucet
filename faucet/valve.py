@@ -1756,6 +1756,16 @@ class Valve:
         self.logger.info('NEW DP %s\n' % object.__repr__(new_dp))
         self.dp_init(new_dp)
 
+        for port in self.dp.stack_ports:
+            # Quick and dirty optimization for warm starting with a stack topology
+            #   We want to keep state & not bring the port down
+            if port.number in all_up_port_nos or port.number in added_ports:
+                continue
+            ofmsgs.extend(self._port_delete_flows_state(port))
+            for manager in self._managers:
+                ofmsgs.extend(manager.add_port(port))
+            ofmsgs.extend(self.add_vlans(set(self.dp.vlans.values())))
+
         if changed_vids:
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
             # TODO: handle change versus add separately so can avoid delete first.
@@ -1771,15 +1781,6 @@ class Valve:
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
                 ofmsgs.extend(self.acl_manager.cold_start_port(port))
-        for port in self.dp.stack_ports:
-            # Quick and dirty optimization for warm starting with a stack topology
-            #   We want to keep state & not bring the port down
-            if port.number in all_up_port_nos or port.number in added_ports:
-                continue
-            ofmsgs.extend(self._port_delete_flows_state(port))
-            for manager in self._managers:
-                ofmsgs.extend(manager.add_port(port))
-            ofmsgs.extend(self.add_vlans(set(self.dp.vlans.values())))
         self.logger.info('STACK STATES: %s\n' % {port: port.stack_state_name(port.dyn_stack_current_state) for port in self.dp.stack_ports})
         return False, ofmsgs
 
