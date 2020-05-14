@@ -2109,7 +2109,7 @@ class FaucetStackWarmStart2Test(FaucetTopoTestBase):
     def setUp(self):
         """Ignore to allow for setting up network in each test"""
 
-    def set_up(self, host_vlans=None, build_router=False):
+    def set_up(self, host_links=None, host_vlans=None, build_router=False):
         """ """
         super().setUp()
         network_graph = networkx.path_graph(self.NUM_DPS)
@@ -2124,7 +2124,8 @@ class FaucetStackWarmStart2Test(FaucetTopoTestBase):
                 dp_options[0]['stack'] = {'priority': 1}
         switch_links = list(network_graph.edges())
         link_vlans = {edge: None for edge in switch_links}
-        host_links = {0: [0], 1: [1], 2: [2]}
+        if host_links is None:
+            host_links = {0: [0], 1: [1], 2: [2]}
         if host_vlans is None:
             host_vlans = {h_i: 0 for h_i in host_links.keys()}
         routers = {}
@@ -2150,7 +2151,7 @@ class FaucetStackWarmStart2Test(FaucetTopoTestBase):
         self.start_net()
 
     def test_native_vlan(self):
-        """ """
+        """Test warm starting changing host native VLAN"""
         host_vlans = {0: 0, 1: 0, 2: 1}
         self.set_up(host_vlans=host_vlans)
         self.verify_stack_up()
@@ -2164,69 +2165,88 @@ class FaucetStackWarmStart2Test(FaucetTopoTestBase):
         self.verify_intervlan_routing()
         self.assertFalse(True)
 
-    # def test_routing(self):
-    #     """ """
-    #     # Changing a routed port forces a cold-start
-    #     host_vlans = {0: 0, 1: 0, 2: 1}
-    #     self.set_up(host_vlans=host_vlans, build_router=True)
-    #     self.verify_stack_up()
-    #     self.verify_intervlan_routing()
-    #     conf = self._get_faucet_conf()
-    #     interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
-    #     interfaces_conf[self.host_port_maps[2][2][0]]['native_vlan'] = self.topo.vlan_name(0)
-    #     self.reload_conf(
-    #         conf, self.faucet_config_path, restart=True,
-    #         cold_start=False, change_expected=True)
-    #     self.verify_stack_up(timeout=1)
-    #     self.verify_intervlan_routing()
-    #     self.assertFalse(True)
-
-class FaucetStackWarmStartTest(FaucetTopoTestBase):
-    """ """
-
-    NUM_DPS = 3
-    NUM_HOSTS = 1
-    NUM_VLANS = 2
-    SOFTWARE_ONLY = True
-
-    def setUp(self):
-        """Setup stack topology"""
-        super().setUp()
-        network_graph = networkx.path_graph(self.NUM_DPS)
-        dp_options = {}
-        for dp_i in network_graph.nodes():
-            dp_options.setdefault(dp_i, {
-                'group_table': self.GROUP_TABLE,
-                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
-                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
-            })
-            if dp_i == 0:
-                dp_options[0]['stack'] = {'priority': 1}
-        switch_links = list(network_graph.edges())
-        link_vlans = {edge: None for edge in switch_links}
-        host_links = {0: [0], 1: [1], 2: [2], 3: [2]}
-        host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
-        self.build_net(
-            host_links=host_links,
-            host_vlans=host_vlans,
-            switch_links=switch_links,
-            link_vlans=link_vlans,
-            n_vlans=self.NUM_VLANS,
-            dp_options=dp_options,
-        )
-        self.start_net()
-
-    def test_warmstart_native_vlan_change(self):
-        """Test warmstarting after native vlan change"""
-        import time
+    def test_vlan_change(self):
+        """Test warm starting changing a VLAN option"""
+        host_vlans = {0: 0, 1: 0, 2: 1}
+        self.set_up(host_vlans=host_vlans)
         self.verify_stack_up()
         conf = self._get_faucet_conf()
-        interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
-        interfaces_conf[self.host_port_maps[2][2][0]]['native_vlan'] = self.topo.vlan_name(0)
-        interfaces_conf[self.host_port_maps[3][2][0]]['native_vlan'] = self.topo.vlan_name(0)
+        interfaces_conf = conf['vlans'][self.topo.vlan_name(0)]['edge_learn_stack_root'] = False
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
             cold_start=False, change_expected=True)
         self.verify_stack_up(timeout=1)
         self.verify_intervlan_routing()
         self.assertFalse(True)
+
+    def test_transit_vlan_change(self):
+        """Test warm starting changing host native VLAN with a transit stack switch"""
+        host_links = {0: [0], 1: [0], 2: [2], 3: [2]}
+        self.set_up(host_links=host_links)
+        self.verify_stack_up()
+        conf = self._get_faucet_conf()
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
+        interfaces_conf[self.host_port_maps[0][0][0]]['native_vlan'] = self.topo.vlan_name(1)
+        self.reload_conf(
+            conf, self.faucet_config_path, restart=True,
+            cold_start=False, change_expected=True)
+        self.verify_stack_up(timeout=1)
+        self.verify_intervlan_routing()
+        self.assertFalse(True)
+
+    # TODO: Test adding/deleting ports
+    def test_adding_host(self):
+        host_links = {0: [0], 1: [1], 2: [2]}
+        self.set_up(host_links=host_links)
+        self.verify_stack_up()
+
+
+# class FaucetStackWarmStartTest(FaucetTopoTestBase):
+#     """ """
+
+#     NUM_DPS = 3
+#     NUM_HOSTS = 1
+#     NUM_VLANS = 2
+#     SOFTWARE_ONLY = True
+
+#     def setUp(self):
+#         """Setup stack topology"""
+#         super().setUp()
+#         network_graph = networkx.path_graph(self.NUM_DPS)
+#         dp_options = {}
+#         for dp_i in network_graph.nodes():
+#             dp_options.setdefault(dp_i, {
+#                 'group_table': self.GROUP_TABLE,
+#                 'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+#                 'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+#             })
+#             if dp_i == 0:
+#                 dp_options[0]['stack'] = {'priority': 1}
+#         switch_links = list(network_graph.edges())
+#         link_vlans = {edge: None for edge in switch_links}
+#         host_links = {0: [0], 1: [1], 2: [2], 3: [2]}
+#         host_vlans = {0: 0, 1: 0, 2: 1, 3: 0}
+#         self.build_net(
+#             host_links=host_links,
+#             host_vlans=host_vlans,
+#             switch_links=switch_links,
+#             link_vlans=link_vlans,
+#             n_vlans=self.NUM_VLANS,
+#             dp_options=dp_options,
+#         )
+#         self.start_net()
+
+#     def test_warmstart_native_vlan_change(self):
+#         """Test warmstarting after native vlan change"""
+#         import time
+#         self.verify_stack_up()
+#         conf = self._get_faucet_conf()
+#         interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
+#         interfaces_conf[self.host_port_maps[2][2][0]]['native_vlan'] = self.topo.vlan_name(0)
+#         interfaces_conf[self.host_port_maps[3][2][0]]['native_vlan'] = self.topo.vlan_name(0)
+#         self.reload_conf(
+#             conf, self.faucet_config_path, restart=True,
+#             cold_start=False, change_expected=True)
+#         self.verify_stack_up(timeout=1)
+#         self.verify_intervlan_routing()
+#         self.assertFalse(True)

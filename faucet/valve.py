@@ -1752,8 +1752,6 @@ class Valve:
                 ofmsgs.append(valve_of.meteradd(
                     new_dp.meters.get(added_meter).entry, command=0))
 
-        self.logger.info('OLD DP %s\n' % object.__repr__(self.dp))
-        self.logger.info('NEW DP %s\n' % object.__repr__(new_dp))
         self.dp_init(new_dp)
 
         for port in self.dp.stack_ports:
@@ -1761,7 +1759,7 @@ class Valve:
             #   We want to keep state & not bring the port down
             if port.number in all_up_port_nos or port.number in added_ports:
                 continue
-            ofmsgs.extend(self._port_delete_flows_state(port))
+            #ofmsgs.extend(self._port_delete_flows_state(port))
             for manager in self._managers:
                 ofmsgs.extend(manager.add_port(port))
             ofmsgs.extend(self.add_vlans(set(self.dp.vlans.values())))
