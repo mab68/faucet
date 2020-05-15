@@ -36,6 +36,11 @@ from fakeoftable import CONTROLLER_PORT
 from valve_test_lib import (
     BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
 
+import networkx
+from networkx.generators.atlas import graph_atlas_g
+
+from clib.config_generator import FaucetFakeOFTopoGenerator
+
 
 class ValveStackMCLAGTestCase(ValveTestBases.ValveTestSmall):
     """Test stacked MCLAG"""
@@ -2379,116 +2384,6 @@ dps:
         self.check_groupmods_exist(
             valve_of.valve_flowreorder(
                 ofmsgs + [global_flowmod, global_metermod, global_groupmod]), False)
-
-
-class ValveNetworkTest(ValveTestBases.ValveTestNetwork):
-    """Test a simple topology with the ValveTestNetwork base"""
-
-    CONFIG = """
-vlans:
-    vlan100:
-        vid: 100
-dps:
-    s1:
-        dp_id: 0x1
-        hardware: 'GenericTFM'
-        stack:
-            priority: 1
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                stack: {dp: s2, port: 2}
-    s2:
-        dp_id: 0x2
-        hardware: 'GenericTFM'
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                stack: {dp: s1, port: 2}
-"""
-
-    def setUp(self):
-        self.setup_valves(self.CONFIG)
-        self.trigger_stack_ports()
-
-    def test_network(self):
-        """Test packet output to the adjacent switch"""
-        bcast_match = {
-            'in_port': 1,
-            'eth_src': '00:00:00:00:00:12',
-            'eth_dst': mac.BROADCAST_STR,
-            'ipv4_src': '10.1.0.1',
-            'ipv4_dst': '10.1.0.2',
-            'vlan_vid': 0
-        }
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
-
-
-class ValveLoopNetworkTest(ValveTestBases.ValveTestNetwork):
-    """Test a simple topology with the ValveTestNetwork base"""
-
-    CONFIG = """
-vlans:
-    vlan100:
-        vid: 100
-dps:
-    s1:
-        dp_id: 0x1
-        hardware: 'GenericTFM'
-        stack:
-            priority: 1
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                stack: {dp: s2, port: 2}
-            3:
-                stack: {dp: s3, port: 3}
-    s2:
-        dp_id: 0x2
-        hardware: 'GenericTFM'
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                stack: {dp: s1, port: 2}
-            3:
-                stack: {dp: s3, port: 2}
-    s3:
-        dp_id: 0x3
-        hardware: 'GenericTFM'
-        interfaces:
-            1:
-                native_vlan: vlan100
-            2:
-                stack: {dp: s2, port: 3}
-            3:
-                stack: {dp: s1, port: 3}
-"""
-
-    def setUp(self):
-        self.setup_valves(self.CONFIG)
-        self.trigger_stack_ports()
-
-    def test_network(self):
-        """Test packet output to the adjacent switch in a loop topology"""
-        bcast_match = {
-            'in_port': 1,
-            'eth_src': '00:00:00:00:00:12',
-            'eth_dst': mac.BROADCAST_STR,
-            'ipv4_src': '10.1.0.1',
-            'ipv4_dst': '10.1.0.2',
-            'vlan_vid': 0
-        }
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
-        port = self.valves_manager.valves[0x1].dp.ports[3]
-        reverse_port = port.stack['port']
-        self.trigger_stack_ports([port, reverse_port])
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
 
 
 if __name__ == "__main__":

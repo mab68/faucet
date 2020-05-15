@@ -495,6 +495,13 @@ class ValveTestBases:
         REQUIRE_TFM = True
         CONFIG_AUTO_REVERT = False
 
+        serial = 0
+
+        def get_serialno(self, *_args, **_kwargs):
+            """"Return mock serial number"""
+            self.serial += 1
+            return self.serial
+
         def __init__(self, *args, **kwargs):
             self.dot1x = None
             self.valves_manager = None
@@ -584,29 +591,6 @@ class ValveTestBases:
             valve = self.valves_manager.valves[dp_id]
             final_ofmsgs = valve.prepare_send_flows(ofmsgs)
             self.network.apply_ofmsgs(dp_id, ofmsgs)
-            num_stack_ports = len(valve.dp.stack_ports)
-            num_ports = len(valve.dp.ports)
-            num_vlans = len(valve.dp.vlans)
-            expected_exact = valve.dp.flood_table_size()
-            table = self.network.tables[dp_id].tables[3]
-            used_size = len(table)
-            tfm_body = self.network.tables[dp_id].tfm.get(3, None)
-            if tfm_body:
-                allocated_size = tfm_body.max_entries
-                excep_str = '%s : %s/%s (%s) stack ports: %s all_ports: %s vlans: %s' % (dp_id, used_size, allocated_size, expected_exact, num_stack_ports, num_ports, num_vlans)
-                import sys
-                if used_size != expected_exact:
-                    sys.stderr.write('%s\n' % excep_str)
-            # for table_id, table in enumerate(self.network.tables[dp_id].tables):
-            #     used_size = len(table)
-            #     tfm_body = self.network.tables[dp_id].tfm.get(table_id, None)
-            #     if tfm_body:
-            #         allocated_size = tfm_body.max_entries
-            #         #if used_size > allocated_size:
-            #         excep_str = '%s : table %s %s/%s ports: %s\n' % (dp_id, table_id, used_size, allocated_size, num_ports)
-            #         import sys
-            #         sys.stderr.write('%s' % excep_str)
-            #             #raise Exception(excep_str)
             return final_ofmsgs
 
         def send_flows_to_dp_by_id(self, valve, flows):

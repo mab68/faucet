@@ -31,47 +31,142 @@ from clib.config_generator import FaucetFakeOFTopoGenerator
 
 import sys
 
-class LargeValveTopologyTest(ValveTestBases.ValveTestNetwork):
-    """ """
+class ValveNetworkTest(ValveTestBases.ValveTestNetwork):
+    """Test an auto-generated path topology and FakeOFNetwork packet traversal"""
 
-    topo = None
-    serial = 0
-    CONFIG = None
-    N_VLANS = 2
-    N_HOSTS = 2
-
-    def get_serialno(self, *_args, **_kwargs):
-        self.serial += 1
-        return self.serial
+    NUM_DPS = 2
+    NUM_VLANS = 1
+    NUM_HOSTS = 1
+    SWITCH_TO_SWITCH_LINKS = 1
 
     def setUp(self):
-        pass
+        """Setup auto-generated network topology and trigger stack ports"""
+        host_links = {}
+        host_vlans = {}
+        for dp_i in range(self.NUM_DPS):
+            host_links[dp_i] = [dp_i]
+            host_vlans[dp_i] = [0]
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+        switch_vlans = {edge: None for edge in switch_links}
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options[dp_i] = {
+                'hardware': 'GenericTFM'
+            }
+            if dp_i == 0:
+                dp_options[dp_i]['stack'] = {'priority': 1}
+        self.topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=1, port_order=list(range(4)), get_serialno=self.get_serialno)
+        self.CONFIG = self.topo.get_config(
+            self.NUM_VLANS, dp_options=dp_options)
+        self.setup_valves(self.CONFIG)
+        self.trigger_stack_ports()
+
+    def test_network(self):
+        """Test packet output to the adjacent switch"""
+        bcast_match = {
+            'in_port': 1,
+            'eth_src': '00:00:00:00:00:12',
+            'eth_dst': mac.BROADCAST_STR,
+            'ipv4_src': '10.1.0.1',
+            'ipv4_dst': '10.1.0.2',
+            'vlan_vid': 0
+        }
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+
+
+class ValveLoopNetworkTest(ValveTestBases.ValveTestNetwork):
+    """Test an auto-generated loop topology and FakeOFNetwork packet traversal"""
+
+    NUM_DPS = 3
+    NUM_VLANS = 1
+    NUM_HOSTS = 1
+    SWITCH_TO_SWITCH_LINKS = 2
+
+    def setUp(self):
+        """Setup auto-generated network topology and trigger stack ports"""
+        host_links = {}
+        host_vlans = {}
+        for dp_i in range(self.NUM_DPS):
+            host_links[dp_i] = [dp_i]
+            host_vlans[dp_i] = [0]
+        network_graph = networkx.cycle_graph(self.NUM_DPS)
+        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+        switch_vlans = {edge: None for edge in switch_links}
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options[dp_i] = {
+                'hardware': 'GenericTFM'
+            }
+            if dp_i == 0:
+                dp_options[dp_i]['stack'] = {'priority': 1}
+        self.topo = FaucetFakeOFTopoGenerator(
+            '', '', '',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=1, port_order=list(range(4)), get_serialno=self.get_serialno)
+        self.CONFIG = self.topo.get_config(
+            self.NUM_VLANS, dp_options=dp_options)
+        self.setup_valves(self.CONFIG)
+        self.trigger_stack_ports()
+
+    def test_network(self):
+        """Test packet output to the adjacent switch in a loop topology"""
+        bcast_match = {
+            'in_port': 1,
+            'eth_src': '00:00:00:00:00:12',
+            'eth_dst': mac.BROADCAST_STR,
+            'ipv4_src': '10.1.0.1',
+            'ipv4_dst': '10.1.0.2',
+            'vlan_vid': 0
+        }
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+        port = self.valves_manager.valves[0x1].dp.ports[3]
+        reverse_port = port.stack['port']
+        self.trigger_stack_ports([port, reverse_port])
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+
+
+class LargeValveTopologyTest(ValveTestBases.ValveTestNetwork):
+    """Test FakeOFNetwork packet traversal with all topologies imported from the networkx atlas"""
+
+    topo = None
+    CONFIG = None
+
+    NUM_DPS = 2
+    NUM_VLANS = 2
+    NUM_HOSTS = 2
+    SWITCH_TO_SWITCH_LINKS = 1
+
+    def setUp(self):
+        """Ignore, to call set_up with a different network topologies"""
 
     def set_up(self, network_graph):
         """
         Args:
-            network_graph (networkx.Graph):
+            network_graph (networkx.Graph): Topology for the network
         """
         host_links = {}
         host_vlans = {}
         host_n = 0
-        host_links = {0: [0], 1: [1]}
-        host_vlans = {0: 0, 1: list(range(self.N_VLANS))}
-        #for dp in network_graph.nodes():
-        #    for _ in range(self.N_HOSTS):
-        #        host_links[host_n] = [dp]
-        #        host_vlans[host_n] = list(range(self.N_VLANS))
-        #        host_n += 1
+        for dp in network_graph.nodes():
+           for _ in range(self.NUM_HOSTS):
+               host_links[host_n] = [dp]
+               host_vlans[host_n] = list(range(self.NUM_VLANS))
+               host_n += 1
         switch_links = list(network_graph.edges())
-        link_vlans = {edge: list(range(self.N_VLANS)) for edge in switch_links}
+        link_vlans = {edge: list(range(self.NUM_VLANS)) for edge in switch_links}
         dp_options = {}
         for dp in network_graph.nodes():
             dp_options[dp] = {
-                'hardware': 'GenericTFM',
-                'combinatorial_port_flood': True,
+                'hardware': 'GenericTFM'
             }
-            #if dp == 0:
-            #    dp_options[dp]['stack'] = {'priority': 1}
+            if dp == 0:
+               dp_options[dp]['stack'] = {'priority': 1}
         self.topo = FaucetFakeOFTopoGenerator(
             '', '', '',
             host_links, host_vlans, switch_links, link_vlans,
@@ -79,7 +174,7 @@ class LargeValveTopologyTest(ValveTestBases.ValveTestNetwork):
             port_order=random.sample(range(1,len(switch_links)+1), len(switch_links)),
             get_serialno=self.get_serialno)
         self.CONFIG = self.topo.get_config(
-            self.N_VLANS, dp_options=dp_options)
+            self.NUM_VLANS, dp_options=dp_options)
         self.setup_valves(self.CONFIG)
 
 
@@ -101,7 +196,7 @@ if __name__ == '__main__':
         test_name = 'test_%s' % graph.name
         test_func = test_generator(graph)
         setattr(LargeValveTopologyTest, test_name, test_func)
-        if count >= 25:
+        if count >= 1:
             break
         count += 1
     unittest.main()

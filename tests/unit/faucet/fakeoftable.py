@@ -356,15 +356,15 @@ class FakeOFTable:
         for table in tables:
             _flowmod_handlers[ofmsg.command](table, flowmod)
 
-        # if tfm_body:
-        #    for table in tables:
-        #        entries = len(table)
-        #        if entries > tfm_body.max_entries:
-        #            tfm_table_details = '%s : table %u %s full (%u/%u)' % (
-        #                self.dp_id, table_id, tfm_body.name, entries, tfm_body.max_entries)
-        #            flow_dump = '\n\n'.join(
-        #                (tfm_table_details, str(ofmsg), str(tfm_body)))
-        #            raise FakeOFTableException(flow_dump)
+        if tfm_body:
+           for table in tables:
+               entries = len(table)
+               if entries > tfm_body.max_entries:
+                   tfm_table_details = '%s : table %u %s full (%u/%u)' % (
+                       self.dp_id, table_id, tfm_body.name, entries, tfm_body.max_entries)
+                   flow_dump = '\n\n'.join(
+                       (tfm_table_details, str(ofmsg), str(tfm_body)))
+                   raise FakeOFTableException(flow_dump)
 
     def _apply_tfm(self, ofmsg):
         self.tfm = {body.table_id: body for body in ofmsg.body}

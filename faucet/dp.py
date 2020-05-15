@@ -552,36 +552,30 @@ configuration.
             if self.has_externals:
                 scale_factor *= 2
 
-            if table_config.name == 'flood':
-                # The better calculation for the flood table sizes
-                size = self.flood_table_size()
-                table_size_multiple = int(size / self.min_wildcard_table_size) + 1
-                size = table_size_multiple * self.min_wildcard_table_size
-            else:
-                # Table scales with number of VLANs only.
-                if table_config.vlan_scale:
-                    scale_factor *= (len(self.vlans) * table_config.vlan_scale)
+            # Table scales with number of VLANs only.
+            if table_config.vlan_scale:
+                scale_factor *= (len(self.vlans) * table_config.vlan_scale)
 
-                    if table_config.name == 'flood':
-                        # We need flows for all ports when using combinatorial port flood.
-                        if self.combinatorial_port_flood:
-                            scale_factor *= len(self.ports)
-                        # We need more flows for more broadcast rules.
-                        if self.restricted_bcast_arpnd_ports():
-                            scale_factor *= 2
+                if table_config.name == 'flood':
+                    # We need flows for all ports when using combinatorial port flood.
+                    if self.combinatorial_port_flood:
+                        scale_factor *= len(self.ports)
+                    # We need more flows for more broadcast rules.
+                    if self.restricted_bcast_arpnd_ports():
+                        scale_factor *= 2
 
-                # Table scales with number of ports and VLANs.
-                elif table_config.vlan_port_scale:
-                    scale_factor *= (len(self.vlans) * len(self.ports) * table_config.vlan_port_scale)
-                    scale_factor *= self.port_table_scale_factor
+            # Table scales with number of ports and VLANs.
+            elif table_config.vlan_port_scale:
+                scale_factor *= (len(self.vlans) * len(self.ports) * table_config.vlan_port_scale)
+                scale_factor *= self.port_table_scale_factor
 
-                # Always multiple of min_wildcard_table_size
-                table_size_multiple = int(scale_factor / self.min_wildcard_table_size) + 1
-                size = table_size_multiple * self.min_wildcard_table_size
+            # Always multiple of min_wildcard_table_size
+            table_size_multiple = int(scale_factor / self.min_wildcard_table_size) + 1
+            size = table_size_multiple * self.min_wildcard_table_size
 
-                if not table_config.exact_match:
-                    size = max(size, self.min_wildcard_table_size)
-                    size = min(size, self.max_wildcard_table_size)
+            if not table_config.exact_match:
+                size = max(size, self.min_wildcard_table_size)
+                size = min(size, self.max_wildcard_table_size)
 
             # Hard override for size if present.
             size = self.table_sizes.get(table_name, size)
@@ -598,32 +592,6 @@ configuration.
                 next_tables=next_table_ids
                 )
         self.tables = tables
-
-    # def flood_table_size(self):
-    #     port_count = len(self.stack_ports) + 1
-    #     vlan_count = len(self.vlans)
-    #     size_count = port_count * vlan_count
-    #     extension = 0
-    #     if self.combinatorial_port_flood:
-    #         # if self.stack_ports:
-    #         #     port_count = len(self.stack_ports)
-    #         # else:
-    #         #     port_count = len(self.ports)
-    #         #for port in self.ports.values():
-    #         #    size_count += len(port.vlans())
-    #         extension = len(self.vlans) * 5
-    #     return (size_count * 5) + 4 + extension
-
-    # def flood_table_size(self):
-    #     if self.combinatorial_port_flood:
-    #         size = 0
-    #         for port in self.ports.values():
-    #             size += (len(port.vlans()) * 5)
-    #         return size + 4
-    #     else:
-    #         port_count = len(self.stack_ports) + 1
-    #         vlan_count = len(self.vlans)
-    #         return port_count * vlan_count * 5 + 4
 
     def set_defaults(self):
         super(DP, self).set_defaults()
