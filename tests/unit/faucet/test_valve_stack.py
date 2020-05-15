@@ -37,9 +37,6 @@ from valve_test_lib import (
     BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
 
 import networkx
-from networkx.generators.atlas import graph_atlas_g
-
-from clib.config_generator import FaucetFakeOFTopoGenerator
 
 
 class ValveStackMCLAGTestCase(ValveTestBases.ValveTestSmall):
@@ -2384,6 +2381,70 @@ dps:
         self.check_groupmods_exist(
             valve_of.valve_flowreorder(
                 ofmsgs + [global_flowmod, global_metermod, global_groupmod]), False)
+
+
+class ValveNetworkTest(ValveTestBases.ValveTestNetwork):
+    """Test an auto-generated path topology and FakeOFNetwork packet traversal"""
+
+    topo = None
+
+    NUM_DPS = 2
+    NUM_VLANS = 1
+    NUM_HOSTS = 1
+    SWITCH_TO_SWITCH_LINKS = 1
+
+    def setUp(self):
+        """Setup auto-generated network topology and trigger stack ports"""
+        self.topo, self.CONFIG = self.create_topo_config(networkx.path_graph(self.NUM_DPS))
+        self.setup_valves(self.CONFIG)
+        self.trigger_stack_ports()
+
+    def test_network(self):
+        """Test packet output to the adjacent switch"""
+        bcast_match = {
+            'in_port': 1,
+            'eth_src': '00:00:00:00:00:12',
+            'eth_dst': mac.BROADCAST_STR,
+            'ipv4_src': '10.1.0.1',
+            'ipv4_dst': '10.1.0.2',
+            'vlan_vid': 0
+        }
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+
+
+class ValveLoopNetworkTest(ValveTestBases.ValveTestNetwork):
+    """Test an auto-generated loop topology and FakeOFNetwork packet traversal"""
+
+    topo = None
+
+    NUM_DPS = 3
+    NUM_VLANS = 1
+    NUM_HOSTS = 1
+    SWITCH_TO_SWITCH_LINKS = 2
+
+    def setUp(self):
+        """Setup auto-generated network topology and trigger stack ports"""
+        self.topo, self.CONFIG = self.create_topo_config(networkx.cycle_graph(self.NUM_DPS))
+        self.setup_valves(self.CONFIG)
+        self.trigger_stack_ports()
+
+    def test_network(self):
+        """Test packet output to the adjacent switch in a loop topology"""
+        bcast_match = {
+            'in_port': 1,
+            'eth_src': '00:00:00:00:00:12',
+            'eth_dst': mac.BROADCAST_STR,
+            'ipv4_src': '10.1.0.1',
+            'ipv4_dst': '10.1.0.2',
+            'vlan_vid': 0
+        }
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+        port = self.valves_manager.valves[0x1].dp.ports[3]
+        reverse_port = port.stack['port']
+        self.trigger_stack_ports([port, reverse_port])
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
+        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
 
 
 if __name__ == "__main__":

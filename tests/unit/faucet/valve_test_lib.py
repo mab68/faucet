@@ -55,6 +55,11 @@ from faucet.valve import TfmValve
 
 from fakeoftable import FakeOFTable, FakeOFNetwork
 
+import mininet
+from mininet.topo import Topo
+
+from clib.config_generator import FaucetFakeOFTopoGenerator
+
 
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
@@ -469,10 +474,6 @@ class ValveTestBases:
         # Default DP name
         DP_NAME = 's1'
 
-        @staticmethod
-        def create_dp_name(i):
-            return 's%s' % i
-
         # Default DP ID
         DP_ID = 1
 
@@ -494,6 +495,38 @@ class ValveTestBases:
         ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')
         REQUIRE_TFM = True
         CONFIG_AUTO_REVERT = False
+
+        topo = None
+
+        NUM_DPS = 2
+        NUM_VLANS = 1
+        NUM_HOSTS = 1
+        SWITCH_TO_SWITCH_LINKS = 1
+
+        PORT_ORDER = [0, 1, 2, 3]
+        START_PORT = 5
+
+        def create_topo_config(self, network_graph):
+            """Return topo object and a simple stack config generated from network_graph"""
+            host_links = {}
+            host_vlans = {}
+            dp_options = {}
+            for dp_i in network_graph.nodes():
+                for _ in range(self.NUM_HOSTS):
+                    host_links[host_n] = [dp]
+                    host_vlans[host_n] = list(range(self.NUM_VLANS))
+                    host_n += 1
+                dp_options[dp_i] = {'hardware': 'GenericTFM'}
+                if dp_i == 0:
+                    dp_options[dp]['stack'] = {'priority': 1}
+            switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+            link_vlans = {link: None for link in switch_links}
+            topo = FaucetFakeOFTopoGenerator(
+                'ovstype', 'portsock', 'testname',
+                host_links, host_vlans, switch_links, link_vlans,
+                start_port=self.START_PORT, port_order=self.PORT_ORDER, get_serialno=self.get_serialno)
+            config = topo.get_config(self.NUM_VLANS, dp_options=dp_options)
+            return topo, config
 
         serial = 0
 
@@ -612,9 +645,10 @@ class ValveTestBases:
             Args:
                 config (str): The configuration that will be loaded
                 reload_type ('cold' or 'warm'): Type of reload to cause
-                reload_expected (bool)
+                reload_expected (bool): Whether the reload type is expected to increment
                 error_expected (int): The error number that is expected from the config
             """
+            # TODO: Check for all DPs for reload types (change parameters too)
             before_dp_status = int(self.get_prom('dp_status'))
             existing_config = None
             if os.path.exists(self.config_file):
@@ -650,6 +684,28 @@ class ValveTestBases:
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
             self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
             return reload_ofmsgs
+
+        def update_and_revert_config(self, orig_config, new_config, reload_type,
+                                     verify_func=None, before_table_state=None):
+            """
+            Updates to the new config then reverts back to the original config to ensure
+                restarting properly dismantles/keep appropriate flow rules
+            Args:
+                orig_config (str): The original configuration file
+                new_config (str): The new configuration file
+                reload_type (str): Expected warm/cold start
+                verify_func (func): Function to verify state changes
+                before_table_state (str): State of the table before reloading
+            """
+            if before_table_state is None:
+                before_table_state = str(self.table)
+            self.update_config(new_config, reload_type)
+            if verify_func is not None:
+                verify_func()
+            self.update_config(orig_config, reload_type)
+            final_table_state = str(self.table)
+            diff = difflib.unified_diff(before_table_state.splitlines(), str(final_table_state).splitlines())
+            self.assertEqual(before_table_state, final_table_state, msg='\n'.join(diff))
 
         def connect_dp(self, dp_id=None):
             """
@@ -1078,6 +1134,16 @@ class ValveTestBases:
 
         def update_and_revert_config(self, orig_config, new_config, reload_type,
                                      verify_func=None, before_table_state=None):
+            """
+            Updates to the new config then reverts back to the original config to ensure
+                restarting properly dismantles/keep appropriate flow rules
+            Args:
+                orig_config (str): The original configuration file
+                new_config (str): The new configuration file
+                reload_type (str): Expected warm/cold start
+                verify_func (func): Function to verify state changes
+                before_table_state (str): State of the table before reloading
+            """
             if before_table_state is None:
                 before_table_state = str(self.table)
             self.update_config(new_config, reload_type)
