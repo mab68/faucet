@@ -554,7 +554,7 @@ configuration.
 
             if table_config.name == 'flood':
                 # The better calculation for the flood table sizes
-                size = (len(self.vlans) * (len(self.stack_ports) + 1) * 5) + 4
+                size = self.flood_table_size()
                 table_size_multiple = int(size / self.min_wildcard_table_size) + 1
                 size = table_size_multiple * self.min_wildcard_table_size
             else:
@@ -598,6 +598,32 @@ configuration.
                 next_tables=next_table_ids
                 )
         self.tables = tables
+
+    # def flood_table_size(self):
+    #     port_count = len(self.stack_ports) + 1
+    #     vlan_count = len(self.vlans)
+    #     size_count = port_count * vlan_count
+    #     extension = 0
+    #     if self.combinatorial_port_flood:
+    #         # if self.stack_ports:
+    #         #     port_count = len(self.stack_ports)
+    #         # else:
+    #         #     port_count = len(self.ports)
+    #         #for port in self.ports.values():
+    #         #    size_count += len(port.vlans())
+    #         extension = len(self.vlans) * 5
+    #     return (size_count * 5) + 4 + extension
+
+    # def flood_table_size(self):
+    #     if self.combinatorial_port_flood:
+    #         size = 0
+    #         for port in self.ports.values():
+    #             size += (len(port.vlans()) * 5)
+    #         return size + 4
+    #     else:
+    #         port_count = len(self.stack_ports) + 1
+    #         vlan_count = len(self.vlans)
+    #         return port_count * vlan_count * 5 + 4
 
     def set_defaults(self):
         super(DP, self).set_defaults()

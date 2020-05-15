@@ -56,7 +56,7 @@ class LargeValveTopologyTest(ValveTestBases.ValveTestNetwork):
         host_vlans = {}
         host_n = 0
         host_links = {0: [0], 1: [1]}
-        host_vlans = {0: 0, 1: 1}
+        host_vlans = {0: 0, 1: list(range(self.N_VLANS))}
         #for dp in network_graph.nodes():
         #    for _ in range(self.N_HOSTS):
         #        host_links[host_n] = [dp]
@@ -66,9 +66,12 @@ class LargeValveTopologyTest(ValveTestBases.ValveTestNetwork):
         link_vlans = {edge: list(range(self.N_VLANS)) for edge in switch_links}
         dp_options = {}
         for dp in network_graph.nodes():
-            dp_options[dp] = {'hardware': 'GenericTFM'}
-            if dp == 0:
-                dp_options[dp]['stack'] = {'priority': 1}
+            dp_options[dp] = {
+                'hardware': 'GenericTFM',
+                'combinatorial_port_flood': True,
+            }
+            #if dp == 0:
+            #    dp_options[dp]['stack'] = {'priority': 1}
         self.topo = FaucetFakeOFTopoGenerator(
             '', '', '',
             host_links, host_vlans, switch_links, link_vlans,
@@ -91,10 +94,14 @@ def test_generator(func_graph):
 if __name__ == '__main__':
     GRAPHS = {}
     GRAPH_ATLAS = graph_atlas_g()
+    count = 0
     for graph in GRAPH_ATLAS:
         if (not graph or len(graph.nodes()) < 2 or not networkx.is_connected(graph)):
             continue
         test_name = 'test_%s' % graph.name
         test_func = test_generator(graph)
         setattr(LargeValveTopologyTest, test_name, test_func)
+        if count >= 25:
+            break
+        count += 1
     unittest.main()
