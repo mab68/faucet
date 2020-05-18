@@ -486,6 +486,8 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
         # Part 3: Make sure things are the same after reload.
         self.verify_protected_connectivity()  # After reload
 
+        self.assertFalse(True)
+
     def _mark_external(self, loop_intf, protect_external):
         """Change the loop interfaces loop_protect_external option"""
         conf = self._get_faucet_conf()
@@ -493,7 +495,7 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
         conf['dps'][dp_name]['interfaces'][loop_intf]['loop_protect_external'] = protect_external
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=True)
+            restart=True, cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
 
     def test_missing_ext(self):
         """Test stacked dp with all external ports down on a switch"""
@@ -2102,7 +2104,7 @@ class FaucetStackTopoChangeTest(FaucetMultiDPTest):
 
 
 class FaucetStackWarmStartTest(FaucetTopoTestBase):
-    """ """
+    """Test various stack warm starting conditions to ensure stack port stays UP"""
 
     NUM_DPS = 3
     NUM_HOSTS = 1
