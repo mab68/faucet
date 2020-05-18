@@ -486,8 +486,6 @@ class FaucetSingleStackStringOfDPExtLoopProtUntaggedTest(FaucetMultiDPTest):
         # Part 3: Make sure things are the same after reload.
         self.verify_protected_connectivity()  # After reload
 
-        self.assertFalse(True)
-
     def _mark_external(self, loop_intf, protect_external):
         """Change the loop interfaces loop_protect_external option"""
         conf = self._get_faucet_conf()
