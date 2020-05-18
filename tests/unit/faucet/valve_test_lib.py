@@ -980,7 +980,7 @@ class ValveTestBases:
             }
 
         def _config_edge_learn_stack_root(self, new_value):
-            config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader, reload_type='warm')
+            config = yaml.load(self.CONFIG, Loader=yaml.SafeLoader)
             config['vlans']['v100']['edge_learn_stack_root'] = new_value
             return yaml.dump(config)
 
