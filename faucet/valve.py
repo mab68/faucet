@@ -1769,7 +1769,6 @@ class Valve:
             for port_num in changed_acl_ports:
                 port = self.dp.ports[port_num]
                 ofmsgs.extend(self.acl_manager.cold_start_port(port))
-        self.logger.info('STACK STATES: %s\n' % {port: port.stack_state_name(port.dyn_stack_current_state) for port in self.dp.stack_ports})
         return False, ofmsgs
 
     def reload_config(self, _now, new_dp):
