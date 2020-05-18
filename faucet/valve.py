@@ -1754,30 +1754,6 @@ class Valve:
 
         self.dp_init(new_dp)
 
-        # for port in self.dp.stack_ports:
-        #     # Quick and dirty optimization for warm starting with a stack topology
-        #     #   We want to keep state & not bring the port down
-        #     if port.number in all_up_port_nos or port.number in added_ports:
-        #         continue
-        #     rem_ofmsgs = []
-        #     # delete flows creates global deletes for the stack port...
-        #     rem_ofmsgs.extend(self._port_delete_flows_state(port))
-
-        #     # TODO: Maybe change msg.command value to MODIFY?
-        #     add_ofmsgs = []
-        #     for manager in self._managers:
-        #         add_ofmsgs.extend(manager.add_port(port))
-        #     add_ofmsgs.extend(self.add_vlans(set(self.dp.vlans.values())))
-
-        #     def get_mods(msgs, type_):
-        #         return [msg for msg in msgs if isinstance(msg, valve_of.parser.OFPFlowMod) and msg.command == type_]
-
-        #     self.logger.info('ADD %s' % get_mods(add_ofmsgs, valve_of.ofp.OFPFC_ADD))
-        #     self.logger.info('MOD %s' % get_mods(add_ofmsgs, valve_of.ofp.OFPFC_MODIFY))
-        #     self.logger.info('STRICT %s' % get_mods(add_ofmsgs, valve_of.ofp.OFPFC_MODIFY_STRICT))
-        #     self.logger.info('REM %s' % rem_ofmsgs)
-        #     #ofmsgs.extend(add_ofmsgs)
-
         if changed_vids:
             changed_vlans = [self.dp.vlans[vid] for vid in changed_vids]
             # TODO: handle change versus add separately so can avoid delete first.
@@ -1829,7 +1805,6 @@ class Valve:
             self._inc_var('faucet_config_reload_%s' % restart_type)
             self.logger.info('%s starting' % restart_type)
         self.notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
-        self.logger.info('RESTART_TYPE: %s\n' % (restart_type))
         return ofmsgs
 
     def _warm_reconfig_port_native_vlans(self, port, new_dyn_dot1x_native_vlan):
