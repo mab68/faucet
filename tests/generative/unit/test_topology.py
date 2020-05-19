@@ -49,15 +49,14 @@ class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
         Args:
             network_list (list): List of networkx graphs
         """
-        self.network_list = network_list
         self.topo, self.CONFIG = self.create_topo_config(network_list[0])
         self.setup_valves(self.CONFIG)
-        self.validate_warmstarts()
+        self.validate_warmstarts(network_list)
 
-    def validate_warmstarts(self):
+    def validate_warmstarts(self, network_list):
         """Test warm/cold-start changing topology"""
-        for network_graph in self.network_list:
-            if network_graph is self.network_list[0]:
+        for network_graph in network_list:
+            if network_graph is network_list[0]:
                 # Ignore the first one because we are already that network
                 continue
             _, new_config = self.create_topo_config(network_graph)
@@ -78,8 +77,8 @@ class ValveTopologyTableTest(ValveTestBases.ValveTestNetwork):
     topo = None
 
     NUM_DPS = 2
-    NUM_VLANS = 2
-    NUM_HOSTS = 2
+    NUM_VLANS = 1
+    NUM_HOSTS = 1
     SWITCH_TO_SWITCH_LINKS = 1
 
     def setUp(self):
@@ -94,6 +93,7 @@ class ValveTopologyTableTest(ValveTestBases.ValveTestNetwork):
         self.setup_valves(self.CONFIG)
 
     # TODO: Verify table traversals
+    #   Verify all hosts can reach each other via flooding rules
 
     @staticmethod
     def test_generator(func_graph):

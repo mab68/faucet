@@ -55,8 +55,8 @@ from faucet.valve import TfmValve
 
 from fakeoftable import FakeOFTable, FakeOFNetwork
 
-import mininet
-from mininet.topo import Topo
+#import mininet
+#from mininet.topo import Topo
 
 from clib.config_generator import FaucetFakeOFTopoGenerator
 
@@ -511,14 +511,15 @@ class ValveTestBases:
             host_links = {}
             host_vlans = {}
             dp_options = {}
+            host_n = 0
             for dp_i in network_graph.nodes():
                 for _ in range(self.NUM_HOSTS):
-                    host_links[host_n] = [dp]
+                    host_links[host_n] = [dp_i]
                     host_vlans[host_n] = list(range(self.NUM_VLANS))
                     host_n += 1
                 dp_options[dp_i] = {'hardware': 'GenericTFM'}
                 if dp_i == 0:
-                    dp_options[dp]['stack'] = {'priority': 1}
+                    dp_options[dp_i]['stack'] = {'priority': 1}
             switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
             link_vlans = {link: None for link in switch_links}
             topo = FaucetFakeOFTopoGenerator(
@@ -637,6 +638,47 @@ class ValveTestBases:
                 self.last_flows_to_dp[dp_id] = []
             self.network = FakeOFNetwork(self.valves_manager, self.NUM_TABLES, self.REQUIRE_TFM)
 
+        # def update_config(self, config, reload_type='cold',
+        #                   reload_expected=True, error_expected=0,
+        #                   no_reload_no_table_change=True):
+        #     """Update FAUCET config with config as text."""
+        #     before_table_state = str(self.table)
+        #     before_dp_status = int(self.get_prom('dp_status'))
+        #     existing_config = None
+        #     if os.path.exists(self.config_file):
+        #         with open(self.config_file) as config_file:
+        #             existing_config = config_file.read()
+        #     with open(self.config_file, 'w') as config_file:
+        #         config_file.write(config)
+        #     content_change_expected = config != existing_config
+        #     self.assertEqual(
+        #         content_change_expected,
+        #         self.valves_manager.config_watcher.content_changed(self.config_file))
+        #     self.last_flows_to_dp[self.DP_ID] = []
+        #     reload_ofmsgs = []
+        #     reload_func = partial(
+        #         self.valves_manager.request_reload_configs,
+        #         self.mock_time(10), self.config_file)
+
+        #     if error_expected:
+        #         reload_func()
+        #     else:
+        #         var = 'faucet_config_reload_%s_total' % reload_type
+        #         self.prom_inc(reload_func, var=var, inc_expected=reload_expected)
+        #         self.valve = self.valves_manager.valves[self.DP_ID]
+        #         reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
+        #         # DP requested reconnection
+        #         if reload_ofmsgs is None:
+        #             reload_ofmsgs = self.connect_dp()
+        #         else:
+        #             self.apply_ofmsgs(reload_ofmsgs)
+        #         if not reload_expected and no_reload_no_table_change:
+        #             diff = difflib.unified_diff(before_table_state.splitlines(), str(self.table).splitlines())
+        #             self.assertEqual(before_table_state, str(self.table), msg='\n'.join(diff))
+        #     self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
+        #     self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
+        #     return reload_ofmsgs
+
         def update_config(self, config, reload_type='cold',
                           reload_expected=True, error_expected=0,
                           configure_network=False):
@@ -697,6 +739,7 @@ class ValveTestBases:
                 verify_func (func): Function to verify state changes
                 before_table_state (str): State of the table before reloading
             """
+            # TODO: Check all tables
             if before_table_state is None:
                 before_table_state = str(self.table)
             self.update_config(new_config, reload_type)
