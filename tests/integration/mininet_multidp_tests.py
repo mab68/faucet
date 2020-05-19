@@ -2238,3 +2238,59 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.verify_stack_up(timeout=1)
         del self.host_information[0]
         self.verify_intervlan_routing()
+
+    def test_root_add_stack_link(self):
+        """Add a redundant stack link between two switches (one a root)"""
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1], 4: [2], 5: [2]}
+        self.set_up(host_links=host_links)
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
+        conf = self._get_faucet_conf()
+        # Create an additional link between S1-S2
+        port_num = self.topo._create_next_port(self.topo.switches_by_id[0])
+        rev_port_num = self.topo._create_next_port(self.topo.switches_by_id[1])
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
+        interfaces_conf[port_num] = {'name': 'b%u' % port_num, 'stack': {'dp': self.topo.switches_by_id[1], 'port': rev_port_num}}
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
+        interfaces_conf[rev_port_num] = {'name': 'b%u' % rev_port_num, 'stack': {'dp': self.topo.switches_by_id[0], 'port': port_num}}
+        self.reload_conf(
+            conf, self.faucet_config_path, restart=True,
+            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
+        excepted = False
+        try:
+            # Invoke topology change so expect stack ports to come down and take time to recover
+            self.verify_stack_up(timeout=1)
+        except:
+            excepted = True
+            pass
+        self.assertTrue(excepted, 'Stack ports did not get taken down')
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
+
+    def test_add_stack_link(self):
+        """Add a redundant stack link between two non-root switches"""
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1], 4: [2], 5: [2]}
+        self.set_up(host_links=host_links)
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
+        conf = self._get_faucet_conf()
+        # Create an additional link between S1-S2
+        port_num = self.topo._create_next_port(self.topo.switches_by_id[1])
+        rev_port_num = self.topo._create_next_port(self.topo.switches_by_id[2])
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
+        interfaces_conf[port_num] = {'name': 'b%u' % port_num, 'stack': {'dp': self.topo.switches_by_id[2], 'port': rev_port_num}}
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
+        interfaces_conf[rev_port_num] = {'name': 'b%u' % rev_port_num, 'stack': {'dp': self.topo.switches_by_id[1], 'port': port_num}}
+        self.reload_conf(
+            conf, self.faucet_config_path, restart=True,
+            cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
+        excepted = False
+        try:
+            # Invoke topology change so expect stack ports to come down and take time to recover
+            self.verify_stack_up(timeout=1)
+        except:
+            excepted = True
+            pass
+        self.assertTrue(excepted, 'Stack ports did not get taken down')
+        self.verify_stack_up()
+        self.verify_intervlan_routing()

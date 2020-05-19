@@ -806,6 +806,14 @@ configuration.
         """Remove a stack link to the stack graph."""
         return cls.modify_stack_topology(graph, dp, port, False)
 
+    @staticmethod
+    def hash_graph(graph):
+        """Return hash of a topology graph"""
+        # Using the degree of the topology is a quick way to get an estimate on
+        #   whether a graph is isomorphic which is what we would really want when comparing
+        #   two graphs.
+        return hash(tuple(sorted(graph.degree())))
+
     def resolve_stack_topology(self, dps, meta_dp_state):
         """Resolve inter-DP config for stacking."""
         stack_dps = [dp for dp in dps if dp.stack is not None]
@@ -1471,6 +1479,16 @@ configuration.
 
         changed_acl_ports = set()
         all_ports_changed = False
+
+        topology_changed = False
+        if self.stack_graph:
+            topology_changed = bool(self.hash_graph(self.stack_graph) != self.hash_graph(new_dp.stack_graph))
+        if topology_changed:
+            # Topology changed so restart stack ports just to be safe
+            stack_ports = [port.number for port in new_dp.stack_ports if port.number not in deleted_ports and port.number not in added_ports]
+            changed_ports.update(set(stack_ports))
+            logger.info('Stack topology change detected, restarting stack ports')
+            same_ports -= changed_ports
 
         if not same_ports:
             all_ports_changed = True
