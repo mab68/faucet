@@ -2379,5 +2379,98 @@ dps:
                 ofmsgs + [global_flowmod, global_metermod, global_groupmod]), False)
 
 
+class ValveWarmStartStackTest(ValveTestBases.ValveTestSmall):
+    """Test warm starting stack ports"""
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s2, port: 1}
+            2:
+                name: host1
+                native_vlan: vlan100
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s1, port: 1}
+            2:
+                stack: {dp: s3, port: 1}
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s2, port: 2}
+            3:
+                name: host2
+                native_vlan: vlan100
+"""
+
+    NEW_CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    s1:
+        dp_id: 0x1
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s2, port: 1}
+            2:
+                name: host1
+                native_vlan: vlan100
+    s2:
+        dp_id: 0x2
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s1, port: 1}
+            2:
+                stack: {dp: s3, port: 1}
+            3:
+                stack: {dp: s3, port: 2}
+    s3:
+        dp_id: 0x3
+        hardware: 'GenericTFM'
+        interfaces:
+            1:
+                stack: {dp: s2, port: 2}
+            2:
+                stack: {dp: s2, port: 3}
+            3:
+                name: host2
+                native_vlan: vlan100
+"""
+
+    def setUp(self):
+        """Setup network and start stack ports"""
+        self.setup_valve(self.CONFIG)
+        self.activate_all_ports()
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.ports.values():
+                if port.stack:
+                    self.set_stack_port_up(port.number, valve)
+
+    def verify_stack_ports_down(self):
+        """Checks to make sure the stack ports are DOWN"""
+        for valve in self.valves_manager.valves.values():
+            for port in valve.dp.stack_ports:
+                self.assertFalse(port.is_stack_up())
+
+    def test_reload_topology_change(self):
+        """Test reload with topology change forces stack ports down"""
+        self.update_and_revert_config(self.CONFIG, self.NEW_CONFIG, 'warm', verify_func=self.verify_stack_ports_down)
+
+
 if __name__ == "__main__":
     unittest.main()  # pytype: disable=module-attr

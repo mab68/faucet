@@ -895,7 +895,7 @@ class FaucetSingleStackOrderedAclControlTest(FaucetMultiDPTest):
 class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
     """Test overriding ACL rules"""
 
-    NUM_DPS = 1
+    NUM_DPS = 2
     NUM_HOSTS = 2
     SOFTWARE_ONLY = True
 
@@ -967,12 +967,16 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
         }
 
     def include_optional(self):
+        if self.acls_config is None:
+            self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
+        if self.missing_config is None:
+            self.missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
         return [self.acls_config, self.missing_config]
 
     def setUp(self):  # pylint: disable=invalid-name
         """Setup network & create configuration file"""
-        self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
-        self.missing_config = os.path.join(self.tmpdir, 'missing_config.yaml')
+        self.acls_config = None
+        self.missing_config = None
         super(FaucetStringOfDPACLOverrideTest, self).set_up(
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS)
@@ -983,11 +987,10 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
-            # TODO: Reapply link_acls
-            config_file.write(self.topo.get_config(n_vlans=1, acl_options=self.acls_override()))
+            self.configuration_options['acl_options'] = self.acls_override()
+            config_file.write(self.topo.get_config(n_vlans=1, **self.configuration_options))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
-        self.verify_no_cable_errors()
 
     def test_port5002_notblocked(self):
         """Test that TCP port 5002 is not blocked."""
@@ -995,11 +998,10 @@ class FaucetStringOfDPACLOverrideTest(FaucetMultiDPTest):
         first_host, second_host = self.hosts_name_ordered()[0:2]
         self.verify_tp_dst_blocked(5002, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
-            # TODO: Reapply link acls
-            config_file.write(self.topo.get_config(n_vlans=1, acl_options=self.acls_override()))
+            self.configuration_options['acl_options'] = self.acls_override()
+            config_file.write(self.topo.get_config(n_vlans=1, **self.configuration_options))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
-        self.verify_no_cable_errors()
 
 
 class FaucetTunnelSameDpTest(FaucetMultiDPTest):
