@@ -356,6 +356,20 @@ class FaucetTopoTestBase(FaucetTestBase):
             time.sleep(1)
         self.fail('not enough links up: %f / %f' % (links_up, links))
 
+    def verify_stack_down(self):
+        """Verify all stack ports are down"""
+        links = 0
+        links_down = 0
+        for link, ports in self.link_port_maps.items():
+            for port in ports:
+                dpid = self.topo.dpids_by_id[link[0]]
+                name = self.topo.switches_by_id[link[0]]
+                status = self.stack_port_status(dpid, name, port)
+                links += 1
+                if status != 3:
+                    links_down += 1
+        self.assertEqual(links, links_down, 'Not all links DOWN')
+
     def verify_one_stack_down(self, stack_offset_port, coldstart=False):
         """Test conditions when one stack port is down"""
         self.retry_net_ping()

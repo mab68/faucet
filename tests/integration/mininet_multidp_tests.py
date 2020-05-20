@@ -2256,14 +2256,6 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
             cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
-        excepted = False
-        try:
-            # Invoke topology change so expect stack ports to come down and take time to recover
-            self.verify_stack_up(timeout=1)
-        except:
-            excepted = True
-            pass
-        self.assertTrue(excepted, 'Stack ports did not get taken down')
         self.verify_stack_up()
         self.verify_intervlan_routing()
 
@@ -2284,13 +2276,5 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
             cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
-        excepted = False
-        try:
-            # Invoke topology change so expect stack ports to come down and take time to recover
-            self.verify_stack_up(timeout=1)
-        except:
-            excepted = True
-            pass
-        self.assertTrue(excepted, 'Stack ports did not get taken down')
         self.verify_stack_up()
         self.verify_intervlan_routing()
