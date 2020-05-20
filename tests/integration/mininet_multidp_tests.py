@@ -150,7 +150,7 @@ class FaucetMultiDPTest(FaucetTopoTestBase):
         # Create VLAN configuration options
         vlan_options = {}
         if routers:
-            for vlans in self.routers():
+            for vlans in routers:
                 for vlan in vlans:
                     if vlan not in vlan_options:
                         vlan_options[vlan] = {
