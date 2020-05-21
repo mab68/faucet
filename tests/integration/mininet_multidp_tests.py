@@ -2280,3 +2280,27 @@ class FaucetStackWarmStartTest(FaucetTopoTestBase):
             cold_start=False, change_expected=True, dpid=self.topo.dpids_by_id[1])
         self.verify_stack_up()
         self.verify_intervlan_routing()
+        import time
+        time.sleep(10)
+        self.assertFalse(True)
+
+    def test_add_stack_link_transit(self):
+        """Add a redundant stack link between two non-root switches (with a transit switch)"""
+        host_links = {0: [0], 1: [0], 4: [2], 5: [2]}
+        self.set_up(host_links=host_links)
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
+        conf = self._get_faucet_conf()
+        # Create an additional link between S1-S2
+        port_num = self.topo._create_next_port(self.topo.switches_by_id[1])
+        rev_port_num = self.topo._create_next_port(self.topo.switches_by_id[2])
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[1]]['interfaces']
+        interfaces_conf[port_num] = {'name': 'b%u' % port_num, 'stack': {'dp': self.topo.switches_by_id[2], 'port': rev_port_num}}
+        interfaces_conf = conf['dps'][self.topo.switches_by_id[2]]['interfaces']
+        interfaces_conf[rev_port_num] = {'name': 'b%u' % rev_port_num, 'stack': {'dp': self.topo.switches_by_id[1], 'port': port_num}}
+        # Expected cold start as topology changed with all ports being stack ports, so all ports changed -> cold start
+        self.reload_conf(
+            conf, self.faucet_config_path, restart=True,
+            cold_start=True, change_expected=True, dpid=self.topo.dpids_by_id[1])
+        self.verify_stack_up()
+        self.verify_intervlan_routing()
