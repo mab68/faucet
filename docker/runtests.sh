@@ -3,7 +3,11 @@
 INTEGRATIONTESTS=1
 UNITTESTS=1
 DEPCHECK=1
-TOLTESTS=0
+
+#TOLTESTS=0
+GEN_UNIT=0
+GEN_INT=0
+
 SKIP_PIP=0
 HELP=0
 MINCOVERAGE=85
@@ -173,6 +177,16 @@ if [ "$INTEGRATIONTESTS" == 1 ] ; then
 elif [ "$TOLTESTS" == 1 ] ; then
   echo "========== Running Faucet fault-tolerance tests =========="
   cd /faucet-src/tests/tolerance
+  ./mininet_main.py -c
+fi
+elif [ "$GEN_UNIT" == 1]; then
+  echo "========== Running Faucet generative unit tests =========="
+  cd /faucet-src/tests/generative/unit/
+  ./run_gen_unit_tests.sh
+fi
+elif [ "$GEN_INT" == 1]; then
+  echo "========== Running Faucet generative integration tests =========="
+  cd /faucet-src/tests/generative/integration/
   ./mininet_main.py -c
 fi
 

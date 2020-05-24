@@ -737,6 +737,11 @@ def parse_args():
     parser.add_argument(
         '-t', '--tolerance', default=False, action='store_true', help='run fault-tolerance tests')
     parser.add_argument(
+        '--generative_unit', default=False, action='store_true', help='run generative unit tests')
+    parser.add_argument(
+        '--generative_integration', default=False, action='store_true',
+        help='run generative integration tests')
+    parser.add_argument(
         '-x', help='list of test classes to exclude')
 
     excluded_test_classes = []
