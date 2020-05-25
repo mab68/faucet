@@ -21,13 +21,13 @@
 import random
 import unittest
 
-import mininet
-from mininet.topo import Topo
+#import mininet
+#from mininet.topo import Topo
 
 import networkx
 from networkx.generators.atlas import graph_atlas_g
 
-from valve_test_lib import ValveTestBases
+from clib.valve_test_lib import ValveTestBases
 from clib.config_generator import FaucetFakeOFTopoGenerator
 
 
