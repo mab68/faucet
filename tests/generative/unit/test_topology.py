@@ -21,8 +21,8 @@
 import random
 import unittest
 
-#import mininet
-#from mininet.topo import Topo
+import mininet
+from mininet.topo import Topo
 
 import networkx
 from networkx.generators.atlas import graph_atlas_g
@@ -60,15 +60,7 @@ class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
                 # Ignore the first one because we are already that network
                 continue
             _, new_config = self.create_topo_config(network_graph)
-            self.update_and_revert_config(self.CONFIG, new_config, 'warm')
-
-    @staticmethod
-    def test_generator(network_list):
-        """Return the function that will start the testing for a graph"""
-        def test(self):
-            """Test topology"""
-            self.set_up(network_list)
-        return test
+            self.update_and_revert_config(self.CONFIG, new_config, None)
 
 
 class ValveTopologyTableTest(ValveTestBases.ValveTestNetwork):
@@ -95,13 +87,13 @@ class ValveTopologyTableTest(ValveTestBases.ValveTestNetwork):
     # TODO: Verify table traversals
     #   Verify all hosts can reach each other via flooding rules
 
-    @staticmethod
-    def test_generator(func_graph):
-        """Return the function that will start the testing for a graph"""
-        def test(self):
-            """Test topology"""
-            self.set_up(func_graph)
-        return test
+
+def test_generator(param):
+    """Return the function that will start testing the topology/topologies"""
+    def test(self):
+        """Setup & test topology"""
+        self.set_up(param)
+    return test
 
 
 if __name__ == '__main__':
@@ -114,13 +106,13 @@ if __name__ == '__main__':
         GRAPHS.setdefault(graph.number_of_nodes(), [])
         GRAPHS[graph.number_of_nodes()].append(graph)
         test_name = 'test_%s' % graph.name
-        test_func = ValveTopologyTableTest.test_generator(graph)
+        test_func = test_generator(graph)
         setattr(ValveTopologyTableTest, test_name, test_func)
-        if count >= 1:
+        if count > 50:
             break
-        count += 1
+        #count += 1
     for num_dps, network_list in GRAPHS.items():
         test_name = 'test_reconfigure_topologies_%s' % num_dps
-        test_func = ValveTopologyRestartTest.test_generator(network_list)
+        test_func = test_generator(network_list)
         setattr(ValveTopologyRestartTest, test_name, test_func)
     unittest.main()

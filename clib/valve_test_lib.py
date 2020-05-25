@@ -55,8 +55,8 @@ from faucet.valve import TfmValve
 
 from fakeoftable import FakeOFTable, FakeOFNetwork
 
-import mininet
-from mininet.topo import Topo
+#import mininet
+#from mininet.topo import Topo
 
 from clib.config_generator import FaucetFakeOFTopoGenerator
 
@@ -511,14 +511,15 @@ class ValveTestBases:
             host_links = {}
             host_vlans = {}
             dp_options = {}
+            host_n = 0
             for dp_i in network_graph.nodes():
                 for _ in range(self.NUM_HOSTS):
-                    host_links[host_n] = [dp]
+                    host_links[host_n] = [dp_i]
                     host_vlans[host_n] = list(range(self.NUM_VLANS))
                     host_n += 1
                 dp_options[dp_i] = {'hardware': 'GenericTFM'}
                 if dp_i == 0:
-                    dp_options[dp]['stack'] = {'priority': 1}
+                    dp_options[dp_i]['stack'] = {'priority': 1}
             switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
             link_vlans = {link: None for link in switch_links}
             topo = FaucetFakeOFTopoGenerator(
@@ -637,18 +638,24 @@ class ValveTestBases:
                 self.last_flows_to_dp[dp_id] = []
             self.network = FakeOFNetwork(self.valves_manager, self.NUM_TABLES, self.REQUIRE_TFM)
 
-        def update_config(self, config, reload_type='cold',
+        def update_config(self, config, table_dpid=None, reload_type='cold',
                           reload_expected=True, error_expected=0,
+                          no_reload_no_table_change=True,
                           configure_network=False):
             """
             Updates the Faucet config and reloads Faucet
             Args:
-                config (str): The configuration that will be loaded
-                reload_type ('cold' or 'warm'): Type of reload to cause
+                config (str): The configuraation that will be loaded
+                dp_id (int): DP ID of the expected reload type
+                reload_type ('warm' or 'cold'): Expected reload increment type
                 reload_expected (bool): Whether the reload type is expected to increment
                 error_expected (int): The error number that is expected from the config
             """
-            # TODO: Check for all DPs for reload types (change parameters too)
+            if table_dpid is None:
+                table_dpid = self.DP_ID
+            before_table_states = None
+            if self.network is not None:
+                before_table_states = {dp_id: str(table) for dp_id, table in self.network.tables.items()}
             before_dp_status = int(self.get_prom('dp_status'))
             existing_config = None
             if os.path.exists(self.config_file):
@@ -671,8 +678,11 @@ class ValveTestBases:
                 if configure_network:
                     self.configure_network()
             else:
-                var = 'faucet_config_reload_%s_total' % reload_type
-                self.prom_inc(reload_func, var=var, inc_expected=reload_expected)
+                if reload_type is not None:
+                    var = 'faucet_config_reload_%s_total' % reload_type
+                    self.prom_inc(reload_func, var=var, inc_expected=reload_expected, dp_id=table_dpid)
+                else:
+                    reload_func()
                 if configure_network:
                     self.configure_network()
                 for dp_id, valve in self.valves_manager.valves.items():
@@ -681,31 +691,38 @@ class ValveTestBases:
                         reload_ofmsgs = self.connect_dp(dp_id)
                     else:
                         self.apply_ofmsgs(reload_ofmsgs, dp_id)
+                    if not reload_expected and no_reload_no_table_change and before_table_states is not None:
+                        before_table_state = before_table_states[dp_id]
+                        after_table_state = str(self.network.tables[dp_id])
+                        diff = difflib.unified_diff(before_table_state.splitlines(), after_table_state.splitlines())
+                        self.assertEqual(before_table_state, after_table_state, msg='\n'.join(diff))
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
             self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
             return reload_ofmsgs
 
         def update_and_revert_config(self, orig_config, new_config, reload_type,
-                                     verify_func=None, before_table_state=None):
+                                     verify_func=None, before_table_states=None):
             """
             Updates to the new config then reverts back to the original config to ensure
                 restarting properly dismantles/keep appropriate flow rules
             Args:
                 orig_config (str): The original configuration file
                 new_config (str): The new configuration file
-                reload_type (str): Expected warm/cold start
+                cold_starts (dict): Dictionary of dp_id that is expecting cold starts or warm starts
                 verify_func (func): Function to verify state changes
-                before_table_state (str): State of the table before reloading
+                before_table_states (dict): Dict of string state by dp_id of the table before reloading
             """
-            if before_table_state is None:
-                before_table_state = str(self.table)
-            self.update_config(new_config, reload_type)
+            if before_table_states is None:
+                before_table_states = {dp_id: str(table) for dp_id, table in self.network.tables.items()}
+            self.update_config(new_config, reload_type=reload_type)
             if verify_func is not None:
                 verify_func()
-            self.update_config(orig_config, reload_type)
-            final_table_state = str(self.table)
-            diff = difflib.unified_diff(before_table_state.splitlines(), str(final_table_state).splitlines())
-            self.assertEqual(before_table_state, final_table_state, msg='\n'.join(diff))
+            self.update_config(orig_config, reload_type=reload_type)
+            for dp_id, table in self.network.tables.items():
+                if dp_id in before_table_states:
+                    final_table_state = str(table)
+                    diff = difflib.unified_diff(before_table_states[dp_id].splitlines(), final_table_state.splitlines())
+                    self.assertEqual(before_table_states[dp_id], final_table_state, msg='\n'.join(diff))
 
         def connect_dp(self, dp_id=None):
             """
