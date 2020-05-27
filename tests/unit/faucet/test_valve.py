@@ -20,18 +20,23 @@
 
 import copy
 import unittest
+
+from mininet.topo import Topo
+
 from ryu.lib import mac
 from ryu.lib.packet import slow
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+
 from faucet import valve_of
 from faucet import valve_packet
-from valve_test_lib import (
+
+from clib.valve_test_lib import (
     CONFIG, DP1_CONFIG, FAUCET_MAC, GROUP_DP1_CONFIG, IDLE_DP1_CONFIG,
     ValveTestBases)
 
-from fakeoftable import CONTROLLER_PORT
+from clib.fakeoftable import CONTROLLER_PORT
 
 
 class ValveTestCase(ValveTestBases.ValveTestBig):

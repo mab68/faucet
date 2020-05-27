@@ -53,10 +53,7 @@ from faucet import valve_packet
 from faucet import valve_util
 from faucet.valve import TfmValve
 
-from fakeoftable import FakeOFTable, FakeOFNetwork
-
-#import mininet
-#from mininet.topo import Topo
+from clib.fakeoftable import FakeOFTable, FakeOFNetwork
 
 from clib.config_generator import FaucetFakeOFTopoGenerator
 
@@ -479,6 +476,7 @@ class ValveTestBases:
 
         @staticmethod
         def create_mac_str(i, j):
+            """Create a host MAC string"""
             return '00:00:00:%02x:00:%02x' % (i, j)
 
         BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
@@ -486,6 +484,7 @@ class ValveTestBases:
 
         @staticmethod
         def create_vid(i):
+            """Create a vid with VID_PRESENT"""
             return 0x100 * i | ofp.OFPVID_PRESENT
 
         # Number of tables to configure in the FakeOFTable
@@ -592,7 +591,7 @@ class ValveTestBases:
                 self.LOGNAME, self.logger, self.metrics, self.notifier,
                 self.bgp, self.dot1x, self.CONFIG_AUTO_REVERT, self.send_flows_to_dp_by_id)
             self.notifier.start()
-            initial_ofmsgs = self.update_config(
+            self.update_config(
                 config, reload_expected=False,
                 error_expected=error_expected, configure_network=True)
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -685,7 +684,7 @@ class ValveTestBases:
                     reload_func()
                 if configure_network:
                     self.configure_network()
-                for dp_id, valve in self.valves_manager.valves.items():
+                for dp_id in self.valves_manager.valves:
                     reload_ofmsgs = self.last_flows_to_dp.get(dp_id, [])
                     if reload_ofmsgs is None:
                         reload_ofmsgs = self.connect_dp(dp_id)
@@ -920,7 +919,7 @@ class ValveTestBases:
                 port_no, ofp.OFPPR_ADD, 0, [], self.mock_time(0)).get(valve, []))
             self.port_expected_status(port_no, 1)
 
-        def trigger_stack_ports(self, ignore_ports=[]):
+        def trigger_stack_ports(self, ignore_ports=None):
             """
             Trigger a stack port by receiving an LLDP packet
             Args:
@@ -949,9 +948,8 @@ class ValveTestBases:
                                     port, port.dyn_stack_current_state, exp_state))
             # Send LLDP packets to reset the stack ports that we want to be up
             for dp_id, valve in self.valves_manager.valves.items():
-                interval = valve.dp.lldp_beacon['send_interval']
                 for port in valve.dp.ports.values():
-                    if port in ignore_ports:
+                    if ignore_ports and port in ignore_ports:
                         continue
                     if port.stack:
                         peer_dp = port.stack['dp']
@@ -962,7 +960,7 @@ class ValveTestBases:
                 for port in valve.dp.ports.values():
                     if port.stack:
                         exp_state = 3
-                        if port in ignore_ports:
+                        if ignore_ports and port in ignore_ports:
                             exp_state = 4
                         self.assertEqual(
                             port.dyn_stack_current_state, exp_state,
@@ -1475,6 +1473,7 @@ class ValveTestBases:
             self.set_stack_port_status(port_no, 2, valve)
 
         def validate_flood(self, in_port, vlan_vid, out_port, expected, msg):
+            """Validate table flooding"""
             bcast_match = {
                 'in_port': in_port,
                 'eth_dst': mac.BROADCAST_STR,
@@ -1547,7 +1546,7 @@ class ValveTestBases:
             self.assertTrue(
                 isinstance(self.valve, TfmValve),
                 msg=type(self.valve))
-            discovered_up_ports = {port_no for port_no in range(1, self.NUM_PORTS + 1)}
+            discovered_up_ports = set(range(1, self.NUM_PORTS + 1))
             flows = self.valve.datapath_connect(self.mock_time(10), discovered_up_ports)
             self.apply_ofmsgs(flows)
             tfm_flows = [

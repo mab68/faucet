@@ -19,8 +19,12 @@
 
 
 import unittest
+
+from mininet.topo import Topo
+
 from ryu.ofproto import ofproto_v1_3 as ofp
-from valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
+
+from clib.valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
 class ValveTestEgressPipeline(ValveTestBases.ValveTestBig):

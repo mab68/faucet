@@ -16,20 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import string
 import random
+import string
+
 import yaml
 
-import os
-import socket
-import string
-import shutil
-import subprocess
-import time
-
-import netifaces
-
-import mininet
 from mininet.log import output
 from mininet.topo import Topo
 

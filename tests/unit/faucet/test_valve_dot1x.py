@@ -18,8 +18,12 @@
 # limitations under the License.
 
 import unittest
+
+from mininet.topo import Topo
+
 from faucet import faucet_dot1x
-from valve_test_lib import DOT1X_CONFIG, DOT1X_ACL_CONFIG, ValveTestBases
+
+from clib.valve_test_lib import DOT1X_CONFIG, DOT1X_ACL_CONFIG, ValveTestBases
 
 
 class ValveDot1xSmokeTestCase(ValveTestBases.ValveTestSmall):

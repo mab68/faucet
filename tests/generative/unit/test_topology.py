@@ -18,17 +18,17 @@
 # limitations under the License.
 
 
-import random
 import unittest
 
-import mininet
-from mininet.topo import Topo
+from ryu.lib import mac
+from ryu.ofproto import ofproto_v1_3 as ofp
+
+#from mininet.topo import Topo
 
 import networkx
 from networkx.generators.atlas import graph_atlas_g
 
 from clib.valve_test_lib import ValveTestBases
-from clib.config_generator import FaucetFakeOFTopoGenerator
 
 
 class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
@@ -59,6 +59,7 @@ class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
             if network_graph is network_list[0]:
                 # Ignore the first one because we are already that network
                 continue
+            self.serial = 0
             _, new_config = self.create_topo_config(network_graph)
             self.update_and_revert_config(self.CONFIG, new_config, None)
 
@@ -83,9 +84,38 @@ class ValveTopologyTableTest(ValveTestBases.ValveTestNetwork):
         """
         self.topo, self.CONFIG = self.create_topo_config(network_graph)
         self.setup_valves(self.CONFIG)
+        self.verify_traversal()
 
-    # TODO: Verify table traversals
-    #   Verify all hosts can reach each other via flooding rules
+    @staticmethod
+    def create_bcast_match(in_port, in_vid=None):
+        """Return bcast match"""
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'eth_type': 0x0800,
+            'ip_proto': 1
+        }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
+        return bcast_match
+
+    def verify_traversal(self):
+        """Verify broadcasts flooding reach all destination hosts"""
+        _, host_port_maps, _ = self.topo.create_port_maps()
+        for src_host in host_port_maps:
+            for dst_host in host_port_maps:
+                if src_host == dst_host:
+                    continue
+                src_dpid, src_port, dst_dpid, dst_port = None, None, None, None
+                for switch_n, ports in host_port_maps[src_host].items():
+                    src_dpid = self.topo.dpids_by_id[switch_n]
+                    src_port = ports[0]
+                for switch_n, ports in host_port_maps[dst_host].items():
+                    dst_dpid = self.topo.dpids_by_id[switch_n]
+                    dst_port = ports[0]
+                match = self.create_bcast_match(src_port)
+                self.network.is_output(match, int(src_dpid), int(dst_dpid), port=dst_port)
 
 
 def test_generator(param):
@@ -99,7 +129,6 @@ def test_generator(param):
 if __name__ == '__main__':
     GRAPHS = {}
     GRAPH_ATLAS = graph_atlas_g()
-    count = 0
     for graph in GRAPH_ATLAS:
         if (not graph or len(graph.nodes()) < 2 or not networkx.is_connected(graph)):
             continue
@@ -108,11 +137,8 @@ if __name__ == '__main__':
         test_name = 'test_%s' % graph.name
         test_func = test_generator(graph)
         setattr(ValveTopologyTableTest, test_name, test_func)
-        if count > 50:
-            break
-        #count += 1
-    for num_dps, network_list in GRAPHS.items():
-        test_name = 'test_reconfigure_topologies_%s' % num_dps
-        test_func = test_generator(network_list)
+    for num_dps, nl in GRAPHS.items():
+        test_name = 'test_reconfigure_topologies_%s_nodes' % num_dps
+        test_func = test_generator(nl)
         setattr(ValveTopologyRestartTest, test_name, test_func)
     unittest.main()

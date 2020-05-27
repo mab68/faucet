@@ -31,9 +31,11 @@ from faucet.port import (
     STACK_STATE_INIT, STACK_STATE_UP,
     LACP_PORT_SELECTED, LACP_PORT_UNSELECTED)
 
-from fakeoftable import CONTROLLER_PORT
+from mininet.topo import Topo
 
-from valve_test_lib import (
+from clib.fakeoftable import CONTROLLER_PORT
+
+from clib.valve_test_lib import (
     BASE_DP1_CONFIG, CONFIG, STACK_CONFIG, STACK_LOOP_CONFIG, ValveTestBases)
 
 import networkx
@@ -2401,15 +2403,18 @@ class ValveNetworkTest(ValveTestBases.ValveTestNetwork):
 
     def test_network(self):
         """Test packet output to the adjacent switch"""
+        _, host_port_maps, _ = self.topo.create_port_maps()
+        vlan_vid = self.topo.vlan_vid(0) | ofp.OFPVID_PRESENT
         bcast_match = {
-            'in_port': 1,
+            'in_port': host_port_maps[0][0][0],
             'eth_src': '00:00:00:00:00:12',
             'eth_dst': mac.BROADCAST_STR,
             'ipv4_src': '10.1.0.1',
             'ipv4_dst': '10.1.0.2',
-            'vlan_vid': 0
+            'vlan_vid': vlan_vid
         }
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+        self.assertTrue(
+            self.network.is_output(bcast_match, 1, 2, host_port_maps[1][1][0], vlan_vid))
 
 
 class ValveLoopNetworkTest(ValveTestBases.ValveTestNetwork):
@@ -2430,21 +2435,28 @@ class ValveLoopNetworkTest(ValveTestBases.ValveTestNetwork):
 
     def test_network(self):
         """Test packet output to the adjacent switch in a loop topology"""
+        _, host_port_maps, link_port_maps = self.topo.create_port_maps()
+        vlan_vid = self.topo.vlan_vid(0) | ofp.OFPVID_PRESENT
         bcast_match = {
-            'in_port': 1,
+            'in_port': host_port_maps[0][0][0],
             'eth_src': '00:00:00:00:00:12',
             'eth_dst': mac.BROADCAST_STR,
             'ipv4_src': '10.1.0.1',
             'ipv4_dst': '10.1.0.2',
-            'vlan_vid': 0
+            'vlan_vid': vlan_vid
         }
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
-        port = self.valves_manager.valves[0x1].dp.ports[3]
+        self.assertTrue(
+            self.network.is_output(bcast_match, 1, 3, host_port_maps[1][1][0], vlan_vid))
+        self.assertTrue(
+            self.network.is_output(bcast_match, 1, 2, host_port_maps[1][1][0], vlan_vid))
+        port_num = link_port_maps[(0, 1)][0]
+        port = self.valves_manager.valves[1].dp.ports[port_num]
         reverse_port = port.stack['port']
         self.trigger_stack_ports([port, reverse_port])
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x3, 1, 0))
-        self.assertTrue(self.network.is_output(bcast_match, 0x1, 0x2, 1, 0))
+        self.assertTrue(
+            self.network.is_output(bcast_match, 1, 3, host_port_maps[1][1][0], vlan_vid))
+        self.assertTrue(
+            self.network.is_output(bcast_match, 1, 2, host_port_maps[1][1][0], vlan_vid))
 
 
 if __name__ == "__main__":

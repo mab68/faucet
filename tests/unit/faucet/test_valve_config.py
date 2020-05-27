@@ -18,12 +18,18 @@
 # limitations under the License.
 
 from functools import partial
+
 import hashlib
 import unittest
+
 from ryu.ofproto import ofproto_v1_3 as ofp
+
 from faucet import config_parser_util
 from faucet import valve_of
-from valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
+
+from mininet.topo import Topo
+
+from clib.valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
 
 class ValveIncludeTestCase(ValveTestBases.ValveTestSmall):
@@ -82,6 +88,7 @@ dps: {}
         self.setup_valve(self.CONFIG)
 
     def test_bad_conf(self):
+        """Test various config types & config reloading"""
         for config, load_error in (
                 (self.CONFIG, 0),
                 (self.BAD_CONFIG, 1),
@@ -928,6 +935,7 @@ dps:
 
 
 class ValveTestConfigRevert(ValveTestBases.ValveTestSmall):
+    """Test configuration revert"""
 
     CONFIG = """
 dps:
@@ -963,6 +971,7 @@ dps:
 
 
 class ValveTestConfigRevertBootstrap(ValveTestBases.ValveTestSmall):
+    """Test configuration auto reverted if bad"""
 
     BAD_CONFIG = """
     *** busted ***
