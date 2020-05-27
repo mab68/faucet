@@ -4,7 +4,7 @@ INTEGRATIONTESTS=1
 UNITTESTS=1
 DEPCHECK=1
 
-#TOLTESTS=0
+TOLTESTS=0
 GEN_UNIT=0
 GEN_INT=0
 
@@ -163,8 +163,6 @@ if [ "$UNITTESTS" == 1 ] ; then
 elif [ "$GEN_UNIT" == 1 ] ; then
   echo "========== Running Faucet generative unit tests =========="
   cd /faucet-src/tests/generative/unit/
-  #time ./run_unit_tests.sh
-  #./mininet_main.py -c runs clib_mininet_test_main???
   ./test_topology.py
 fi
 
