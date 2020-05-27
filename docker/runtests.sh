@@ -163,6 +163,7 @@ if [ "$UNITTESTS" == 1 ] ; then
 elif [ "$GEN_UNIT" == 1 ] ; then
   echo "========== Running Faucet generative unit tests =========="
   cd /faucet-src/tests/generative/unit/
+  ls -ali
   ./test_topology.py
 fi
 

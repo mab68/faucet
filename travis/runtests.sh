@@ -100,6 +100,7 @@ if [ "${MATRIX_SHARD}" == "sanity" ] ; then
   sudo docker run $SHARDARGS -e FAUCET_TESTS="-ni FaucetSanityTest FaucetStackStringOfDPUntaggedTest" -e HWTESTS="1" -t ${FAUCET_TEST_IMG} || exit 1
 fi
 
+echo "${FAUCET_TESTS}"
 sudo docker run $SHARDARGS -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG} || exit 1
 
 if ls -1 /var/tmp/core* >/dev/null 2>&1 ; then
