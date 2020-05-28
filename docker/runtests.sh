@@ -164,6 +164,8 @@ elif [ "$GEN_UNIT" == 1 ] ; then
   echo "========== Running Faucet generative unit tests =========="
   cd /faucet-src/tests/
   ls -ali
+  cd /faucet-src/tests/unit/faucet/
+  ls -ali
   cd /faucet-src/tests/generative/unit/
   ls -ali
   ./test_topology.py
