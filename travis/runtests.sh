@@ -49,7 +49,7 @@ elif [ "${MATRIX_SHARD}" == "fault-tolerance" ] ; then
   FAUCET_TESTS="-t"
 elif [ "${MATRIX_SHARD}" == "generative-unit" ]; then
   FAUCET_TESTS="--generative_unit"
-elif [ "${MATRIX_SHARD}" == "generative-integration"]; then
+elif [ "${MATRIX_SHARD}" == "generative-integration" ]; then
   FAUCET_TESTS="--generative_integration"
 else
   ALLTESTFILES="tests/integration/mininet_tests.py tests/integration/mininet_multidp_tests.py clib/clib_mininet_tests.py"
