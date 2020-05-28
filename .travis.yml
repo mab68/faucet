@@ -20,56 +20,56 @@ script:
   - ./travis/runtests.sh
 jobs:
   include:
-    # - stage: test
-    #   language: python
-    #   python: 3.5
-    #   env: MATRIX_SHARD=unittest
-    # - stage: test
-    #   language: python
-    #   python: 3.6
-    #   env:
-    #     - MATRIX_SHARD=unittest
-    #     - BUILD_DOCS=true
-    #     - CODECOV_UPLOAD=true
-    # - stage: test
-    #   language: python
-    #   python: 3.7
-    #   env: MATRIX_SHARD=unittest
+    - stage: test
+      language: python
+      python: 3.5
+      env: MATRIX_SHARD=unittest
+    - stage: test
+      language: python
+      python: 3.6
+      env:
+        - MATRIX_SHARD=unittest
+        - BUILD_DOCS=true
+        - CODECOV_UPLOAD=true
+    - stage: test
+      language: python
+      python: 3.7
+      env: MATRIX_SHARD=unittest
     - stage: test
       env: MATRIX_SHARD=sanity
       language: bash
       services:
         - docker
-    # - stage: test
-    #   env: MATRIX_SHARD=0
-    #   language: bash
-    #   services:
-    #     - docker
-    # - stage: test
-    #   env: MATRIX_SHARD=1
-    #   language: bash
-    #   services:
-    #     - docker
-    # - stage: test
-    #   env: MATRIX_SHARD=2
-    #   language: bash
-    #   services:
-    #     - docker
-    # - stage: test
-    #   env: MATRIX_SHARD=3
-    #   language: bash
-    #   services:
-    #     - docker
-    # - stage: test
-    #   env: MATRIX_SHARD=4
-    #   language: bash
-    #   services:
-    #     - docker
-    # - stage: test
-    #   env: MATRIX_SHARD=5
-    #   language: bash
-    #   services:
-    #     - docker
+    - stage: test
+      env: MATRIX_SHARD=0
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=1
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=2
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=3
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=4
+      language: bash
+      services:
+        - docker
+    - stage: test
+      env: MATRIX_SHARD=5
+      language: bash
+      services:
+        - docker
     - stage: test
       env: MATRIX_SHARD=generative-unit
       language: bash
