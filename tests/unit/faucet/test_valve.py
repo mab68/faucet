@@ -43,7 +43,7 @@ class ValveTestCase(ValveTestBases.ValveTestBig):
     """Run complete set of basic tests."""
 
 
-class ValveFuzzTestCase(ValveTestBases.ValveTestSmall):
+class ValveFuzzTestCase(ValveTestBases.ValveTestNetwork):
     """Test unknown ports/VLANs."""
 
     CONFIG = """
@@ -57,7 +57,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_fuzz_vlan(self):
         """Test unknown VIDs/ports."""
@@ -82,7 +82,7 @@ dps:
         self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
 
 
-class ValveCoprocessorTestCase(ValveTestBases.ValveTestSmall):
+class ValveCoprocessorTestCase(ValveTestBases.ValveTestNetwork):
     """Test direct packet output using coprocessor."""
 
     CONFIG = """
@@ -102,7 +102,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_output(self):
         copro_vid_out = 102 | ofp.OFPVID_PRESENT
@@ -130,7 +130,7 @@ dps:
         self.assertFalse(self.table.is_output(p2_copro_host_receive, port=3, vid=0x100))
 
 
-class ValveRestBcastTestCase(ValveTestBases.ValveTestSmall):
+class ValveRestBcastTestCase(ValveTestBases.ValveTestNetwork):
 
     CONFIG = """
 dps:
@@ -151,7 +151,7 @@ dps:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_rest_bcast(self):
         match = {
@@ -166,11 +166,11 @@ dps:
         self.assertTrue(self.table.is_output(match, port=3))
 
 
-class ValveOFErrorTestCase(ValveTestBases.ValveTestSmall):
+class ValveOFErrorTestCase(ValveTestBases.ValveTestNetwork):
     """Test decoding of OFErrors."""
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
 
     def test_oferror_parser(self):
         """Test OF error parser works"""
@@ -192,7 +192,7 @@ class ValveOFErrorTestCase(ValveTestBases.ValveTestSmall):
         self.valve.oferror(test_unknown_code_err)
 
 
-class ValveGroupTestCase(ValveTestBases.ValveTestSmall):
+class ValveGroupTestCase(ValveTestBases.ValveTestNetwork):
     """Tests for datapath with group support."""
 
     CONFIG = """
@@ -221,7 +221,7 @@ vlans:
 """ % GROUP_DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_unknown_eth_dst_rule(self):
         """Test that packets with unkown eth dst addrs get flooded correctly.
@@ -255,7 +255,7 @@ vlans:
         self.verify_flooding(matches)
 
 
-class ValveIdleLearnTestCase(ValveTestBases.ValveTestSmall):
+class ValveIdleLearnTestCase(ValveTestBases.ValveTestNetwork):
     """Smoke test for idle-flow based learning. This feature is not currently reliable."""
 
     CONFIG = """
@@ -288,7 +288,7 @@ vlans:
 """ % IDLE_DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_known_eth_src_rule(self):
         """Test removal flow handlers."""
@@ -327,7 +327,7 @@ vlans:
         self.assertFalse(self.table.is_output(match, port=CONTROLLER_PORT))
 
 
-class ValveLACPTestCase(ValveTestBases.ValveTestSmall):
+class ValveLACPTestCase(ValveTestBases.ValveTestNetwork):
     """Test LACP."""
 
     CONFIG = """
@@ -363,7 +363,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
 
     def test_lacp(self):
@@ -445,7 +445,7 @@ vlans:
             self.valve.dp.ports[1].non_stack_forwarding())
 
 
-class ValveTFMSizeOverride(ValveTestBases.ValveTestSmall):
+class ValveTFMSizeOverride(ValveTestBases.ValveTestNetwork):
     """Test TFM size override."""
 
     CONFIG = """
@@ -464,7 +464,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_size(self):
         tfm_by_name = {body.name: body for body in self.table.tfm.values()}
@@ -474,7 +474,7 @@ vlans:
             self.assertEqual(999, eth_src_table.max_entries)
 
 
-class ValveTFMSize(ValveTestBases.ValveTestSmall):
+class ValveTFMSize(ValveTestBases.ValveTestNetwork):
     """Test TFM sizer."""
 
     NUM_PORTS = 128
@@ -516,7 +516,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_size(self):
         tfm_by_name = {body.name: body for body in self.table.tfm.values()}
@@ -526,7 +526,7 @@ vlans:
             self.assertGreater(flood_table.max_entries, self.NUM_PORTS * 2)
 
 
-class ValveActiveLACPTestCase(ValveTestBases.ValveTestSmall):
+class ValveActiveLACPTestCase(ValveTestBases.ValveTestNetwork):
     """Test LACP."""
 
     CONFIG = """
@@ -563,7 +563,7 @@ vlans:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
 
     def test_lacp(self):
@@ -587,11 +587,11 @@ vlans:
         self.verify_expiry()
 
 
-class ValveL2LearnTestCase(ValveTestBases.ValveTestSmall):
+class ValveL2LearnTestCase(ValveTestBases.ValveTestNetwork):
     """Test L2 Learning"""
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
 
     def test_expiry(self):
         learn_labels = {
@@ -689,7 +689,7 @@ routers:
 """ % DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
 
 if __name__ == "__main__":

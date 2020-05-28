@@ -41,7 +41,7 @@ from clib.valve_test_lib import (
 import networkx
 
 
-class ValveStackMCLAGTestCase(ValveTestBases.ValveTestSmall):
+class ValveStackMCLAGTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacked MCLAG"""
 
     CONFIG = """
@@ -91,7 +91,7 @@ dps:
 
     def setUp(self):
         """Setup basic loop config"""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def get_other_valves(self, valve):
         """Return other running valves"""
@@ -251,7 +251,7 @@ dps:
             4, 0, None, True, 'Packet incoming through SELECTED port was not accepted')
 
 
-class ValveStackMCLAGRestartTestCase(ValveTestBases.ValveTestSmall):
+class ValveStackMCLAGRestartTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacked MCLAG"""
 
     CONFIG = """
@@ -301,7 +301,7 @@ dps:
 
     def setUp(self):
         """Setup basic loop config"""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def get_other_valves(self, valve):
         """Return other running valves"""
@@ -327,7 +327,7 @@ dps:
         self.assertTrue(port.is_actor_up(), 'Actor not UP')
 
 
-class ValveStackMCLAGStandbyTestCase(ValveTestBases.ValveTestSmall):
+class ValveStackMCLAGStandbyTestCase(ValveTestBases.ValveTestNetwork):
     """Test MCLAG with standby port option overrules unselected states"""
 
     CONFIG = """
@@ -375,7 +375,7 @@ dps:
 
     def setUp(self):
         """Setup basic loop config"""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def get_other_valves(self, valve):
         """Return other running valves"""
@@ -404,7 +404,7 @@ dps:
                 self.assertTrue(port.is_port_selected())
 
 
-class ValveStackRootExtLoopProtectTestCase(ValveTestBases.ValveTestSmall):
+class ValveStackRootExtLoopProtectTestCase(ValveTestBases.ValveTestNetwork):
     """External loop protect test cases"""
 
     CONFIG = """
@@ -453,7 +453,7 @@ dps:
 """ % BASE_DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.set_stack_port_up(1)
 
     def test_loop_protect(self):
@@ -476,7 +476,7 @@ dps:
             msg='mcast packet multiply flooded externally on root')
 
 
-class ValveStackChainTest(ValveTestBases.ValveTestSmall):
+class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
     """Test base class for loop stack config"""
 
     CONFIG = STACK_CONFIG
@@ -485,7 +485,7 @@ class ValveStackChainTest(ValveTestBases.ValveTestSmall):
 
     def setUp(self):
         """Setup basic loop config"""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def learn_stack_hosts(self):
         """Learn some hosts."""
@@ -549,14 +549,14 @@ class ValveStackChainTest(ValveTestBases.ValveTestSmall):
         self.validate_edge_learn_ports()
 
 
-class ValveStackLoopTest(ValveTestBases.ValveTestSmall):
+class ValveStackLoopTest(ValveTestBases.ValveTestNetwork):
     """Test base class for loop stack config"""
 
     CONFIG = STACK_LOOP_CONFIG
 
     def setUp(self):
         """Setup basic loop config"""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def validate_flooding(self, rerouted=False, portup=True):
         """Validate the flooding state of the stack"""
@@ -680,7 +680,7 @@ class ValveStackRedundantLink(ValveStackLoopTest):
         self.assertTrue(self.valve.dp.ports[3].non_stack_forwarding())
 
 
-class ValveStackNonRootExtLoopProtectTestCase(ValveTestBases.ValveTestSmall):
+class ValveStackNonRootExtLoopProtectTestCase(ValveTestBases.ValveTestNetwork):
     """Test non-root external loop protect"""
 
     CONFIG = """
@@ -738,7 +738,7 @@ dps:
 """ % BASE_DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.set_stack_port_up(1)
 
     def test_loop_protect(self):
@@ -761,7 +761,7 @@ dps:
             msg='mcast packet flooded locally on non-root')
 
 
-class ValveStackAndNonStackTestCase(ValveTestBases.ValveTestSmall):
+class ValveStackAndNonStackTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacked switches can exist with non-stacked switches"""
 
     CONFIG = """
@@ -804,20 +804,20 @@ dps:
 """ % BASE_DP1_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_nonstack_dp_port(self):
         """Test that finding a path from a stack swithc to a non-stack switch cannot happen"""
         self.assertEqual(None, self.valves_manager.valves[0x3].dp.shortest_path_port('s1'))
 
 
-class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
+class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
     """Valve test for root selection."""
 
     CONFIG = STACK_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def dp_by_name(self, dp_name):
         """Get DP by DP name"""
@@ -884,14 +884,14 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestSmall):
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
 
 
-class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
+class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacking/forwarding."""
 
     DP = 's3'
     DP_ID = 0x3
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
         self.set_stack_port_up(5)
 
     def test_stack_learn(self):
@@ -922,14 +922,14 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
         self.assertFalse(dp.is_stack_edge())
 
 
-class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
+class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
     """Test stacking/forwarding."""
 
     DP = 's4'
     DP_ID = 0x4
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
         self.set_stack_port_up(5)
 
     def test_stack_learn(self):
@@ -972,13 +972,13 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
         self.assertTrue(dp.is_stack_edge())
 
 
-class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
+class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
     """Test stack link probing."""
 
     CONFIG = STACK_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_stack_probe(self):
         """Test probing works correctly."""
@@ -1029,13 +1029,13 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
         self.assertTrue(stack_port.is_stack_up())
 
 
-class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestSmall):
+class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestNetwork):
     """Valve test for updating the stack graph."""
 
     CONFIG = STACK_CONFIG
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_update_stack_graph(self):
         """Test stack graph port UP and DOWN updates"""
@@ -1289,7 +1289,7 @@ class ValveTestIPV6StackedRouting(ValveTestBases.ValveTestStackedRouting):
         }
 
 
-class ValveInterVLANStackFlood(ValveTestBases.ValveTestSmall):
+class ValveInterVLANStackFlood(ValveTestBases.ValveTestNetwork):
     """Test that the stack ports get flooded to for interVLAN packets"""
 
     VLAN100_FAUCET_MAC = '00:00:00:00:00:11'
@@ -1371,7 +1371,7 @@ vlans:
     def setUp(self):
         """Create a stacking config file."""
         self.create_config()
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
         for valve in self.valves_manager.valves.values():
             for port in valve.dp.ports.values():
@@ -1436,7 +1436,7 @@ vlans:
         self.assertTrue(ValveTestBases.packet_outs_from_flows(ofmsgs))
 
 
-class ValveTestTunnel2DP(ValveTestBases.ValveTestSmall):
+class ValveTestTunnel2DP(ValveTestBases.ValveTestNetwork):
     """Test Tunnel ACL implementation"""
 
     SRC_ID = 5
@@ -1516,7 +1516,7 @@ dps:
 
     def setUp(self):
         """Create a stacking config file."""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
         for valve in self.valves_manager.valves.values():
             for port in valve.dp.ports.values():
@@ -1595,7 +1595,7 @@ dps:
             'Should not output a packet')
 
 
-class ValveTestTransitTunnel(ValveTestBases.ValveTestSmall):
+class ValveTestTransitTunnel(ValveTestBases.ValveTestNetwork):
     """Test tunnel ACL implementation"""
 
     TRANSIT_ID = 2
@@ -1654,7 +1654,7 @@ dps:
 
     def setUp(self):
         """Create a stacking config file."""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
         for valve in self.valves_manager.valves.values():
             for port in valve.dp.ports.values():
@@ -1706,7 +1706,7 @@ dps:
             'Did not output to next switch')
 
 
-class ValveTestMultipleTunnel(ValveTestBases.ValveTestSmall):
+class ValveTestMultipleTunnel(ValveTestBases.ValveTestNetwork):
     """Test tunnel ACL implementation with multiple hosts containing tunnel ACL"""
 
     TUNNEL_ID = 2
@@ -1754,7 +1754,7 @@ dps:
 
     def setUp(self):
         """Create a stacking config file."""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
         for valve in self.valves_manager.valves.values():
             for port in valve.dp.ports.values():
@@ -1805,7 +1805,7 @@ dps:
             'Did not encapsulate and forward out re-calculated port')
 
 
-class ValveTestOrderedTunnel2DP(ValveTestBases.ValveTestSmall):
+class ValveTestOrderedTunnel2DP(ValveTestBases.ValveTestNetwork):
     """Test Tunnel ACL implementation"""
 
     SRC_ID = 5
@@ -1885,7 +1885,7 @@ dps:
 
     def setUp(self):
         """Create a stacking config file."""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
         for valve in self.valves_manager.valves.values():
             for port in valve.dp.ports.values():
@@ -1964,7 +1964,7 @@ dps:
             'Should not output a packet')
 
 
-class ValveTestTransitOrderedTunnel(ValveTestBases.ValveTestSmall):
+class ValveTestTransitOrderedTunnel(ValveTestBases.ValveTestNetwork):
     """Test tunnel ACL implementation"""
 
     TRANSIT_ID = 2
@@ -2023,7 +2023,7 @@ dps:
 
     def setUp(self):
         """Create a stacking config file."""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
         for valve in self.valves_manager.valves.values():
             for port in valve.dp.ports.values():
@@ -2075,7 +2075,7 @@ dps:
             'Did not output to next switch')
 
 
-class ValveTestMultipleOrderedTunnel(ValveTestBases.ValveTestSmall):
+class ValveTestMultipleOrderedTunnel(ValveTestBases.ValveTestNetwork):
     """Test tunnel ACL implementation with multiple hosts containing tunnel ACL"""
 
     TUNNEL_ID = 2
@@ -2123,7 +2123,7 @@ dps:
 
     def setUp(self):
         """Create a stacking config file."""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.activate_all_ports()
         for valve in self.valves_manager.valves.values():
             for port in valve.dp.ports.values():
@@ -2174,7 +2174,7 @@ dps:
             'Did not encapsulate and forward out re-calculated port')
 
 
-class ValveTwoDpRoot(ValveTestBases.ValveTestSmall):
+class ValveTwoDpRoot(ValveTestBases.ValveTestNetwork):
     """Test simple stack topology from root."""
 
     CONFIG = """
@@ -2232,7 +2232,7 @@ dps:
     """
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_topo(self):
         """Test topology functions."""
@@ -2244,7 +2244,7 @@ dps:
         self.update_and_revert_config(self.CONFIG, self.CONFIG3, 'warm')
 
 
-class ValveTwoDpRootEdge(ValveTestBases.ValveTestSmall):
+class ValveTwoDpRootEdge(ValveTestBases.ValveTestNetwork):
     """Test simple stack topology from edge."""
 
     CONFIG = """
@@ -2302,7 +2302,7 @@ dps:
     """
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def test_topo(self):
         """Test topology functions."""
@@ -2314,7 +2314,7 @@ dps:
         self.update_and_revert_config(self.CONFIG, self.CONFIG3, 'warm')
 
 
-class GroupDeleteACLTestCase(ValveTestBases.ValveTestSmall):
+class GroupDeleteACLTestCase(ValveTestBases.ValveTestNetwork):
     """Test that a group ACL creates a groupdel for the group_id"""
 
     CONFIG = """
@@ -2345,7 +2345,7 @@ dps:
 """
 
     def setUp(self):
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
 
     def check_groupmods_exist(self, ofmsgs, groupdel_exists=True):
         """Test that the ACL groupmods exist when expected"""
