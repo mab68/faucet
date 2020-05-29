@@ -154,10 +154,7 @@ dps:
         for valve, ports in lacp_ports.items():
             other_valves = self.get_other_valves(valve)
             for port in ports:
-                self.assertTrue(
-                    valve.lacp_update_port_selection_state(port, other_valves),
-                    'Port selection state not updated')
-
+                valve.lacp_update_port_selection_state(port, other_valves)
                 # Testing accuracy of varz port_lacp_role
                 port_labels = {
                     'port': port.name,
@@ -170,7 +167,6 @@ dps:
                     port.lacp_port_state(), lacp_role,
                     'Port %s DP %s role %s differs from varz value %s'
                     % (port, valve, port.lacp_port_state(), lacp_role))
-
                 if valve.dp.dp_id == 0x1:
                     self.assertEqual(
                         port.lacp_port_state(), LACP_PORT_SELECTED,
@@ -465,14 +461,15 @@ dps:
             'eth_type': 0x800,
             'ipv4_dst': '224.0.0.5',
         }
+        table = self.network.tables[self.DP_ID]
         self.assertTrue(
-            self.table.is_output(mcast_match, port=1),
+            table.is_output(mcast_match, port=1),
             msg='mcast packet not flooded to non-root stack')
         self.assertTrue(
-            self.table.is_output(mcast_match, port=3),
+            table.is_output(mcast_match, port=3),
             msg='mcast packet not flooded locally on root')
         self.assertFalse(
-            self.table.is_output(mcast_match, port=4),
+            table.is_output(mcast_match, port=4),
             msg='mcast packet multiply flooded externally on root')
 
 
@@ -505,7 +502,8 @@ class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
             'vlan_vid': 0,
             'eth_type': 0x800,
         }
-        return self.table.is_output(ucast_match, port=out_port, trace=trace)
+        table = self.network.tables[self.DP_ID]
+        return table.is_output(ucast_match, port=out_port, trace=trace)
 
     def _learning_from_bcast(self, in_port):
         ucast_match = {
@@ -515,7 +513,8 @@ class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
             'vlan_vid': self.V100,
             'eth_type': 0x800,
         }
-        return self.table.is_output(ucast_match, port=CONTROLLER_PORT)
+        table = self.network.tables[self.DP_ID]
+        return table.is_output(ucast_match, port=CONTROLLER_PORT)
 
     def validate_edge_learn_ports(self):
         """Validate the switch behavior before learning, and then learn hosts"""
@@ -592,7 +591,8 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
             'vlan_vid': 0,
             'eth_type': 0x800,
         }
-        return self.table.is_output(ucast_match, port=out_port)
+        table = self.network.tables[self.DP_ID]
+        return table.is_output(ucast_match, port=out_port)
 
     def _learning_from_bcast(self, in_port):
         bcast_match = {
@@ -602,7 +602,8 @@ class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
             'vlan_vid': self.V100,
             'eth_type': 0x800,
         }
-        return self.table.is_output(bcast_match, port=CONTROLLER_PORT)
+        table = self.network.tables[self.DP_ID]
+        return table.is_output(bcast_match, port=CONTROLLER_PORT)
 
     def validate_edge_learn_ports(self):
         """Validate the switch behavior before learning, and then learn hosts"""
@@ -660,24 +661,26 @@ class ValveStackRedundantLink(ValveStackLoopTest):
             'eth_type': 0x800,
             'ipv4_dst': '224.0.0.5',
         }
+        table = self.network.tables[self.DP_ID]
+        valve = self.valves_manager.valves[self.DP_ID]
         self.assertTrue(
-            self.table.is_output(mcast_match, port=2),
+            table.is_output(mcast_match, port=2),
             msg='mcast packet not flooded to root of stack')
-        self.assertFalse(self.valve.dp.ports[2].non_stack_forwarding())
+        self.assertFalse(valve.dp.ports[2].non_stack_forwarding())
         self.assertFalse(
-            self.table.is_output(mcast_match, port=1),
+            table.is_output(mcast_match, port=1),
             msg='mcast packet flooded root of stack via not shortest path')
-        self.deactivate_stack_port(self.valve.dp.ports[2])
-        self.assertFalse(self.valve.dp.ports[2].non_stack_forwarding())
+        self.deactivate_stack_port(valve.dp.ports[2])
+        self.assertFalse(valve.dp.ports[2].non_stack_forwarding())
         self.assertFalse(
-            self.table.is_output(mcast_match, port=2),
+            table.is_output(mcast_match, port=2),
             msg='mcast packet flooded to root of stack via redundant path')
-        self.assertFalse(self.valve.dp.ports[2].non_stack_forwarding())
+        self.assertFalse(valve.dp.ports[2].non_stack_forwarding())
         self.assertTrue(
-            self.table.is_output(mcast_match, port=1),
+            table.is_output(mcast_match, port=1),
             msg='mcast packet not flooded root of stack')
-        self.assertFalse(self.valve.dp.ports[2].non_stack_forwarding())
-        self.assertTrue(self.valve.dp.ports[3].non_stack_forwarding())
+        self.assertFalse(valve.dp.ports[2].non_stack_forwarding())
+        self.assertTrue(valve.dp.ports[3].non_stack_forwarding())
 
 
 class ValveStackNonRootExtLoopProtectTestCase(ValveTestBases.ValveTestNetwork):
@@ -750,14 +753,15 @@ dps:
             'eth_type': 0x800,
             'ipv4_dst': '224.0.0.5',
         }
+        table = self.network.tables[self.DP_ID]
         self.assertTrue(
-            self.table.is_output(mcast_match, port=1),
+            table.is_output(mcast_match, port=1),
             msg='mcast packet not flooded to root of stack')
         self.assertFalse(
-            self.table.is_output(mcast_match, port=3),
+            table.is_output(mcast_match, port=3),
             msg='mcast packet flooded locally on non-root')
         self.assertFalse(
-            self.table.is_output(mcast_match, port=4),
+            table.is_output(mcast_match, port=4),
             msg='mcast packet flooded locally on non-root')
 
 
@@ -818,6 +822,8 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
+        import sys
+        sys.stderr.write('%s\n' % self.get_prom('dp_root_hop_port', bare=True))
 
     def dp_by_name(self, dp_name):
         """Get DP by DP name"""
@@ -835,6 +841,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
     def test_redundancy(self):
         """Test redundant stack connections"""
         now = 1
+        import sys
         # All switches are down to start with.
         for dpid in self.valves_manager.valves:
             dp = self.valves_manager.valves[dpid].dp
@@ -845,6 +852,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
             self.assertEqual('s1', valve.dp.stack_root_name)
             root_hop_port = valve.dp.shortest_path_port('s1')
             root_hop_port = root_hop_port.number if root_hop_port else 0
+            sys.stderr.write('%s:%s\n' % (valve.dp.shortest_path('s1'), root_hop_port))
             self.assertEqual(root_hop_port, self.get_prom('dp_root_hop_port', bare=True))
         # From a cold start - we pick the s1 as root.
         self.assertEqual(None, self.valves_manager.meta_dp_state.stack_root_name)
@@ -962,8 +970,9 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestNetwork):
         match = {
             'vlan_vid': unexpressed_vid,
             'eth_dst': self.UNKNOWN_MAC}
+        table = self.network.tables[self.DP_ID]
         self.assertFalse(
-            self.table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid))
+            table.is_output(match, port=ofp.OFPP_CONTROLLER, vid=unexpressed_vid))
 
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
@@ -982,12 +991,13 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
 
     def test_stack_probe(self):
         """Test probing works correctly."""
-        stack_port = self.valve.dp.ports[1]
+        valve = self.valves_manager.valves[self.DP_ID]
+        stack_port = valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
+        other_valves = self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
         self.assertTrue(stack_port.is_stack_none())
-        self.valve.fast_state_expire(self.mock_time(), other_valves)
+        valve.fast_state_expire(self.mock_time(), other_valves)
         self.assertTrue(stack_port.is_stack_init())
         for change_func, check_func in [
                 ('stack_up', 'is_stack_up')]:
@@ -997,13 +1007,14 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
 
     def test_stack_miscabling(self):
         """Test probing stack with miscabling."""
-        stack_port = self.valve.dp.ports[1]
+        valve = self.valves_manager.valves[self.DP_ID]
+        stack_port = valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
         wrong_port = other_dp.ports[2]
         wrong_dp = self.valves_manager.valves[3].dp
-        other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
-        self.valve.fast_state_expire(self.mock_time(), other_valves)
+        other_valves = self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+        valve.fast_state_expire(self.mock_time(), other_valves)
         for remote_dp, remote_port in [
                 (wrong_dp, other_port),
                 (other_dp, wrong_port)]:
@@ -1014,17 +1025,18 @@ class ValveStackProbeTestCase(ValveTestBases.ValveTestNetwork):
 
     def test_stack_lost_lldp(self):
         """Test stacking when LLDP packets get dropped"""
-        stack_port = self.valve.dp.ports[1]
+        valve = self.valves_manager.valves[self.DP_ID]
+        stack_port = valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        other_valves = self.valves_manager._other_running_valves(self.valve)  # pylint: disable=protected-access
-        self.valve.fast_state_expire(self.mock_time(), other_valves)
+        other_valves = self.valves_manager._other_running_valves(valve)  # pylint: disable=protected-access
+        valve.fast_state_expire(self.mock_time(), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
         # simulate packet loss
-        self.valve.fast_state_expire(self.mock_time(300), other_valves)
+        valve.fast_state_expire(self.mock_time(300), other_valves)
         self.assertTrue(stack_port.is_stack_gone())
-        self.valve.fast_state_expire(self.mock_time(300), other_valves)
+        valve.fast_state_expire(self.mock_time(300), other_valves)
         self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_up())
 
@@ -1053,7 +1065,8 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestNetwork):
         num_edges = 3
         self.all_stack_up()
         verify_stack_learn_edges(num_edges)
-        ports = [self.valve.dp.ports[1], self.valve.dp.ports[2]]
+        valve = self.valves_manager.valves[self.DP_ID]
+        ports = [valve.dp.ports[1], valve.dp.ports[2]]
         edges = [('s1', 's2', 's1:1-s2:1'), ('s1', 's2', 's1:2-s2:2')]
         for port, edge in zip(ports, edges):
             num_edges -= 1
@@ -1071,7 +1084,8 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
 
         self.activate_all_ports()
         self.validate_flooding(False)
-        self.assertLessEqual(self.table.flow_count(), 33, 'table overflow')
+        table = self.network.tables[self.DP_ID]
+        self.assertLessEqual(table.flow_count(), 33, 'table overflow')
         # Deactivate link between the two other switches, not the one under test.
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[2]
@@ -1090,7 +1104,8 @@ class ValveStackGraphBreakTestCase(ValveStackLoopTest):
     def test_max_lldp_timeout(self):
         """Check that timeout can be increased"""
 
-        port = self.valve.dp.ports[1]
+        valve = self.valves_manager.valves[self.DP_ID]
+        port = valve.dp.ports[1]
 
         self.activate_all_ports()
         self.validate_flooding()
@@ -1535,10 +1550,11 @@ dps:
             bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
+        table = self.network.tables[self.DP_ID]
         if expected:
-            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertTrue(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
         else:
-            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertFalse(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
 
     def test_update_src_tunnel(self):
         """Test tunnel rules when encapsulating and forwarding to the destination switch"""
@@ -1673,10 +1689,11 @@ dps:
             bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
+        table = self.network.tables[self.DP_ID]
         if expected:
-            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertTrue(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
         else:
-            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertFalse(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
 
     def test_update_transit_tunnel(self):
         """Test a tunnel through a transit switch (forwards to the correct switch)"""
@@ -1773,10 +1790,11 @@ dps:
             bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
+        table = self.network.tables[self.DP_ID]
         if expected:
-            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertTrue(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
         else:
-            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertFalse(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
 
     def test_tunnel_update_multiple_tunnels(self):
         """Test having multiple hosts with the same tunnel"""
@@ -1904,10 +1922,11 @@ dps:
             bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
+        table = self.network.tables[self.DP_ID]
         if expected:
-            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertTrue(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
         else:
-            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertFalse(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
 
     def test_update_src_tunnel(self):
         """Test tunnel rules when encapsulating and forwarding to the destination switch"""
@@ -2042,10 +2061,11 @@ dps:
             bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
+        table = self.network.tables[self.DP_ID]
         if expected:
-            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertTrue(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
         else:
-            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertFalse(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
 
     def test_update_transit_tunnel(self):
         """Test a tunnel through a transit switch (forwards to the correct switch)"""
@@ -2142,10 +2162,11 @@ dps:
             bcast_match['vlan_vid'] = in_vid
         if out_vid:
             out_vid = out_vid | ofp.OFPVID_PRESENT
+        table = self.network.tables[self.DP_ID]
         if expected:
-            self.assertTrue(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertTrue(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
         else:
-            self.assertFalse(self.table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
+            self.assertFalse(table.is_output(bcast_match, port=out_port, vid=out_vid), msg=msg)
 
     def test_tunnel_update_multiple_tunnels(self):
         """Test having multiple hosts with the same tunnel"""
