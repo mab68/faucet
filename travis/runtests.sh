@@ -10,20 +10,20 @@ FILES_CHANGED=""
 PY_FILES_CHANGED=""
 RQ_FILES_CHANGED=""
 
-# # TRAVIS_COMMIT_RANGE will be empty in a new branch.
-# if [[ "$TRAVIS_COMMIT_RANGE" != "" ]] ; then
-#   echo TRAVIS_COMMIT_RANGE: $TRAVIS_COMMIT_RANGE
-#   GIT_DIFF_CMD="git diff --diff-filter=ACMRT --name-only $TRAVIS_COMMIT_RANGE"
-#   FILES_CHANGED=`$GIT_DIFF_CMD`
-#   if [ $? -ne 0 ] ; then echo $GIT_DIFF_CMD returned $? ; fi
-#   PY_FILES_CHANGED=`$GIT_DIFF_CMD | grep -E ".py$"`
-#   RQ_FILES_CHANGED=`$GIT_DIFF_CMD | grep -E "requirements.*txt$"`
-#   if [[ "$FILES_CHANGED" != "" ]] ; then
-#     echo files changed: $FILES_CHANGED
-#   else
-#     echo no files changed.
-#   fi
-# fi
+# TRAVIS_COMMIT_RANGE will be empty in a new branch.
+if [[ "$TRAVIS_COMMIT_RANGE" != "" ]] ; then
+  echo TRAVIS_COMMIT_RANGE: $TRAVIS_COMMIT_RANGE
+  GIT_DIFF_CMD="git diff --diff-filter=ACMRT --name-only $TRAVIS_COMMIT_RANGE"
+  FILES_CHANGED=`$GIT_DIFF_CMD`
+  if [ $? -ne 0 ] ; then echo $GIT_DIFF_CMD returned $? ; fi
+  PY_FILES_CHANGED=`$GIT_DIFF_CMD | grep -E ".py$"`
+  RQ_FILES_CHANGED=`$GIT_DIFF_CMD | grep -E "requirements.*txt$"`
+  if [[ "$FILES_CHANGED" != "" ]] ; then
+    echo files changed: $FILES_CHANGED
+  else
+    echo no files changed.
+  fi
+fi
 
 if [ "${MATRIX_SHARD}" == "unittest" ] ; then
   ./docker/pip_deps.sh
@@ -71,14 +71,14 @@ else
   FAUCET_TESTS="-din ${sharded[${MATRIX_SHARD}]}"
 fi
 
-# if [[ "$FILES_CHANGED" != "" ]] ; then
-#   if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
-#     echo Not running docker tests because only non-python/requirements changes: $FILES_CHANGED
-#     exit 0
-#   else
-#     echo python/requirements changes: $PY_FILES_CHANGED $RQ_FILES_CHANGED
-#   fi
-# fi
+if [[ "$FILES_CHANGED" != "" ]] ; then
+  if [[ "$PY_FILES_CHANGED" == "" && "$RQ_FILES_CHANGED" == "" ]] ; then
+    echo Not running docker tests because only non-python/requirements changes: $FILES_CHANGED
+    exit 0
+  else
+    echo python/requirements changes: $PY_FILES_CHANGED $RQ_FILES_CHANGED
+  fi
+fi
 
 docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
 docker rmi faucet/test-base
@@ -101,8 +101,7 @@ if [ "${MATRIX_SHARD}" == "sanity" ] ; then
 fi
 
 echo "${FAUCET_TESTS}"
-#sudo docker run $SHARDARGS -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG} || exit 1
-sudo docker run $SHARDARGS -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG} || exit 1
+sudo docker run $SHARDARGS -e PY_FILES_CHANGED="${PY_FILES_CHANGED}" -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG} || exit 1
 
 if ls -1 /var/tmp/core* >/dev/null 2>&1 ; then
   echo coredumps found after tests run.
