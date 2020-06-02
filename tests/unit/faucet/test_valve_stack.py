@@ -822,8 +822,6 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
-        import sys
-        sys.stderr.write('%s\n' % self.get_prom('dp_root_hop_port', bare=True))
 
     def dp_by_name(self, dp_name):
         """Get DP by DP name"""
@@ -841,7 +839,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
     def test_redundancy(self):
         """Test redundant stack connections"""
         now = 1
-        import sys
+        self.trigger_stack_ports()
         # All switches are down to start with.
         for dpid in self.valves_manager.valves:
             dp = self.valves_manager.valves[dpid].dp
@@ -852,8 +850,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
             self.assertEqual('s1', valve.dp.stack_root_name)
             root_hop_port = valve.dp.shortest_path_port('s1')
             root_hop_port = root_hop_port.number if root_hop_port else 0
-            sys.stderr.write('%s:%s\n' % (valve.dp.shortest_path('s1'), root_hop_port))
-            self.assertEqual(root_hop_port, self.get_prom('dp_root_hop_port', bare=True))
+            self.assertEqual(root_hop_port, self.get_prom('dp_root_hop_port', dp_id=valve.dp.dp_id))
         # From a cold start - we pick the s1 as root.
         self.assertEqual(None, self.valves_manager.meta_dp_state.stack_root_name)
         self.assertFalse(self.valves_manager.maintain_stack_root(now))
@@ -1185,6 +1182,7 @@ class ValveTestIPV4StackedRoutingDPOneVLAN(ValveTestBases.ValveTestStackedRoutin
                     native_vlan: vlan100
         s2:
             dp_id: 2
+            hardware: 'GenericTFM'
             interfaces:
                 2:
                     native_vlan: vlan200
@@ -1243,6 +1241,7 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
                     stack: {dp: s2, port: 3}
         s2:
             dp_id: 2
+            hardware: 'GenericTFM'
             interfaces:
                 2:
                     native_vlan: vlan300
@@ -1252,6 +1251,7 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
                     stack: {dp: s3, port: 3}
         s3:
             dp_id: 3
+            hardware: 'GenericTFM'
             interfaces:
                 2:
                     native_vlan: vlan200
@@ -1261,6 +1261,7 @@ class ValveTestIPV4StackedRoutingPathNoVLANS(ValveTestBases.ValveTestStackedRout
                     stack: {dp: s4, port: 3}
         s4:
             dp_id: 4
+            hardware: 'GenericTFM'
             interfaces:
                 2:
                     native_vlan: vlan300
@@ -1334,6 +1335,7 @@ dps:
                 stack: {dp: s2, port: 3}
     s2:
         dp_id: 2
+        hardware: 'GenericTFM'
         stack: {priority: 1}
         interfaces:
             1:
@@ -1346,6 +1348,7 @@ dps:
                 stack: {dp: s3, port: 3}
     s3:
         dp_id: 3
+        hardware: 'GenericTFM'
         interfaces:
             1:
                 native_vlan: vlan100
@@ -1357,6 +1360,7 @@ dps:
                 stack: {dp: s4, port: 3}
     s4:
         dp_id: 4
+        hardware: 'GenericTFM'
         interfaces:
             1:
                 native_vlan: vlan100
@@ -1387,11 +1391,7 @@ vlans:
         """Create a stacking config file."""
         self.create_config()
         self.setup_valves(self.CONFIG)
-        self.activate_all_ports()
-        for valve in self.valves_manager.valves.values():
-            for port in valve.dp.ports.values():
-                if port.stack:
-                    self.set_stack_port_up(port.number, valve)
+        self.trigger_stack_ports()
 
     def switch_manager_flood_ports(self, switch_manager):
         """Return list of port numbers that will be flooded to"""
@@ -2404,6 +2404,8 @@ dps:
         self.check_groupmods_exist(
             valve_of.valve_flowreorder(
                 ofmsgs + [global_flowmod, global_metermod, global_groupmod]), False)
+
+
 class ValveWarmStartStackTest(ValveTestBases.ValveTestNetwork):
     """Test warm starting stack ports"""
 
@@ -2566,7 +2568,7 @@ dps:
 
     def setUp(self):
         """Setup network and start stack ports"""
-        self.setup_valve(self.CONFIG)
+        self.setup_valves(self.CONFIG)
         self.process_ports()
 
     def process_ports(self):
@@ -2607,6 +2609,8 @@ dps:
                 self.assertNotIn(
                     port.number, changed_ports,
                     'Stack port detected as changed on non-topology change')
+
+
 class ValveNetworkTest(ValveTestBases.ValveTestNetwork):
     """Test an auto-generated path topology and FakeOFNetwork packet traversal"""
 

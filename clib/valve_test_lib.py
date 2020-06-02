@@ -53,11 +53,9 @@ from faucet import valve_packet
 from faucet import valve_util
 from faucet.valve import TfmValve
 
-from clib.fakeoftable import FakeOFTable, FakeOFNetwork
+from clib.fakeoftable import FakeOFNetwork
 
 from clib.config_generator import FaucetFakeOFTopoGenerator
-
-import sys
 
 
 def build_pkt(pkt):
@@ -519,6 +517,7 @@ class ValveTestBases:
         ICMP_PAYLOAD = bytes('A'*64, encoding='UTF-8')
         REQUIRE_TFM = True
         CONFIG_AUTO_REVERT = False
+        CONFIG = None
         topo = None
 
         NUM_PORTS = 5
@@ -549,7 +548,8 @@ class ValveTestBases:
             topo = FaucetFakeOFTopoGenerator(
                 'ovstype', 'portsock', 'testname',
                 host_links, host_vlans, switch_links, link_vlans,
-                start_port=self.START_PORT, port_order=self.PORT_ORDER, get_serialno=self.get_serialno)
+                start_port=self.START_PORT, port_order=self.PORT_ORDER,
+                get_serialno=self.get_serialno)
             config = topo.get_config(self.NUM_VLANS, dp_options=dp_options)
             return topo, config
 
@@ -667,9 +667,6 @@ class ValveTestBases:
             self.network.apply_ofmsgs(int(dp_id), ofmsgs)
             return final_ofmsgs
 
-
-
-
         def send_flows_to_dp_by_id(self, valve, flows):
             """Callback function for ValvesManager to simulate sending flows to a DP"""
             flows = valve.prepare_send_flows(flows)
@@ -696,7 +693,8 @@ class ValveTestBases:
             """
             before_table_states = None
             if self.network is not None:
-                before_table_states = {dp_id: str(table) for dp_id, table in self.network.tables.items()}
+                before_table_states = {
+                    dp_id: str(table) for dp_id, table in self.network.tables.items()}
             before_dp_status = int(self.get_prom('dp_status'))
             existing_config = None
             if os.path.exists(self.config_file):
@@ -723,7 +721,8 @@ class ValveTestBases:
             else:
                 if reload_type is not None:
                     var = 'faucet_config_reload_%s_total' % reload_type
-                    self.prom_inc(reload_func, var=var, inc_expected=reload_expected, dp_id=table_dpid)
+                    self.prom_inc(
+                        reload_func, var=var, inc_expected=reload_expected, dp_id=table_dpid)
                 else:
                     reload_func()
                 if configure_network:
@@ -735,11 +734,14 @@ class ValveTestBases:
                     else:
                         self.apply_ofmsgs(reload_ofmsgs, dp_id)
                     all_ofmsgs[dp_id] = reload_ofmsgs
-                    if not reload_expected and no_reload_no_table_change and before_table_states is not None:
+                    if (not reload_expected and no_reload_no_table_change and
+                            before_table_states is not None and dp_id in before_table_states):
                         before_table_state = before_table_states[dp_id]
                         after_table_state = str(self.network.tables[dp_id])
-                        diff = difflib.unified_diff(before_table_state.splitlines(), after_table_state.splitlines())
-                        self.assertEqual(before_table_state, after_table_state, msg='\n'.join(diff))
+                        diff = difflib.unified_diff(
+                            before_table_state.splitlines(), after_table_state.splitlines())
+                        self.assertEqual(
+                            before_table_state, after_table_state, msg='\n'.join(diff))
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
             self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
             return all_ofmsgs
@@ -757,7 +759,8 @@ class ValveTestBases:
                 before_table_states (dict): Dict of string state by dp_id of the table before reloading
             """
             if before_table_states is None:
-                before_table_states = {dp_id: str(table) for dp_id, table in self.network.tables.items()}
+                before_table_states = {
+                    dp_id: str(table) for dp_id, table in self.network.tables.items()}
             self.update_config(new_config, reload_type=reload_type)
             if verify_func is not None:
                 verify_func()
@@ -765,8 +768,10 @@ class ValveTestBases:
             for dp_id, table in self.network.tables.items():
                 if dp_id in before_table_states:
                     final_table_state = str(table)
-                    diff = difflib.unified_diff(before_table_states[dp_id].splitlines(), final_table_state.splitlines())
-                    self.assertEqual(before_table_states[dp_id], final_table_state, msg='\n'.join(diff))
+                    diff = difflib.unified_diff(
+                        before_table_states[dp_id].splitlines(), final_table_state.splitlines())
+                    self.assertEqual(
+                        before_table_states[dp_id], final_table_state, msg='\n'.join(diff))
 
         def connect_dp(self, dp_id=None):
             """

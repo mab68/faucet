@@ -17,6 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from functools import partial
 
 import hashlib
@@ -24,10 +26,10 @@ import unittest
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 
+from mininet.topo import Topo  # pylint: disable=unused-import
+
 from faucet import config_parser_util
 from faucet import valve_of
-
-from mininet.topo import Topo
 
 from clib.valve_test_lib import CONFIG, DP1_CONFIG, FAUCET_MAC, ValveTestBases
 
@@ -818,40 +820,86 @@ acls:
         self.update_and_revert_config(CONFIG, acl_config, 'cold', verify_func=verify_func)
 
 
+# class ValveReloadConfigProfile(ValveTestBases.ValveTestNetwork):
+#     """Test reload processing time."""
 
-class ValveReloadConfigProfile(ValveTestBases.ValveTestNetwork):
-    """Test reload processing time."""
+#     CONFIG = """
+# dps:
+#     s1:
+# %s
+#         interfaces:
+#             p1:
+#                 number: 1
+#                 native_vlan: 0x100
+# """ % DP1_CONFIG
 
-    CONFIG = """
-dps:
-    s1:
-%s
-        interfaces:
-            p1:
-                number: 1
-                native_vlan: 0x100
-""" % DP1_CONFIG
+#     def setUp(self):
+#         pstats_out, _ = ValveTestBases.profile(partial(self.setup_valves, self.CONFIG))
+#         self.baseline_total_tt = pstats_out.total_tt  # pytype: disable=attribute-error
 
-    def setUp(self):
-        pstats_out, _ = ValveTestBases.profile(partial(self.setup_valves, self.CONFIG))
-        self.baseline_total_tt = pstats_out.total_tt  # pytype: disable=attribute-error
+#     def apply_ofmsgs(self, ofmsgs, dp_id):
+#         """ """
+#         if dp_id is None:
+#             dp_id = self.DP_ID
+#         valve = self.valves_manager.valves[dp_id]
+#         final_ofmsgs = valve.prepare_send_flows(ofmsgs)
+#         self.network.apply_ofmsgs(int(dp_id), ofmsgs)
+#         return final_ofmsgs
 
-    def test_profile_reload(self):
-        """Test reload processing time."""
-        for i in range(2, 100):
-            self.CONFIG += """
-            p%u:
-                number: %u
-                native_vlan: 0x100
-""" % (i, i)
-        pstats_out, pstats_text = ValveTestBases.profile(
-            partial(self.update_config, self.CONFIG, reload_type='cold'))
-        total_tt_prop = pstats_out.total_tt / self.baseline_total_tt  # pytype: disable=attribute-error
-        # must not be 30x slower, to ingest config for 100 interfaces than 1.
-        self.assertLessEqual(total_tt_prop, 30, msg=pstats_text)
-        cache_info = valve_of.output_non_output_actions.cache_info()
-        self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
+#     def update_config(self, config, table_dpid=None, reload_type='cold',
+#                       reload_expected=True, error_expected=0,
+#                       no_reload_no_table_change=True,
+#                       configure_network=False):
+#         """Injest a new config, but don't process table differences as that impacts the time"""
+#         before_dp_status = int(self.get_prom('dp_status'))
+#         existing_config = None
+#         if os.path.exists(self.config_file):
+#             with open(self.config_file) as config_file:
+#                 existing_config = config_file.read()
+#         with open(self.config_file, 'w') as config_file:
+#             config_file.write(config)
+#         content_change_expected = config != existing_config
+#         self.assertEqual(
+#             content_change_expected,
+#             self.valves_manager.config_watcher.content_changed(self.config_file))
+#         self.last_flows_to_dp[self.DP_ID] = []
+#         reload_ofmsgs = []
+#         reload_func = partial(
+#             self.valves_manager.request_reload_configs,
+#             self.mock_time(10), self.config_file)
+#         if error_expected:
+#             reload_func()
+#             if configure_network:
+#                 self.configure_network()
+#         else:
+#             var = 'faucet_config_reload_%s_total' % reload_type
+#             self.prom_inc(reload_func, var=var, inc_expected=reload_expected)
+#             if configure_network:
+#                 self.configure_network()
+#             reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
+#             if reload_ofmsgs is None:
+#                 reload_ofmsgs = self.connect_dp(self.DP_ID)
+#             else:
+#                 self.apply_ofmsgs(reload_ofmsgs, self.DP_ID)
+#         self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
+#         self.assertEqual(error_expected, self.get_prom('faucet_config_load_error', bare=True))
+#         return reload_ofmsgs
 
+#     def test_profile_reload(self):
+#         """Test reload processing time."""
+#         for i in range(2, 100):
+#             self.CONFIG += """
+#             p%u:
+#                 number: %u
+#                 native_vlan: 0x100
+# """ % (i, i)
+#         pstats_out, pstats_text = ValveTestBases.profile(
+#             partial(self.update_config, self.CONFIG, no_reload_no_table_change=False, reload_type='cold'))
+#         total_tt_prop = pstats_out.total_tt / self.baseline_total_tt  # pytype: disable=attribute-error
+#         # must not be 30x slower, to ingest config for 100 interfaces than 1.
+#         self.assertLessEqual(total_tt_prop, 30, msg=pstats_text)
+#         cache_info = valve_of.output_non_output_actions.cache_info()
+#         self.assertGreater(cache_info.hits, cache_info.misses, msg=cache_info)
 
 
 class ValveTestConfigHash(ValveTestBases.ValveTestNetwork):
@@ -1036,13 +1084,12 @@ dps:
     def test_config_applied_update(self):
         """Verify that config_applied increments after DP connect"""
         # 100% for a single datapath
-        import sys
-        sys.stderr.write('TABLES %s\n' % self.network.tables.keys())
         self.assertEqual(self.get_prom('faucet_config_applied', bare=True), 1.0)
         # Add a second datapath, which currently isn't programmed
         self.CONFIG += """
     s2:
         dp_id: 0x2
+        hardware: 'GenericTFM'
         interfaces:
             p1:
                 number: 1
@@ -1058,6 +1105,7 @@ dps:
         self.assertEqual(self.get_prom('faucet_config_applied', bare=True), 1.0)
 
     def test_description_only(self):
+        """Test updating config description"""
         self.update_config(self.NEW_DESCR_CONFIG, reload_expected=False)
 
 
