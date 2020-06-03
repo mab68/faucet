@@ -35,7 +35,7 @@ from clib.config_generator import FaucetFakeOFTopoGenerator
 
 
 class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
-    """Test auto-generated topology, warm starting to a different topology then reverting"""
+    """Test warm starting to a different topology then reverting"""
 
     topo = None
 
@@ -68,7 +68,7 @@ class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
 
 
 class ValveTopologyVLANTest(ValveTestBases.ValveTestNetwork):
-    """Generative testing of flowrules installed after warm-starting after a config host VLAN change"""
+    """Generative testing of flowrules after warm-starting after a config host VLAN change"""
 
     topo = None
 
@@ -85,9 +85,9 @@ class ValveTopologyVLANTest(ValveTestBases.ValveTestNetwork):
         host_n = 0
         for dp_i in network_graph.nodes():
             for _ in range(self.NUM_HOSTS):
-                for v in range(self.NUM_VLANS):
+                for v_i in range(self.NUM_VLANS):
                     host_links[host_n] = [dp_i]
-                    host_vlans[host_n] = v
+                    host_vlans[host_n] = v_i
                     host_n += 1
             dp_options[dp_i] = {'hardware': 'GenericTFM'}
             if dp_i == 0:
@@ -116,7 +116,6 @@ class ValveTopologyVLANTest(ValveTestBases.ValveTestNetwork):
 
     def verify_vlan_change(self):
         """Change host VLAN, check restart of rules consistent"""
-        import sys
         _, host_port_maps, _ = self.topo.create_port_maps()
         yaml_config = yaml.safe_load(self.CONFIG)
         intf_config = yaml_config['dps'][self.topo.switches_by_id[1]]['interfaces']
@@ -190,7 +189,6 @@ def test_generator(param):
 if __name__ == '__main__':
     GRAPHS = {}
     GRAPH_ATLAS = graph_atlas_g()
-    count = 0
     for graph in GRAPH_ATLAS:
         if (not graph or len(graph.nodes()) < 2 or not networkx.is_connected(graph)):
             continue
@@ -200,11 +198,8 @@ if __name__ == '__main__':
             test_name = 'test_%s' % graph.name
             test_func = test_generator(graph)
             setattr(test_class, test_name, test_func)
-        if count > 50:
-            break
-        count += 1
-    # for num_dps, nl in GRAPHS.items():
-    #     test_name = 'test_reconfigure_topologies_%s_nodes' % num_dps
-    #     test_func = test_generator(nl)
-    #     setattr(ValveTopologyRestartTest, test_name, test_func)
+    for num_dps, nl in GRAPHS.items():
+        test_name = 'test_reconfigure_topologies_%s_nodes' % num_dps
+        test_func = test_generator(nl)
+        setattr(ValveTopologyRestartTest, test_name, test_func)
     unittest.main()

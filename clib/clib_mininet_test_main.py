@@ -735,8 +735,6 @@ def parse_args():
     parser.add_argument(
         '-s', '--serial', action='store_true', help='run tests serially')
     parser.add_argument(
-        '-t', '--tolerance', default=False, action='store_true', help='run fault-tolerance tests')
-    parser.add_argument(
         '--generative_unit', default=False, action='store_true', help='run generative unit tests')
     parser.add_argument(
         '--generative_integration', default=False, action='store_true',
