@@ -2599,6 +2599,9 @@ dps:
 
     def test_reload_vlan_change(self):
         """Test reload with topology change stack ports stay up"""
+        self.update_and_revert_config(
+            self.CONFIG, self.NEW_PORT_CONFIG,
+            'warm', verify_func=self.process_ports)
         with open(self.config_file, 'w') as config_file:
             config_file.write(self.NEW_VLAN_CONFIG)
         new_dps = self.valves_manager.parse_configs(self.config_file)

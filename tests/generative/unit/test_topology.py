@@ -194,7 +194,7 @@ if __name__ == '__main__':
             continue
         GRAPHS.setdefault(graph.number_of_nodes(), [])
         GRAPHS[graph.number_of_nodes()].append(graph)
-        for test_class in (ValveTopologyVLANTest, ):
+        for test_class in (ValveTopologyVLANTest, ValveTopologyTableTest):
             test_name = 'test_%s' % graph.name
             test_func = test_generator(graph)
             setattr(test_class, test_name, test_func)
