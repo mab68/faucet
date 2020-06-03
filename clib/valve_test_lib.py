@@ -608,7 +608,6 @@ class ValveTestBases:
             self.tmpdir = tempfile.mkdtemp()
             self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
             self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
-
             logfile = 'STDOUT' if log_stdout else os.path.join(self.tmpdir, 'faucet.log')
             self.logger = valve_util.get_logger(self.LOGNAME, logfile, logging.DEBUG, 0)
             self.registry = CollectorRegistry()
@@ -662,16 +661,13 @@ class ValveTestBases:
             final_ofmsgs = valve.prepare_send_flows(ofmsgs)
             after_flow_count = len(final_ofmsgs)
             reorder_ratio = before_flow_count / after_flow_count
-            if before_flow_count >= 10:
+            if before_flow_count < before_flow_count:
                 self.assertGreater(
                     reorder_ratio, 0.90,
                     'inefficient duplicate flow generation (before %u, after %u)' % (
                         before_flow_count, after_flow_count))
             self.network.apply_ofmsgs(int(dp_id), ofmsgs)
             return final_ofmsgs
-
-
-
 
         def send_flows_to_dp_by_id(self, valve, flows):
             """Callback function for ValvesManager to simulate sending flows to a DP"""
@@ -719,7 +715,6 @@ class ValveTestBases:
             reload_func = partial(
                 self.valves_manager.request_reload_configs,
                 self.mock_time(10), self.config_file)
-
             if error_expected:
                 reload_func()
                 if configure_network:
@@ -746,6 +741,10 @@ class ValveTestBases:
                         after_table_state = str(self.network.tables[dp_id])
                         diff = difflib.unified_diff(
                             before_table_state.splitlines(), after_table_state.splitlines())
+                        import sys
+                        if before_table_state != after_table_state:
+                            sys.stderr.write('%s\n' % before_table_state)
+                            sys.stderr.write('%s\n' % after_table_state)
                         self.assertEqual(
                             before_table_state, after_table_state, msg='\n'.join(diff))
             self.assertEqual(before_dp_status, int(self.get_prom('dp_status')))
@@ -1101,7 +1100,7 @@ class ValveTestBases:
                 self.valves_manager.valve_flow_services(
                     now, 'fast_state_expire')
                 flows = self.last_flows_to_dp[self.DP_ID]
-                self.apply_ofmsgs(flows)
+                self.apply_ofmsgs(flows, dp_id=self.DP_ID)
 
         def deactivate_stack_port(self, port, packets=10):
             """Deactivate a given stack port"""
@@ -1121,9 +1120,9 @@ class ValveTestBases:
             port.dyn_stack_current_state = status
             valve.switch_manager.update_stack_topo(True, valve.dp, port)
             for valve_vlan in valve.dp.vlans.values():
-                ofmsgs = valve.switch_manager.add_vlan(valve_vlan)
+                ofmsgs = valve.switch_manager.add_vlan(valve_vlan, cold_start=False)
                 if valve is self.valves_manager.valves[self.DP_ID]:
-                    self.apply_ofmsgs(ofmsgs)
+                    self.apply_ofmsgs(ofmsgs, dp_id=self.DP_ID)
 
         def set_stack_port_up(self, port_no, valve=None):
             """Set stack port up recalculating topology as necessary."""

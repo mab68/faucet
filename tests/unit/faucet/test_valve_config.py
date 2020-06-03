@@ -835,14 +835,15 @@ dps:
     NUM_PORTS = 100
 
     def setUp(self):
-        self.setup_valve(CONFIG)
+        self.setup_valves(CONFIG)
 
     def test_profile_reload(self):
         """Test reload processing time."""
         ORIG_CONFIG = copy.copy(self.CONFIG)
 
         def load_orig_config():
-            pstats_out, _ = self.profile(partial(self.setup_valve, ORIG_CONFIG))
+            pstats_out, _ = self.profile(
+                partial(self.update_config, ORIG_CONFIG))
             self.baseline_total_tt = pstats_out.total_tt  # pytype: disable=attribute-error
 
         for i in range(2, 100):
@@ -851,7 +852,6 @@ dps:
                 number: %u
                 native_vlan: 0x100
 """ % (i, i)
-
 
         for i in range(5):
             load_orig_config()
