@@ -19,6 +19,7 @@
 
 
 import unittest
+import yaml
 
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -29,6 +30,8 @@ import networkx
 from networkx.generators.atlas import graph_atlas_g
 
 from clib.valve_test_lib import ValveTestBases
+
+from clib.config_generator import FaucetFakeOFTopoGenerator
 
 
 class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
@@ -51,9 +54,9 @@ class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
         """
         self.topo, self.CONFIG = self.create_topo_config(network_list[0])
         self.setup_valves(self.CONFIG)
-        self.validate_warmstarts(network_list)
+        self.validate_topology_change(network_list)
 
-    def validate_warmstarts(self, network_list):
+    def validate_topology_change(self, network_list):
         """Test warm/cold-start changing topology"""
         for network_graph in network_list:
             if network_graph is network_list[0]:
@@ -62,6 +65,64 @@ class ValveTopologyRestartTest(ValveTestBases.ValveTestNetwork):
             self.serial = 0
             _, new_config = self.create_topo_config(network_graph)
             self.update_and_revert_config(self.CONFIG, new_config, None)
+
+
+class ValveTopologyVLANTest(ValveTestBases.ValveTestNetwork):
+    """Generative testing of flowrules installed after warm-starting after a config host VLAN change"""
+
+    topo = None
+
+    NUM_DPS = 2
+    NUM_VLANS = 2
+    NUM_HOSTS = 2
+    SWITCH_TO_SWITCH_LINKS = 1
+
+    def create_topo_config(self, network_graph):
+        """Return topo object and a simple stack config generated from network_graph"""
+        host_links = {}
+        host_vlans = {}
+        dp_options = {}
+        host_n = 0
+        for dp_i in network_graph.nodes():
+            for _ in range(self.NUM_HOSTS):
+                for v in range(self.NUM_VLANS):
+                    host_links[host_n] = [dp_i]
+                    host_vlans[host_n] = v
+                    host_n += 1
+            dp_options[dp_i] = {'hardware': 'GenericTFM'}
+            if dp_i == 0:
+                dp_options[dp_i]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges()) * self.SWITCH_TO_SWITCH_LINKS
+        link_vlans = {link: None for link in switch_links}
+        topo = FaucetFakeOFTopoGenerator(
+            'ovstype', 'portsock', 'testname',
+            host_links, host_vlans, switch_links, link_vlans,
+            start_port=self.START_PORT, port_order=self.PORT_ORDER,
+            get_serialno=self.get_serialno)
+        config = topo.get_config(self.NUM_VLANS, dp_options=dp_options)
+        return topo, config
+
+    def setUp(self):
+        """Ignore, to call set_up with different topologies"""
+
+    def set_up(self, network_graph):
+        """
+        Args:
+            network_graph (networkx.Graph): Topology for the network
+        """
+        self.topo, self.CONFIG = self.create_topo_config(network_graph)
+        self.setup_valves(self.CONFIG)
+        self.verify_vlan_change()
+
+    def verify_vlan_change(self):
+        """Change host VLAN, check restart of rules consistent"""
+        import sys
+        _, host_port_maps, _ = self.topo.create_port_maps()
+        yaml_config = yaml.safe_load(self.CONFIG)
+        intf_config = yaml_config['dps'][self.topo.switches_by_id[1]]['interfaces']
+        intf_config[host_port_maps[5][1][0]]['native_vlan'] = self.topo.vlan_name(1)
+        new_config = yaml.dump(yaml_config)
+        self.update_and_revert_config(self.CONFIG, new_config, None)
 
 
 class ValveTopologyTableTest(ValveTestBases.ValveTestNetwork):
@@ -129,16 +190,21 @@ def test_generator(param):
 if __name__ == '__main__':
     GRAPHS = {}
     GRAPH_ATLAS = graph_atlas_g()
+    count = 0
     for graph in GRAPH_ATLAS:
         if (not graph or len(graph.nodes()) < 2 or not networkx.is_connected(graph)):
             continue
         GRAPHS.setdefault(graph.number_of_nodes(), [])
         GRAPHS[graph.number_of_nodes()].append(graph)
-        test_name = 'test_%s' % graph.name
-        test_func = test_generator(graph)
-        setattr(ValveTopologyTableTest, test_name, test_func)
-    for num_dps, nl in GRAPHS.items():
-        test_name = 'test_reconfigure_topologies_%s_nodes' % num_dps
-        test_func = test_generator(nl)
-        setattr(ValveTopologyRestartTest, test_name, test_func)
+        for test_class in (ValveTopologyVLANTest, ):
+            test_name = 'test_%s' % graph.name
+            test_func = test_generator(graph)
+            setattr(test_class, test_name, test_func)
+        if count > 50:
+            break
+        count += 1
+    # for num_dps, nl in GRAPHS.items():
+    #     test_name = 'test_reconfigure_topologies_%s_nodes' % num_dps
+    #     test_func = test_generator(nl)
+    #     setattr(ValveTopologyRestartTest, test_name, test_func)
     unittest.main()

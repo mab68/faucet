@@ -490,6 +490,7 @@ class ValveTestBases:
         def create_mac_str(i, j):
             """Create a host MAC string"""
             return '00:00:00:%02x:00:%02x' % (i, j)
+
         P1_V100_MAC = '00:00:00:01:00:01'
         P2_V100_MAC = '00:00:00:01:00:02'
         P3_V100_MAC = '00:00:00:01:00:03'
