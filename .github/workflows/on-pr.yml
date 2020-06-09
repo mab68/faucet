@@ -1,0 +1,77 @@
+name: Faucet on pull-request tests
+
+on: [push, pull_request]
+
+env:
+  FAUCET_TEST_IMG: "faucet/tests"
+  SHARDARGS: "--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=99999999999:99999999999 -v /var/local/lib/docker:/var/lib/docker"
+  FILES_CHANGED: "all"
+  CODECHECK_PY_VER: 3.6
+  MATRIX_SHARDS: 10
+
+jobs:
+
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.5, 3.6, 3.7, 3.8]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2.3.1
+        with:
+          fetch-depth: 0
+      - name: Check warning
+        run: |
+          cat ${GITHUB_EVENT_PATH}
+      - if: ${{ github.event.action == 'synchronize' }}
+        name: Stuff
+        run: |
+          echo "TESTING...."
+      - if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
+        name: Get file changes
+        id: file_changes
+        uses: trilom/file-changes-action@v1.2.4
+        with:
+          output: ' '
+      - if: ${{ steps.file_changes.outputs.files }}
+        name: Compare file changes
+        run: |
+          FILES_CHANGED="${{ steps.file_changes.outputs.files }}"
+          PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
+          RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
+          DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
+          echo "Files changed: ${FILES_CHANGED}"
+          echo "Python code changed: ${PY_FILES_CHANGED}"
+          echo "Requirement changes: ${RQ_FILES_CHANGED}"
+          echo "Documentation changes: ${DOC_FILES_CHANGED}"
+          echo ::set-env name=FILES_CHANGED::${FILES_CHANGED}
+          echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
+          echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
+          echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
+      - name: Set up python-${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          ./docker/pip_deps.sh
+          pip3 install ./
+          pip3 show faucet
+      - name: Running unit tests
+        run: ./tests/run_unit_tests.sh || exit 1
+      - if: ${{ matrix.python-version == env.CODECHECK_PY_VER }}
+        name: Upload codecov
+        uses: codecov/codecov-action@v1.0.7
+      - if: ${{ env.FILES_CHANGED == 'all' || env.RQ_FILES_CHANGED || env.PY_FILES_CHANGED }}
+        name: Pytype
+        run: |
+          cd ./tests/codecheck || exit 1
+          if [[ "${{ env.FILES_CHANGED }}" == "all" || ! -z "${{ env.RQ_FILES_CHANGED }}" ]]; then
+            echo "Running pytype on everything"
+            ./pytype.sh || exit 1
+          else
+            echo "Running pytype on ${{ env.PY_FILES_CHANGED }}"
+            ./pytype.sh ${{ env.PY_FILES_CHANGED }} || exit 1
+          fi
