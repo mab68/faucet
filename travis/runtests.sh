@@ -128,10 +128,6 @@ SHARDARGS="--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   -v /var/local/lib/docker:/var/lib/docker \
   -v $HOME/.cache/pip:/var/tmp/pip-cache"
 
-echo "MATRIX_SHARD: ${MATRIX_SHARD}"
-echo "FAUCET_TESTS: ${FAUCET_TESTS}"
-echo "SHARDARGS: ${SHARDARGS}"
-
 ulimit -c unlimited
 echo '/var/tmp/core.%h.%e.%t' | sudo tee /proc/sys/kernel/core_pattern
 sudo modprobe openvswitch
