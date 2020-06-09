@@ -386,7 +386,6 @@ class FaucetSingleFaultTolerance4DPTest(FaucetFaultToleranceBaseTest):
         self.N_DP_LINKS = 1
 
 
-@unittest.skip('Too expensive for Travis to run')
 class FaucetSingleFaultTolerance5DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 5 DPs"""
 
@@ -397,7 +396,6 @@ class FaucetSingleFaultTolerance5DPTest(FaucetFaultToleranceBaseTest):
     STACK_ROOTS = {0: 1}
 
 
-@unittest.skip('Too expensive for Travis to run')
 class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 5 DPs"""
 
@@ -408,7 +406,6 @@ class FaucetSingleFaultTolerance6DPTest(FaucetFaultToleranceBaseTest):
     STACK_ROOTS = {0: 1}
 
 
-@unittest.skip('Too expensive for Travis to run')
 class FaucetSingleFaultTolerance7DPTest(FaucetFaultToleranceBaseTest):
     """Run a range of fault-tolerance tests for topologies on 5 DPs"""
 

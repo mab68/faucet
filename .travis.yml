@@ -68,10 +68,6 @@ jobs:
       env: MATRIX_SHARD=4
     - <<: *integration-test
       env: MATRIX_SHARD=5
-    - <<: *integration-test
-      env: MATRIX_SHARD=generative-unit
-    - <<: *integration-test
-      env: MATRIX_SHARD=generative-integration
     - stage: deploy
       language: python
       python: 3.6
