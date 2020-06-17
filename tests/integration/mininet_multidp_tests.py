@@ -1826,6 +1826,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         """Test LACP MCLAG after cold start"""
         lacp_host_links = [0, 0, 1, 1]
         self.set_up(lacp_host_links)
+        # Perform initial test
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
 
@@ -1854,6 +1855,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         """Test LACP MCLAG after a warm start"""
         lacp_host_links = [0, 0, 1, 1]
         self.set_up(lacp_host_links)
+        # Perform initial test
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
 
@@ -1882,6 +1884,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         """Test LACP MCLAG after a port gets restarted"""
         lacp_host_links = [0, 0, 1, 1]
         self.set_up(lacp_host_links)
+        # Perform initial test
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
 
