@@ -1837,7 +1837,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         # Force cold start on switch by changing native VLAN of host0, no hosts on SW1 have VLAN 0
         conf = self._get_faucet_conf()
         interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
-        interfaces_conf[self.host_port_maps[0]]['native_vlan'] = self.topo.vlan_name(1)
+        interfaces_conf[self.host_port_maps[0][0][0]]['native_vlan'] = self.topo.vlan_name(1)
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
             cold_start=True, change_expected=False)
@@ -1866,7 +1866,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         # Force warm start on switch by changing native VLAN of host1
         conf = self._get_faucet_conf()
         interfaces_conf = conf['dps'][self.topo.switches_by_id[0]]['interfaces']
-        interfaces_conf[self.host_port_maps[1]]['native_vlan'] = self.topo.vlan_name(0)
+        interfaces_conf[self.host_port_maps[1][0][0]]['native_vlan'] = self.topo.vlan_name(0)
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
             cold_start=True, change_expected=False)
