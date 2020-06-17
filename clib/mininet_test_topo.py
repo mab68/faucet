@@ -329,7 +329,7 @@ class BaseFAUCET(Controller):
     tmpdir = None
     ofcap = None
     MAX_OF_PKTS = 5000
-    MAX_CTL_TIME = 600
+    MAX_CTL_TIME = 3600
 
     BASE_CARGS = ' '.join((
         '--verbose',
