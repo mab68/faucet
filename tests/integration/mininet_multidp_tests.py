@@ -1880,22 +1880,22 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.restart_on_down_lag_port(0, 1)
         self.verify_lag_host_connectivity()
 
-    def test_mclag_portrestart(self):
-        """Test LACP MCLAG after a port gets restarted"""
-        lacp_host_links = [0, 0, 1, 1]
-        self.set_up(lacp_host_links)
-        self.verify_stack_up()
-        self.verify_lag_host_connectivity()
-        chosen_dpid = self.dpids[0]
-        port_no = self.host_port_maps[self.LACP_HOST][0][0]
-        self.set_port_down(port_no, chosen_dpid)
-        self.set_port_up(port_no, chosen_dpid)
-        for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
-            dpid = self.topo.dpids_by_id[dp_i]
-            for port in ports:
-                if dpid != chosen_dpid and port != port_no:
-                    self.set_port_down(port, dpid)
-        self.verify_lag_host_connectivity()
+    # def test_mclag_portrestart(self):
+    #     """Test LACP MCLAG after a port gets restarted"""
+    #     lacp_host_links = [0, 0, 1, 1]
+    #     self.set_up(lacp_host_links)
+    #     self.verify_stack_up()
+    #     self.verify_lag_host_connectivity()
+    #     chosen_dpid = self.dpids[0]
+    #     port_no = self.host_port_maps[self.LACP_HOST][0][0]
+    #     self.set_port_down(port_no, chosen_dpid)
+    #     self.set_port_up(port_no, chosen_dpid)
+    #     for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
+    #         dpid = self.topo.dpids_by_id[dp_i]
+    #         for port in ports:
+    #             if dpid != chosen_dpid and port != port_no:
+    #                 self.set_port_down(port, dpid)
+    #     self.verify_lag_host_connectivity()
 
 
 class FaucetSingleLAGOnUniqueVLANTest(FaucetSingleLAGTest):
