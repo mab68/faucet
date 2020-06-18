@@ -1848,12 +1848,12 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
             for port in ports:
                 self.set_port_down(port, self.dpids[dp_i], wait=False)
 
-        # Set a single LAG port back UP
-        chosen_dpid = self.dpids[0]
-        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], chosen_dpid)
-        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][1], chosen_dpid)
+        # # Set a single LAG port back UP
+        # chosen_dpid = self.dpids[0]
+        # self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], chosen_dpid)
+        # self.set_port_up(self.host_port_maps[self.LACP_HOST][0][1], chosen_dpid)
 
-        self.verify_lag_host_connectivity()
+        # self.verify_lag_host_connectivity()
 
     def test_mclag_portrestart(self):
         """Test LACP MCLAG after a port gets restarted"""
@@ -1868,12 +1868,12 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
             for port in ports:
                 self.set_port_down(port, self.dpids[dp_i], wait=False)
 
-        # Set a single LAG port back UP
-        chosen_dpid = self.dpids[0]
-        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], chosen_dpid)
-        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][1], chosen_dpid)
+        # # Set a single LAG port back UP
+        # chosen_dpid = self.dpids[0]
+        # self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], chosen_dpid)
+        # self.set_port_up(self.host_port_maps[self.LACP_HOST][0][1], chosen_dpid)
 
-        self.verify_lag_host_connectivity()
+        # self.verify_lag_host_connectivity()
 
 
 class FaucetSingleLAGOnUniqueVLANTest(FaucetSingleLAGTest):
