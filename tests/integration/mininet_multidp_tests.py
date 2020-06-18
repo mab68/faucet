@@ -1841,7 +1841,7 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
             cold_start=False, change_expected=False)
-        host_information.pop(1)
+        self.host_information.pop(1)
 
         # Bring down all LAG ports
         for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
