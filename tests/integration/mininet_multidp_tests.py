@@ -1843,10 +1843,10 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
             cold_start=False, change_expected=False)
         self.host_information.pop(1)
 
-        # Bring down all LAG ports
-        for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
-            for port in ports:
-                self.set_port_down(port, self.dpids[dp_i], wait=False)
+        # # Bring down all LAG ports
+        # for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
+        #     for port in ports:
+        #         self.set_port_down(port, self.dpids[dp_i], wait=False)
 
         # # Set a single LAG port back UP
         # chosen_dpid = self.dpids[0]
@@ -1863,10 +1863,10 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
 
-        # Bring down all LAG ports
-        for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
-            for port in ports:
-                self.set_port_down(port, self.dpids[dp_i], wait=False)
+        # # Bring down all LAG ports
+        # for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
+        #     for port in ports:
+        #         self.set_port_down(port, self.dpids[dp_i], wait=False)
 
         # # Set a single LAG port back UP
         # chosen_dpid = self.dpids[0]
