@@ -1842,8 +1842,8 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
             conf, self.faucet_config_path, restart=True,
             cold_start=False, change_expected=False)
 
-        # # Bring LAG back UP
-        # self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0])
+        # Bring LAG back UP
+        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0])
 
         # # Bring down LAG ports on adjacent switch
         # for port_no in self.host_port_maps[self.LACP_HOST][1]:
