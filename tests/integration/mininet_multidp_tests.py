@@ -1830,9 +1830,9 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
 
-    #     # Take down single LAG port
-    #     self.set_port_down(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0])
-    #     self.verify_num_lag_up_ports(1, self.dpids[0])
+        # Take down single LAG port
+        self.set_port_down(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0])
+        self.verify_num_lag_up_ports(1, self.dpids[0])
 
     #     # Force warm start on switch by changing native VLAN of host1
     #     conf = self._get_faucet_conf()
@@ -1859,11 +1859,11 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
 
-    #     # Restart LAG port
-    #     chosen_dpid = self.dpids[0]
-    #     port_no = self.host_port_maps[self.LACP_HOST][0][0]
-    #     self.set_port_down(port_no, chosen_dpid)
-    #     self.set_port_up(port_no, chosen_dpid)
+        # Restart LAG port
+        chosen_dpid = self.dpids[0]
+        port_no = self.host_port_maps[self.LACP_HOST][0][0]
+        self.set_port_down(port_no, chosen_dpid)
+        self.set_port_up(port_no, chosen_dpid)
 
     #     # Bring down LAG ports on adjacent switch
     #     for port_no in self.host_port_maps[self.LACP_HOST][1]:
