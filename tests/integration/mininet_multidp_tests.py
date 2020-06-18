@@ -1841,15 +1841,19 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.reload_conf(
             conf, self.faucet_config_path, restart=True,
             cold_start=False, change_expected=False)
+        host_information.pop(1)
 
-        # Bring LAG back UP
-        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0], wait=False)
+        # Bring down all LAG ports
+        for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
+            for port in ports:
+                self.set_port_down(port, self.dpids[dp_i], wait=False)
 
-        # # Bring down LAG ports on adjacent switch
-        # for port_no in self.host_port_maps[self.LACP_HOST][1]:
-        #     self.set_port_down(port_no, self.dpids[1])
+        # Set a single LAG port back UP
+        chosen_dpid = self.dpids[0]
+        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], chosen_dpid)
+        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][1], chosen_dpid)
 
-        # #self.verify_lag_host_connectivity()
+        self.verify_lag_host_connectivity()
 
     def test_mclag_portrestart(self):
         """Test LACP MCLAG after a port gets restarted"""
@@ -1859,15 +1863,15 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
 
-        # Restart LAG port
-        chosen_dpid = self.dpids[0]
-        port_no = self.host_port_maps[self.LACP_HOST][0][0]
-        self.set_port_down(port_no, chosen_dpid, wait=False)
-        self.set_port_up(port_no, chosen_dpid, wait=False)
+        # Bring down all LAG ports
+        for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
+            for port in ports:
+                self.set_port_down(port, self.dpids[dp_i], wait=False)
 
-        # Bring down LAG ports on adjacent switch
-        for port_no in self.host_port_maps[self.LACP_HOST][1]:
-            self.set_port_down(port_no, self.dpids[1], wait=False)
+        # Set a single LAG port back UP
+        chosen_dpid = self.dpids[0]
+        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], chosen_dpid)
+        self.set_port_up(self.host_port_maps[self.LACP_HOST][0][1], chosen_dpid)
 
         self.verify_lag_host_connectivity()
 
