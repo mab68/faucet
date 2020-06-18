@@ -1826,12 +1826,13 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         """Test LACP MCLAG after a warm start"""
         lacp_host_links = [0, 0, 1, 1]
         self.set_up(lacp_host_links)
+
         # Perform initial test
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
 
         # Take down single LAG port
-        self.set_port_down(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0], wait=False)
+        self.set_port_down(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0])
         self.verify_num_lag_up_ports(1, self.dpids[0])
 
         # Force warm start on switch by changing native VLAN of host1
@@ -1843,37 +1844,28 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
             cold_start=False, change_expected=False)
         self.host_information.pop(1)
 
-        # # Bring down all LAG ports
-        # for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
-        #     for port in ports:
-        #         self.set_port_down(port, self.dpids[dp_i], wait=False)
+        # Set a single LAG port back UP
+        self.set_port_down(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0])
+        self.verify_num_lag_up_ports(2, self.dpids[0])
 
-        # # Set a single LAG port back UP
-        # chosen_dpid = self.dpids[0]
-        # self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], chosen_dpid)
-        # self.set_port_up(self.host_port_maps[self.LACP_HOST][0][1], chosen_dpid)
-
-        # self.verify_lag_host_connectivity()
+        self.verify_lag_host_connectivity()
 
     def test_mclag_portrestart(self):
         """Test LACP MCLAG after a port gets restarted"""
         lacp_host_links = [0, 0, 1, 1]
         self.set_up(lacp_host_links)
+
         # Perform initial test
         self.verify_stack_up()
         self.verify_lag_host_connectivity()
 
-        # # Bring down all LAG ports
-        # for dp_i, ports in self.host_port_maps[self.LACP_HOST].items():
-        #     for port in ports:
-        #         self.set_port_down(port, self.dpids[dp_i], wait=False)
+        self.set_port_down(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0])
+        self.verify_num_lag_up_ports(1, self.dpids[0])
 
-        # # Set a single LAG port back UP
-        # chosen_dpid = self.dpids[0]
-        # self.set_port_up(self.host_port_maps[self.LACP_HOST][0][0], chosen_dpid)
-        # self.set_port_up(self.host_port_maps[self.LACP_HOST][0][1], chosen_dpid)
+        self.set_port_down(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0])
+        self.verify_num_lag_up_ports(2, self.dpids[0])
 
-        # self.verify_lag_host_connectivity()
+        self.verify_lag_host_connectivity()
 
 
 class FaucetSingleLAGOnUniqueVLANTest(FaucetSingleLAGTest):
