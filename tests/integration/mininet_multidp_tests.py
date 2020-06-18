@@ -1822,13 +1822,13 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
         self.verify_stack_up()
         self.verify_lag_connectivity(self.LACP_HOST)
 
-    # def test_mclag_warmstart(self):
-    #     """Test LACP MCLAG after a warm start"""
-    #     lacp_host_links = [0, 0, 1, 1]
-    #     self.set_up(lacp_host_links)
-    #     # Perform initial test
-    #     self.verify_stack_up()
-    #     self.verify_lag_host_connectivity()
+    def test_mclag_warmstart(self):
+        """Test LACP MCLAG after a warm start"""
+        lacp_host_links = [0, 0, 1, 1]
+        self.set_up(lacp_host_links)
+        # Perform initial test
+        self.verify_stack_up()
+        self.verify_lag_host_connectivity()
 
     #     # Take down single LAG port
     #     self.set_port_down(self.host_port_maps[self.LACP_HOST][0][0], self.dpids[0])
@@ -1851,13 +1851,13 @@ class FaucetSingleLAGTest(FaucetTopoTestBase):
 
     #     #self.verify_lag_host_connectivity()
 
-    # def test_mclag_portrestart(self):
-    #     """Test LACP MCLAG after a port gets restarted"""
-    #     lacp_host_links = [0, 0, 1, 1]
-    #     self.set_up(lacp_host_links)
-    #     # Perform initial test
-    #     self.verify_stack_up()
-    #     self.verify_lag_host_connectivity()
+    def test_mclag_portrestart(self):
+        """Test LACP MCLAG after a port gets restarted"""
+        lacp_host_links = [0, 0, 1, 1]
+        self.set_up(lacp_host_links)
+        # Perform initial test
+        self.verify_stack_up()
+        self.verify_lag_host_connectivity()
 
     #     # Restart LAG port
     #     chosen_dpid = self.dpids[0]

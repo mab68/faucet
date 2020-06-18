@@ -115,7 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        MATRIX_SHARD: [3, 4]
+        MATRIX_SHARD: [0, 1, 2, 3, 4, 5]
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
