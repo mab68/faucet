@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
@@ -70,6 +72,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
@@ -119,6 +123,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
@@ -180,6 +186,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
@@ -225,6 +233,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
