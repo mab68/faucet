@@ -20,9 +20,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Get file changes
+      - if: ${{ github.head_ref }}
+        name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
         with:
@@ -33,7 +32,7 @@ jobs:
           FILES_CHANGED="${{ steps.file_changes.outputs.files }}"
           PY_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E ".py$" | tr '\n' ' ')
           RQ_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "requirements(.*)txt$" | tr '\n' ' ')
-          DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/*" | tr '\n' ' ')
+          DOC_FILES_CHANGED=$(echo "${{ steps.file_changes.outputs.files }}" | tr ' ' '\n' | grep -E "docs/**" | tr '\n' ' ')
           echo "Files changed: ${FILES_CHANGED}"
           echo "Python code changed: ${PY_FILES_CHANGED}"
           echo "Requirement changes: ${RQ_FILES_CHANGED}"
@@ -74,7 +73,8 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Get file changes
+      - if: ${{ github.head_ref }}
+        name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
         with:
@@ -123,9 +123,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Get file changes
+      - if: ${{ github.head_ref }}
+        name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
         with:
@@ -186,9 +185,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Get file changes
+      - if: ${{ github.head_ref }}
+        name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
         with:
@@ -233,9 +231,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Get file changes
+      - if: ${{ github.head_ref }}
+        name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
         with:
