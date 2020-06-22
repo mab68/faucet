@@ -7,7 +7,7 @@ env:
   SHARDARGS: "--privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --ulimit core=99999999999:99999999999 -v /var/local/lib/docker:/var/lib/docker"
   FILES_CHANGED: "all"
   CODECHECK_PY_VER: 3.6
-  MATRIX_SHARDS: 12
+  MATRIX_SHARDS: 3
 
 jobs:
 
@@ -119,7 +119,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        MATRIX_SHARD: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        MATRIX_SHARD: [0, 1, 2]
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
