@@ -135,3 +135,60 @@ jobs:
           if [ ls -1 /var/tmp/core* > /dev/null 2>&1 ]; then
             exit 1
           fi
+
+  tolerance-tests:
+    name: Tolerance tests
+    runs-on: ubuntu-latest
+    needs: sanity-tests
+    strategy:
+      matrix:
+        MATRIX_SHARD: [--generative_unit, --generative_integration]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+      - if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
+        name: Get file changes
+        id: file_changes
+        uses: lots0logs/gh-action-get-changed-files@2.1.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - if: ${{ steps.file_changes.outputs.all }}
+        name: Compare file changes
+        run: |
+          FILES_ALL="$(echo '${{ steps.file_changes.outputs.all }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_ADDED="$(echo '${{ steps.file_changes.outputs.added }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_DELETED="$(echo '${{ steps.file_changes.outputs.deleted }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_RENAMED="$(echo '${{ steps.file_changes.outputs.renamed }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_MODIFIED="$(echo '${{ steps.file_changes.outputs.modified }}' | jq -r '.[]' | tr '\n' ' ')"
+          FILES_ADDED_MODIFIED="${FILES_ADDED} ${FILES_MODIFIED}"
+          PY_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '\.py$' | tr '\n' ' ')"
+          CI_TEST_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '(workflows\/tests-.+\.yml$|Dockerfile\.tests$|^docker\/.+$|tests\/.+\.sh$)' | tr '\n' ' ')"
+          RQ_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E 'requirements(.*)txt$' | tr '\n' ' ')"
+          DOC_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '^docs/.+$' | tr '\n' ' ')"
+          TOLERANCE_FILES_CHANGED="$(echo ${FILES_ADDED_MODIFIED} | tr ' ' '\n' | grep -E '^tests/generative/.+$' | tr '\n' ' ')"
+          echo "Files changed: ${FILES_ADDED_MODIFIED}"
+          echo "CI test files changed: ${CI_TEST_FILES_CHANGED}"
+          echo "Python code changed: ${PY_FILES_CHANGED}"
+          echo "Requirement changes: ${RQ_FILES_CHANGED}"
+          echo "Documentation changes: ${DOC_FILES_CHANGED}"
+          echo ::set-env name=PY_FILES_CHANGED::${PY_FILES_CHANGED}
+          echo ::set-env name=RQ_FILES_CHANGED::${RQ_FILES_CHANGED}
+          echo ::set-env name=DOC_FILES_CHANGED::${DOC_FILES_CHANGED}
+          echo ::set-env name=TOLERANCE_FILES_CHANGED::${TOLERANCE_FILES_CHANGED}
+      - if: ${{ env.TOLERANCE_FILES_CHANGED }}
+        name: Build docker
+        run: |
+          docker build --pull -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
+      - if: ${{ env.TOLERANCE_FILES_CHANGED }}
+        name: Run docker
+        run: |
+          ulimit -c unlimited
+          echo '/var/tmp/core.%h.%e.%t' | sudo tee /proc/sys/kernel/core_pattern
+          sudo modprobe openvswitch
+          sudo modprobe ebtables
+          sudo docker run ${SHARDARGS} -e FAUCET_TESTS="${{ matrix.MATRIX_SHARD }}" -t ${FAUCET_TEST_IMG}
+      - name: Detect core dumps
+        run: |
+          if [ ls -1 /var/tmp/core* > /dev/null 2>&1 ]; then
+            exit 1
+          fi
