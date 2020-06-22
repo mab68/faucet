@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
-      - if: ${{ github.head_ref }}
+      - if: ${{ github.event.before }}
         name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
