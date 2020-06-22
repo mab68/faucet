@@ -50,6 +50,20 @@ class ValveGenerativeBase(ValveTestBases.ValveTestNetwork):
 
     serial = 0
 
+    @staticmethod
+    def create_bcast_match(in_port, in_vid=None):
+        """Return bcast match"""
+        bcast_match = {
+            'in_port': in_port,
+            'eth_dst': mac.BROADCAST_STR,
+            'eth_type': 0x0800,
+            'ip_proto': 1
+        }
+        if in_vid:
+            in_vid = in_vid | ofp.OFPVID_PRESENT
+            bcast_match['vlan_vid'] = in_vid
+        return bcast_match
+
     def get_serialno(self, *_args, **_kwargs):
         """"Return mock serial number"""
         self.serial += 1
@@ -79,6 +93,23 @@ class ValveGenerativeBase(ValveTestBases.ValveTestNetwork):
             get_serialno=self.get_serialno)
         config = topo.get_config(self.NUM_VLANS, dp_options=dp_options)
         return topo, config
+
+    def verify_traversal(self):
+        """Verify broadcasts flooding reach all destination hosts"""
+        _, host_port_maps, _ = self.topo.create_port_maps()
+        for src_host in host_port_maps:
+            for dst_host in host_port_maps:
+                if src_host == dst_host:
+                    continue
+                src_dpid, src_port, dst_dpid, dst_port = None, None, None, None
+                for switch_n, ports in host_port_maps[src_host].items():
+                    src_dpid = self.topo.dpids_by_id[switch_n]
+                    src_port = ports[0]
+                for switch_n, ports in host_port_maps[dst_host].items():
+                    dst_dpid = self.topo.dpids_by_id[switch_n]
+                    dst_port = ports[0]
+                match = self.create_bcast_match(src_port)
+                self.network.is_output(match, int(src_dpid), int(dst_dpid), port=dst_port)
 
 
 class ValveTopologyRestartTest(ValveGenerativeBase):
@@ -164,36 +195,28 @@ class ValveTopologyTableTest(ValveGenerativeBase):
         self.setup_valves(self.CONFIG)
         self.verify_traversal()
 
-    @staticmethod
-    def create_bcast_match(in_port, in_vid=None):
-        """Return bcast match"""
-        bcast_match = {
-            'in_port': in_port,
-            'eth_dst': mac.BROADCAST_STR,
-            'eth_type': 0x0800,
-            'ip_proto': 1
-        }
-        if in_vid:
-            in_vid = in_vid | ofp.OFPVID_PRESENT
-            bcast_match['vlan_vid'] = in_vid
-        return bcast_match
 
-    def verify_traversal(self):
-        """Verify broadcasts flooding reach all destination hosts"""
-        _, host_port_maps, _ = self.topo.create_port_maps()
-        for src_host in host_port_maps:
-            for dst_host in host_port_maps:
-                if src_host == dst_host:
-                    continue
-                src_dpid, src_port, dst_dpid, dst_port = None, None, None, None
-                for switch_n, ports in host_port_maps[src_host].items():
-                    src_dpid = self.topo.dpids_by_id[switch_n]
-                    src_port = ports[0]
-                for switch_n, ports in host_port_maps[dst_host].items():
-                    dst_dpid = self.topo.dpids_by_id[switch_n]
-                    dst_port = ports[0]
-                match = self.create_bcast_match(src_port)
-                self.network.is_output(match, int(src_dpid), int(dst_dpid), port=dst_port)
+class ValveTopologySpineLeafTest(ValveGenerativeBase):
+    """Generative testing of Faucet with Spine & Leaf topologies"""
+
+    topo = None
+    NUM_DPS = 2
+    NUM_VLANS = 1
+    NUM_HOSTS = 1
+    SWITCH_TO_SWITCH_LINKS = 1
+
+    def set_up(self, topology_nodes):
+        """
+        Args:
+            topology_nodes (tuple): (Number of spine nodes, number of leaf nodes)
+        """
+        self.spine_nodes, self.leaf_nodes = topology_nodes
+        self.NUM_DPS = self.spine_nodes + self.leaf_nodes
+        network_graph = networkx.generators.classic.complete_multipartite_graph(
+            self.spine_nodes, self.leaf_nodes)
+        self.topo, self.CONFIG = self.create_topo_config(network_graph)
+        self.setup_valves(self.CONFIG)
+        self.verify_traversal()
 
 
 def test_generator(param):
@@ -204,11 +227,21 @@ def test_generator(param):
     return test
 
 
+def sums(length, total_sum):
+    if length == 1:
+        yield (total_sum,)
+    else:
+        for value in range(total_sum + 1):
+            for permutation in sums(length - 1, total_sum - value):
+                yield (value,) + permutation
+
+
 if __name__ == '__main__':
+    # Generate generative tests of all non-isomorphic, complete toplogies with 7 nodes or less
     GRAPHS = {}
     GRAPH_ATLAS = graph_atlas_g()
     for graph in GRAPH_ATLAS:
-        if (not graph or len(graph.nodes()) < 2 or not networkx.is_connected(graph)):
+        if not graph or len(graph.nodes()) < 2 or not networkx.is_connected(graph):
             continue
         GRAPHS.setdefault(graph.number_of_nodes(), [])
         GRAPHS[graph.number_of_nodes()].append(graph)
@@ -226,4 +259,44 @@ if __name__ == '__main__':
                 test_func = test_generator(test_nl)
                 setattr(test_class, test_name, test_func)
                 batch += 1
+
+    # Iteratively generate spine & leaf networks until `MAX_SL_TESTS` stopping point
+    # By testing all non-isomorphic topologies up to (and including) 7 nodes,
+    #   SPINE_NODES + LEAF_NODES <= 7 are already tested
+    MAX_Sl_TESTS = 100
+    current_sl_nodes = 8
+    current_sl_tests = 0
+    # Loop until we have reached a desired number of tests
+    while current_sl_tests <= MAX_Sl_TESTS:
+        # Get permutations of numbers that sum to the current number of nodes
+        # The current number of nodes will be split between the two partites of the topology
+        for topology_nodes in sums(2, current_sl_nodes):
+            if 0 in topology_nodes or topology_nodes[0] > topology_nodes[1]:
+                # Ignore empty partites or inverse solutions
+                continue
+            test_name = 'test_%s_%s_spine_and_%s_leaf_topology' % (
+                current_sl_tests, topology_nodes[0], topology_nodes[1])
+            test_func = test_generator(topology_nodes)
+            setattr(ValveTopologySpineLeafTest, test_name, test_func)
+            current_sl_tests += 1
+            if current_sl_tests > MAX_Sl_TESTS:
+                break
+        # Increase current number of nodes
+        current_sl_nodes += 1
+
+    # Create new tests that are copies of the previous tests but test with redundant links
+    ValveTopologyVLANMultilinkTest = type(
+        'ValveTopologyVLANMultilinkTest', (ValveTopologyVLANTest,), {})
+    ValveTopologyVLANMultilinkTest.SWITCH_TO_SWITCH_LINKS = 2
+    ValveTopologyTableMultilinkTest = type(
+        'ValveTopologyTableMultilinkTest', (ValveTopologyTableTest,), {})
+    ValveTopologyTableMultilinkTest.SWITCH_TO_SWITCH_LINKS = 2
+    ValveTopologyRestartMultilinkTest = type(
+        'ValveTopologyRestartMultilinkTest', (ValveTopologyRestartTest,), {})
+    ValveTopologyRestartMultilinkTest.SWITCH_TO_SWITCH_LINKS = 2
+    ValveTopologySpineLeafMultilinkTest = type(
+        'ValveTopologySpineLeafMultilinkTest', (ValveTopologySpineLeafTest,), {})
+    ValveTopologySpineLeafMultilinkTest.SWITCH_TO_SWITCH_LINKS = 2
+
+    # Run unit tests
     unittest.main()

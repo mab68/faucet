@@ -12,6 +12,7 @@ RUN \
   apt-get update && \
   apt-get install -y afl cython3 && \
   $PIP3 -r requirements.txt && \
+  $PIP3 -r test-requirements.txt && \
   $PIP3 -r fuzz-requirements.txt && \
   $PIP3 .
 

@@ -1,6 +1,21 @@
 #!/bin/sh
-dictfile="/faucet-src/tests/fuzzer/dict/config.dict"
-inputfile="/faucet-src/tests/fuzzer/config/"
+
+cd /faucet-src
+
+./docker/pip_deps.sh
+pip3 install ./
+pip3 show faucet
+
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.en
+export LC_ALL=en_US.UTF-8
+
+export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
+
+python3 /faucet-src/tests/generative/fuzzer/config/generate_dict.py
+
+dictfile="/faucet-src/tests/generative/fuzzer/config/config.dict"
+inputfile="/faucet-src/tests/generative/fuzzer/config/ex/"
 outputfile="/var/log/afl"
 checkfile="$outputfile/fuzzer_stats"
 
