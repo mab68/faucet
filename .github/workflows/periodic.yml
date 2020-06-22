@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
-      - if: ${{ github.event.before }}
+      - if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
         name: Get file changes
         id: file_changes
         uses: trilom/file-changes-action@v1.2.4
