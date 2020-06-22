@@ -49,6 +49,9 @@ jobs:
         run: |
           echo "${{ github.head_ref }}"
           echo "${{ github.base_ref }}"
+          echo "${GITHUB_REF}"
+          echo "${GITHUB_HEAD_REF}"
+          echo "${GITHUB_BASE_REF}"
           ./docker/pip_deps.sh
           pip3 install ./
           pip3 show faucet
