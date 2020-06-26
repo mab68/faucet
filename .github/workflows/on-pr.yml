@@ -23,6 +23,10 @@ jobs:
       - name: Check warning
         run: |
           cat ${GITHUB_EVENT_PATH}
+      - if: ${{ github.event.action == 'synchronize' }}
+        name: Stuff
+        run: |
+          echo "TESTING...."
       - if: ${{ github.event.before != '0000000000000000000000000000000000000000' }}
         name: Get file changes
         id: file_changes
