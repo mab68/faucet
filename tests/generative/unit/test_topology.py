@@ -212,7 +212,7 @@ class ValveTopologySpineLeafTest(ValveGenerativeBase):
         """
         self.spine_nodes, self.leaf_nodes = topology_nodes
         self.NUM_DPS = self.spine_nodes + self.leaf_nodes
-        network_graph = networkx.generators.classic.complete_multipartite_graph(
+        network_graph = networkx.complete_multipartite_graph(
             self.spine_nodes, self.leaf_nodes)
         self.topo, self.CONFIG = self.create_topo_config(network_graph)
         self.setup_valves(self.CONFIG)
@@ -263,7 +263,7 @@ if __name__ == '__main__':
     # Iteratively generate spine & leaf networks until `MAX_SL_TESTS` stopping point
     # By testing all non-isomorphic topologies up to (and including) 7 nodes,
     #   SPINE_NODES + LEAF_NODES <= 7 are already tested
-    MAX_Sl_TESTS = 100
+    MAX_Sl_TESTS = 5
     current_sl_nodes = 8
     current_sl_tests = 0
     # Loop until we have reached a desired number of tests
