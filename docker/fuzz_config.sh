@@ -4,7 +4,7 @@ echo "FUZZING FAUCET CONFIGURATION FILE"
 
 cd /faucet-src
 
-pip3 install --upgrade setuptools
+pip3 install --user --upgrade setuptools
 ./docker/pip_deps.sh
 pip3 install ./
 pip3 show faucet
