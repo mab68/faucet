@@ -1,7 +1,10 @@
 #!/bin/sh
 
+echo "FUZZING FAUCET CONFIGURATION FILE"
+
 cd /faucet-src
 
+pip3 install --upgrade setuptools
 ./docker/pip_deps.sh
 pip3 install ./
 pip3 show faucet
@@ -15,7 +18,7 @@ export PYTHONPATH=/faucet-src:/faucet-src/faucet:/faucet-src/clib
 python3 /faucet-src/tests/generative/fuzzer/config/generate_dict.py
 
 dictfile="/faucet-src/tests/generative/fuzzer/config/config.dict"
-inputfile="/faucet-src/tests/generative/fuzzer/config/ex/"
+inputfile="/faucet-src/tests/generative/fuzzer/config/examples/"
 outputfile="/var/log/afl"
 checkfile="$outputfile/fuzzer_stats"
 
