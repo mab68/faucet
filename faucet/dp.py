@@ -33,6 +33,7 @@ from faucet.conf import Conf, test_config_condition
 from faucet.faucet_pipeline import ValveTableConfig
 from faucet.valve import SUPPORTED_HARDWARE
 from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet.stack import Stack
 
 
 # Documentation generated using documentation_generator.py
@@ -220,10 +221,6 @@ configuration.
         'flood': int,
     }
 
-    stack_defaults_types = {
-        'priority': int,
-    }
-
     lldp_beacon_defaults_types = {
         'send_interval': int,
         'max_per_interval': int,
@@ -315,8 +312,6 @@ configuration.
         self.ports = {}
         self.routers = {}
 
-        self.stack_ports = []
-
         self.hairpin_ports = []
         self.output_only_ports = []
         self.lldp_beacon_ports = []
@@ -377,13 +372,12 @@ configuration.
             self.learn_jitter = int(max(math.sqrt(self.timeout) * 3, 1))
         if self.learn_ban_timeout == 0:
             self.learn_ban_timeout = self.learn_jitter
-        if self.stack:
-            self._check_conf_types(self.stack, self.stack_defaults_types)
         if self.lldp_beacon:
             self._lldp_defaults()
         if self.dot1x:
             self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
         self._check_conf_types(self.table_sizes, self.default_table_sizes_types)
+        self.stack = Stack('stack', self.dp_id, self.name, self.canonical_port_order, self.stack)
 
     def _lldp_defaults(self):
         self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
@@ -656,10 +650,15 @@ configuration.
     def non_vlan_ports(self):
         """Ports that don't have VLANs on them."""
         ports = set()
-        # TODO: stack refactor
-        for non_vlan in (self.output_only_ports, self.stack_ports, self.coprocessor_ports()):
+        for non_vlan in (self.output_only_ports, self.stack_ports(), self.coprocessor_ports()):
             ports.update(set(non_vlan))
         return ports
+
+    def stack_ports(self):
+        """Return list of stack ports"""
+        if self.stack:
+            return tuple(self.stack.ports)
+        return []
 
     def coprocessor_ports(self):
         """Return list of coprocessor ports."""
@@ -693,15 +692,7 @@ configuration.
 
     def all_lags_up(self):
         """Return True if all LAGs have at least one port up."""
-        return set(self.lags()) == set(self.lags_up())
-
-    def any_stack_port_up(self):
-        """Return True if any stack port is up."""
-        # TODO: stack refactor
-        for port in self.stack_ports:
-            if port.is_stack_up():
-                return True
-        return False
+        return set(self.lags()) == set(self.lags_up())        
 
     def add_acl(self, acl_ident, acl):
         """Add an ACL to this DP."""
@@ -718,8 +709,7 @@ configuration.
         if port.output_only:
             self.output_only_ports.append(port)
         if port.stack:
-            # TODO: stack refactor
-            self.stack_ports.append(port)
+            self.stack.add_port(port)
         if port.lldp_beacon_enabled():
             self.lldp_beacon_ports.append(port)
         if port.hairpin or port.hairpin_unicast:
@@ -732,7 +722,7 @@ configuration.
         send_ports = []
         if self.lldp_beacon:
             priority_ports = {
-                port for port in self.stack_ports
+                port for port in self.stack_ports()
                 if port.running() and port.lldp_beacon_enabled()}
             cutoff_beacon_time = now - self.lldp_beacon['send_interval']
             nonpriority_ports = {
@@ -750,11 +740,15 @@ configuration.
 
     def resolve_stack_topology(self, dps, meta_dp_state):
         """Resolve inter-DP config for stacking"""
-        # TODO: Test for priority on DP
-        # TODO: Test for stack ports
-        self.stack = Stack()
-        # TODO: resolve tunnel acls
-        self.finalize_tunnel_acls(dps)
+        if self.stack:
+            self.stack.resolve_topology(dps, meta_dp_state)
+            for dp in dps:
+                # Must set externals flag for entire stack.
+                if dp.stack and dp.has_externals:
+                    self.has_externals = True
+                    break
+        if self.tunnel_acls:
+            self.finalize_tunnel_acls(dps)
 
     def finalize_tunnel_acls(self, dps):
         """Resolve each tunnels sources"""
@@ -773,6 +767,10 @@ configuration.
                 if not source:
                     self.tunnel_acls.remove(tunnel_acl)
 
+    @staticmethod
+    def canonical_port_order(ports):
+        return sorted(ports, key=lambda x: x.number)
+
     def reset_refs(self, vlans=None):
         """Resets VLAN references."""
         if vlans is None:
@@ -785,7 +783,7 @@ configuration.
             vlan.reset_ports(self.ports.values())
             if (vlan.get_ports() or vlan.reserved_internal_vlan or
                     vlan.dot1x_assigned or vlan._id in router_vlans or
-                    self.is_transit_stack_switch()):
+                    self.stack_ports()):
                 self.vlans[vlan.vid] = vlan
 
     def resolve_port(self, port_name):
@@ -850,10 +848,9 @@ configuration.
 
         def resolve_stack_dps():
             """Resolve DP references in stacking config."""
-            # TODO: Stack refactor
-            if self.stack_ports:
+            if self.stack_ports():
                 port_stack_dp = {}
-                for port in self.stack_ports:
+                for port in self.stack_ports():
                     stack_dp = port.stack['dp']
                     test_config_condition(stack_dp not in dp_by_name, (
                         'stack DP %s not defined' % stack_dp))
@@ -1109,12 +1106,15 @@ configuration.
                 test_config_condition(
                     len(bgp_ports) != 1, 'BGP ports must all be the same: %s' % bgp_ports)
 
-        if self.stack_ports or self.stack:
-            # TODO: stack refactor
+        if not self.stack_ports():
+            # Revert back to None if there are no stack ports
+            self.stack = None
+        if self.stack:
+            # Set LLDP defaults for when stacking is configured
             self._lldp_defaults()
 
         test_config_condition(
-            not self.vlans and not self.stack_ports,
+            not self.vlans and not self.stack_ports(),
             'no VLANs referenced by interfaces in %s' % self.name)
         dp_by_name = {dp.name: dp for dp in dps}
         vlan_by_name = {vlan.name: vlan for vlan in self.vlans.values()}
@@ -1128,8 +1128,6 @@ configuration.
                 dp_index = dps.index(self)
                 port.lacp_port_id = dp_index * 100 + port.number
 
-        # TODO: stack refactor
-        # TODO: Initialize self.stack = Stack()
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_acls()
@@ -1273,14 +1271,13 @@ configuration.
         changed_acl_ports = set()
         all_ports_changed = False
 
-        # TODO: stack refactor
         topology_changed = False
-        if self.stack_graph:
-            topology_changed = bool(self.hash_graph(self.stack_graph) != self.hash_graph(new_dp.stack_graph))
+        if self.stack:
+            topology_changed = bool(self.stack.hash() != new_dp.stack.hash())
         if topology_changed:
             # Topology changed so restart stack ports just to be safe
             stack_ports = [
-                port.number for port in new_dp.stack_ports
+                port.number for port in new_dp.stack_ports()
                 if port.number not in deleted_ports and
                 port.number not in added_ports]
             changed_ports.update(set(stack_ports))
@@ -1433,7 +1430,7 @@ configuration.
         """
         if new_dp._table_configs() != self._table_configs():
             logger.info('pipeline table config change - requires cold start')
-        elif new_dp.stack_root_name != self.stack_root_name:
+        elif new_dp.stack.root_name != self.stack.root_name:
             logger.info('Stack root change - requires cold start')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
