@@ -1097,7 +1097,7 @@ class Valve:
                 'packet with all zeros eth_src %s port %u' % (
                     pkt_meta.eth_src, in_port))
             return None
-        if self.dp.stack.graph:
+        if self.dp.stack and self.dp.stack.graph:
             if (not pkt_meta.port.stack and
                     pkt_meta.vlan and
                     pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
@@ -1253,7 +1253,7 @@ class Valve:
             ofmsgs = []
             ofmsgs.extend(valve.learn_host(now, pkt_meta, other_valves))
             ofmsgs.extend(valve.router_rcv_packet(now, pkt_meta))
-            if self.dp.stack.route_learning and not self.dp.stack.is_root():
+            if self.dp.stack and self.dp.stack.route_learning and not self.dp.stack.is_root():
                 # TODO: we will repeatedly spam the DP for each packet in.
                 # Should use learn_host() style rate limiting.
                 ofmsgs.extend(valve.router_learn_host(pkt_meta))
@@ -1264,7 +1264,7 @@ class Valve:
         all_stacked_valves = {self}.union(stacked_other_valves)
 
         # TODO: generalize multi DP routing
-        if self.dp.stack.route_learning:
+        if self.dp.stack and self.dp.stack.route_learning:
             # TODO: multi DP routing requires learning from directly attached switch first.
             if pkt_meta.port.stack:
                 peer_dp = pkt_meta.port.stack['dp']

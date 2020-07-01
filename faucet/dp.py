@@ -46,7 +46,7 @@ configuration.
 """
     DEFAULT_LLDP_SEND_INTERVAL = 5
     DEFAULT_LLDP_MAX_PER_INTERVAL = 5
-    mutable_attrs = frozenset(['stack', 'vlans'])
+    mutable_attrs = frozenset(['vlans'])
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -1430,7 +1430,7 @@ configuration.
         """
         if new_dp._table_configs() != self._table_configs():
             logger.info('pipeline table config change - requires cold start')
-        elif new_dp.stack.root_name != self.stack.root_name:
+        elif new_dp.stack and self.stack and new_dp.stack.root_name != self.stack.root_name:
             logger.info('Stack root change - requires cold start')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
