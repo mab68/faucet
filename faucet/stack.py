@@ -28,10 +28,13 @@ class Stack(Conf):
     defaults = {
         'priority': None,
         # Sets the root priority value of the current DP with stacking
+        'route_learning': False,
+        # Use the stack route algorithms, will be forced true if routing is enabled
     }
 
     defaults_types = {
         'priority': int,
+        'route_learning': bool,
     }
 
     def __init__(self, _id, dp_id, name, canonical_port_order, conf):
@@ -52,6 +55,7 @@ class Stack(Conf):
 
         # Priority value for the stack root of the dp_id
         self.priority = None
+        self.route_learning = None
 
         # Ports that have stacking configured
         self.ports = []
@@ -62,7 +66,6 @@ class Stack(Conf):
         # Additional stacking information
         self.root_name = None
         self.roots_names = None
-        self.route_learning = None
         self.root_flood_reflection = None
 
         super(Stack, self).__init__(_id, dp_id, conf)
