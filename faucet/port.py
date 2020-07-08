@@ -651,6 +651,104 @@ class Port(Conf):
         return LACP_PORT_DISPLAY_DICT[state]
 
     # STACK PORT ROLES:
+
+    def stack_link_update(self, now):
+        """
+        
+        """
+        if self.is_stack_admin_down():
+            # Stack port ADMIN_DOWN, so no next state
+            return self.stack_state()
+
+        last_seen_lldp_time = self.dyn_stack_probe_info.get('last_seen_lldp_time', None)
+        if last_seen_lldp_time is None:
+            if self.is_stack_none():
+            # New stack, changing to state INIT
+            next_state = self.stack_init()
+        else:
+            peer_dp = self.stack['dp']
+            stack_correct = self.dyn_stack_probe_info.get(
+                'stack_correct', None)
+            send_interval = peer_dp.lldp_beacon.get(
+                'send_interval', peer_dp.DEFAULT_LLDP_SEND_INTERVAL)
+            time_since_lldp_seen = None
+            num_lost_lldp = None
+            stack_timed_out = True
+            
+            time_since_lldp_seen = now - last_seen_lldp_time
+            num_lost_lldp = time_since_lldp_seen / send_interval
+            if num_lost_lldp < self.max_lldp_lost:
+                stack_timed_out = False
+
+            if stack_timed_out:
+                if not self.is_stack_gone():
+                    # Stack timed out, too many packets lost
+                    self.stack_gone()
+
+            elif not stack_correct:
+                if not self.is_stack_bad():
+                    # Stack bad due to incorrect cabling
+                    self.stack_bad()
+
+            elif not self.is_stack_up():
+                # Stack UP
+                self.stack_up()
+
+        return self.stack_state()
+
+    # def next_stack_link_state(self, now):
+    #     """
+    #     Return the next/current state for a stack link port
+
+    #     Args:
+    #         now (float): Current time
+    #     Returns:
+    #         int: Next state of the stack port
+    #     """
+    #     next_state = None
+
+    #     if self.is_stack_admin_down():
+    #         return next_state
+
+    #     last_seen_lldp_time = self.dyn_stack_probe_info.get('last_seen_lldp_time', None)
+    #     if last_seen_lldp_time is None:
+    #         if self.is_stack_none():
+    #             next_state = self.stack_init
+    #             self.logger.info('Stack %s new, state INIT' % self)
+    #         return next_state
+
+    #     remote_dp = self.stack['dp']
+    #     stack_correct = self.dyn_stack_probe_info.get(
+    #         'stack_correct', None)
+    #     send_interval = remote_dp.lldp_beacon.get(
+    #         'send_interval', remote_dp.DEFAULT_LLDP_SEND_INTERVAL)
+
+    #     time_since_lldp_seen = None
+    #     num_lost_lldp = None
+    #     stack_timed_out = True
+
+    #     if last_seen_lldp_time is not None:
+    #         time_since_lldp_seen = now - last_seen_lldp_time
+    #         num_lost_lldp = time_since_lldp_seen / send_interval
+    #         if num_lost_lldp < self.max_lldp_lost:
+    #             stack_timed_out = False
+
+    #     if stack_timed_out:
+    #         if not self.is_stack_gone():
+    #             next_state = self.stack_gone
+    #             self.logger.error(
+    #                 'Stack %s GONE, too many (%u) packets lost, last received %us ago' % (
+    #                     self, num_lost_lldp, time_since_lldp_seen))
+    #     elif not stack_correct:
+    #         if not self.is_stack_bad():
+    #             next_state = self.stack_bad
+    #             self.logger.error('Stack %s BAD, incorrect cabling' % self)
+    #     elif not self.is_stack_up():
+    #         next_state = self.stack_up
+    #         self.logger.info('Stack %s UP' % self)
+
+    #     return next_state
+
     def is_stack_admin_down(self):
         """Return True if port is in ADMIN_DOWN state."""
         return self.dyn_stack_current_state == STACK_STATE_ADMIN_DOWN
@@ -674,6 +772,10 @@ class Port(Conf):
     def is_stack_gone(self):
         """Return True if port is in GONE state."""
         return self.dyn_stack_current_state == STACK_STATE_GONE
+
+    def stack_state(self):
+        """Return the current port stack state"""
+        return self.dyn_stack_current_state
 
     def stack_admin_down(self):
         """Change the current stack state to ADMIN_DOWN."""

@@ -25,9 +25,6 @@ from faucet.config_parser import dp_parser, dp_preparsed_parser
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet.valve_util import dpid_log, stat_config_files
 
-STACK_ROOT_STATE_UPDATE_TIME = 10
-STACK_ROOT_DOWN_TIME = STACK_ROOT_STATE_UPDATE_TIME * 3
-
 
 class MetaDPState:
     """Contains state/config about all DPs."""
@@ -106,33 +103,14 @@ class ValvesManager:
         self.config_watcher = ConfigWatcher()
         self.meta_dp_state = MetaDPState()
 
-    def _stack_root_healthy(self, now, candidate_dp):
-        """Return True if a candidate DP is healthy."""
-        # A healthy stack root is one that attempted connection recently,
-        # or was known to be running recently.
-        # TODO: timeout should be configurable
-        health_timeout = now - STACK_ROOT_DOWN_TIME
-        # Too long since last contact.
-        if self.meta_dp_state.dp_last_live_time.get(candidate_dp.name, 0) < health_timeout:
-            return False
-        if not candidate_dp.all_lags_up():
-            return False
-        if not candidate_dp.stack.any_port_up():
-            return False
-        return True
-
-    def healthy_stack_roots(self, now, candidate_dps):
-        """Return list of healthy stack root names."""
-        healthy_stack_roots_names = [
-            dp.name for dp in candidate_dps if self._stack_root_healthy(now, dp)]
-        return healthy_stack_roots_names
-
     def maintain_stack_root(self, now):
         """Maintain current stack root and return True if stack root changes."""
+        # TODO: Stack nominations should be handled elsewhere???
         for valve in self.valves.values():
             if valve.dp.dyn_running:
                 self.meta_dp_state.dp_last_live_time[valve.dp.name] = now
 
+        # ValveStackManager...
         stacked_dps = [valve.dp for valve in self.valves.values() if valve.dp.stack and valve.dp.stack.root_name]
         if not stacked_dps:
             return False
@@ -149,6 +127,7 @@ class ValvesManager:
         else:
             # Pick the first candidate if no roots are healthy
             new_stack_root_name = candidate_stack_roots_names[0]
+        # \ValveStackManager
 
         stack_change = False
         if self.meta_dp_state.stack_root_name != new_stack_root_name:
@@ -177,6 +156,7 @@ class ValvesManager:
                     candidate_stack_roots_names,
                     healthy_stack_roots_names))
             dps = dp_preparsed_parser(self.meta_dp_state.top_conf, self.meta_dp_state)
+            # TODO: Ends up reconfiguring all DPS
             self._apply_configs(dps, now, None)
         root_dps = [dp for dp in stacked_dps if dp.name == new_stack_root_name]
         labels = root_dps[0].base_prom_labels()

@@ -204,6 +204,9 @@ class Valve:
             for port_number in self.dp.ports.keys():
                 self._port_highwater[vlan_vid][port_number] = 0
 
+        if self.dp.stack:
+            self.stack_manager = ValveStackManager(self.logger, self.stack)
+
         self._lldp_manager = ValveLLDPManager(
             self.dp.tables['vlan'], self.dp.highest_priority)
         self._output_only_manager = OutputOnlyManager(
@@ -254,9 +257,10 @@ class Valve:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         self._managers = tuple(
             manager for manager in (
-                self.pipeline, self.switch_manager, self.acl_manager, self._lldp_manager,
-                self._route_manager_by_ipv.get(4), self._route_manager_by_ipv.get(6),
-                self._coprocessor_manager, self._output_only_manager) if manager is not None)
+                self.pipeline, self.switch_manager, self.stack_manager, self.acl_manager,
+                self._lldp_manager, self._route_manager_by_ipv.get(4),
+                self._route_manager_by_ipv.get(6), self._coprocessor_manager,
+                self._output_only_manager) if manager is not None)
 
         table_configs = sorted([
             (table.table_id, str(table.table_config)) for table in self.dp.tables.values()])
@@ -577,68 +581,14 @@ class Valve:
                 now - self._last_fast_advertise_sec < self.dp.fast_advertise_interval):
             return {}
         self._last_fast_advertise_sec = now
-
         ofmsgs = []
         for port in self.dp.lacp_active_ports:
             ofmsgs.extend(self.switch_manager.lacp_advertise(port))
-
         ports = self.dp.lldp_beacon_send_ports(now)
         ofmsgs.extend([self._send_lldp_beacon_on_port(port, now) for port in ports])
-
         if ofmsgs:
             return {self: ofmsgs}
         return {}
-
-    def _update_stack_link_state(self, ports, now, other_valves):
-        stack_changes = 0
-        ofmsgs_by_valve = defaultdict(list)
-        stacked_valves = {self}.union(self._stacked_valves(other_valves))
-
-        for port in ports:
-            next_state = self.switch_manager.next_stack_link_state(port, now)  # pytype: disable=attribute-error
-            if next_state is not None:
-                next_state()
-                self._set_port_var('port_stack_state', port.dyn_stack_current_state, port)
-                self.notify({'STACK_STATE': {
-                    'port': port.number,
-                    'state': port.dyn_stack_current_state
-                    }})
-                stack_changes += 1
-                port_stack_up = False
-                if port.is_stack_up():
-                    port_stack_up = True
-                else:
-                    if port.is_stack_init() and port.stack['port'].is_stack_up():
-                        port_stack_up = True
-                for valve in stacked_valves:
-                    valve.switch_manager.update_stack_topo(port_stack_up, self.dp, port)
-        if stack_changes:
-            self.logger.info('%u stack ports changed state' % stack_changes)
-            notify_dps = {}
-            for valve in stacked_valves:
-                if not valve.dp.dyn_running:
-                    continue
-                ofmsgs_by_valve[valve].extend(valve.add_vlans(valve.dp.vlans.values()))
-                for port in valve.dp.stack_ports():
-                    ofmsgs_by_valve[valve].extend(valve.switch_manager.del_port(port))
-                ofmsgs_by_valve[valve].extend(valve.switch_manager.add_tunnel_acls())
-                path_port = valve.dp.stack.shortest_path_port(valve.dp.stack.root_name)
-                path_port_number = path_port.number if path_port else 0.0
-                self._set_var(
-                    'dp_root_hop_port', path_port_number, labels=valve.dp.base_prom_labels())
-                notify_dps.setdefault(valve.dp.name, {})['root_hop_port'] = path_port_number
-
-            # Find the first valve with a valid stack and trigger notification.
-            for valve in stacked_valves:
-                if valve.dp.stack.graph:
-                    self.notify(
-                        {'STACK_TOPO_CHANGE': {
-                            'stack_root': valve.dp.stack.root_name,
-                            'graph': valve.dp.stack.get_node_link_data(),
-                            'dps': notify_dps
-                            }})
-                    break
-        return ofmsgs_by_valve
 
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
@@ -737,6 +687,7 @@ class Valve:
                 ofmsgs.extend(self.lacp_update(port, False, cold_start=cold_start))
 
             if port.stack:
+                # TODO: Somehow have this bit as stack_manager.add_port(port)
                 port_vlans = self.dp.vlans.values()
             else:
                 port_vlans = port.vlans()
@@ -846,45 +797,13 @@ class Valve:
                     ofmsgs.extend(self.add_vlans(port.vlans()))
         return ofmsgs
 
-    def _verify_stack_lldp(self, port, now, other_valves,
-                           remote_dp_id, remote_dp_name,
-                           remote_port_id, remote_port_state):
-        if not port.stack:
-            return {}
-        remote_dp = port.stack['dp']
-        remote_port = port.stack['port']
-        stack_correct = True
-        self._inc_var('stack_probes_received')
-        if (remote_dp_id != remote_dp.dp_id or
-                remote_dp_name != remote_dp.name or
-                remote_port_id != remote_port.number):
-            self.logger.error(
-                'Stack %s cabling incorrect, expected %s:%s:%u, actual %s:%s:%u' % (
-                    port,
-                    valve_util.dpid_log(remote_dp.dp_id),
-                    remote_dp.name,
-                    remote_port.number,
-                    valve_util.dpid_log(remote_dp_id),
-                    remote_dp_name,
-                    remote_port_id))
-            stack_correct = False
-            self._inc_var('stack_cabling_errors')
-        port.dyn_stack_probe_info = {
-            'last_seen_lldp_time': now,
-            'stack_correct': stack_correct,
-            'remote_dp_id': remote_dp_id,
-            'remote_dp_name': remote_dp_name,
-            'remote_port_id': remote_port_id,
-            'remote_port_state': remote_port_state
-        }
-        return self._update_stack_link_state([port], now, other_valves)
-
     def lldp_handler(self, now, pkt_meta, other_valves):
         """Handle an LLDP packet.
 
         Args:
             pkt_meta (PacketMeta): packet for control plane.
         """
+        # TODO: Move to switch_manager
         if pkt_meta.eth_type != valve_of.ether.ETH_TYPE_LLDP:
             return {}
         pkt_meta.reparse_all()
