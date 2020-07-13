@@ -323,9 +323,6 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
         return ofmsgs
 
-
-
-
     def edge_learn_port(self, other_valves, pkt_meta):
         """
         Find a port towards the edge DP where the packet originated from

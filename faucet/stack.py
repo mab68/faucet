@@ -103,12 +103,14 @@ Stack provides calculations for the
 
         # All ports that are paths of shortest length
         self.dyn_towards_root_ports = None
-        # Redundant/inactive towards ports
-        self.dyn_chosen_towards_port = None
+        # 
+        self.dyn_chosen_towards_ports = None
+        # 
+        self.dyn_pruned_towards_ports = None
         # Away options are all other non-towards options
         self.dyn_away_ports = None
-        # Redundant/inactive away ports
-        self.dyn_pruned_away_ports = None
+        # Away ports that are required by adjacent DPs
+        self.dyn_active_away_ports = None
 
         # Additional stacking information
         self.root_name = None
@@ -176,56 +178,6 @@ Stack provides calculations for the
             if self.longest_path_to_root_len() > 2:
                 self.root_flood_reflection = True
         self.recalculate_ports()
-
-    def recalculate_ports(self):
-        """Recalculates the towards and away ports for this node"""
-        self.dyn_towards_root_ports = set()
-        self.dyn_chosen_towards_ports = set()
-        self.dyn_away_ports = set()
-        self.dyn_pruned_away_ports = set()
-
-        all_peer_ports = set(self.stack.canonical_up_ports())
-        if self.is_stack_root():
-            self.dyn_away_ports = all_peer_ports
-        else:
-            port_peer_distances = {
-                port: len(port.stack['dp'].stack.shortest_path_to_root()) for port in all_peer_ports}
-            shortest_peer_distance = None
-            for port, port_peer_distance in port_peer_distances.items():
-                if shortest_peer_distance is None:
-                    shortest_peer_distance = port_peer_distance
-                    continue
-                shortest_peer_distance = min(shortest_peer_distance, port_peer_distance)
-            self.all_towards_root_stack_ports = {
-                port for port, port_peer_distance in port_peer_distances.items()
-                if port_peer_distance == shortest_peer_distance}
-            self.dyn_away_ports = all_peer_ports - self.dyn_towards_root_ports
-
-            if self.dyn_towards_root_ports:
-                # Generate a shortest path to calculate the chosen connection to root
-                shortest_path = self.shortest_path_to_root()
-                # Choose the port that is connected to peer DP
-                if shortest_path and len(shortest_path) > 1:
-                    first_peer_dp = shortest_path[1]
-                else:
-                    first_peer_port = self.canonical_port_order(
-                        self.dyn_towards_root_ports)[0]
-                    first_peer_dp = first_peer_port.stack['dp'].name
-                # The chosen towards ports are the ports through the chosen peer DP
-                self.dyn_chosen_towards_ports = {
-                    port for port in self.dyn_towards_root_ports
-                    if port.stack['dp'].name == first_peer_dp}
-
-            # Away ports are all the remaining (non-towards) ports
-            self.dyn_away_ports = all_peer_ports - self.dyn_towards_root_ports
-
-            if self.dyn_away_ports:
-                # Get pruned away ports, ports whose peers have a better path to root
-                self.dyn_pruned_away_ports = {
-                    for port in self.dyn_away_ports
-                    if not self.is_in_path(self.root_name, port.stack['dp'].name)}
-
-        return self.dyn_chosen_towards_ports
 
     @staticmethod
     def modify_topology(graph, dp, port, add=True):  # pylint: disable=invalid-name
@@ -357,6 +309,7 @@ Stack provides calculations for the
 
     def is_in_path(self, src_dp, dst_dp):
         """Return True if the current DP is in the path from src_dp to dst_dp
+
         Args:
             src_dp (str): DP name
             dst_dp (str): DP name
