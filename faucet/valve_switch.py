@@ -23,7 +23,7 @@ from faucet.valve_switch_stack import (
     ValveSwitchStackManagerNoReflection, ValveSwitchStackManagerReflection)
 
 
-def valve_switch_factory(logger, dp, pipeline, acl_manager):  # pylint: disable=invalid-name
+def valve_switch_factory(logger, dp, pipeline, acl_manager, stack_manager):  # pylint: disable=invalid-name
     """Return switch flood/learning manager based on datapath configuration.
 
         Args:
@@ -74,7 +74,7 @@ def valve_switch_factory(logger, dp, pipeline, acl_manager):  # pylint: disable=
         else:
             logger.info('Not using stacking root flood reflection')
         switch_args.update({
-            'stack': dp.stack,
+            'stack_manager': stack_manager,
             'tunnel_acls': dp.tunnel_acls,
             'acl_manager': acl_manager,
         })
