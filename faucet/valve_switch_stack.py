@@ -46,7 +46,44 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             if not self.is_stack_root() and self.is_stack_root_candidate():
                 self.logger.info('external flooding on root only')
                 self.external_root_only = True
-        self._reset_peer_distances()
+
+    @staticmethod
+    def _non_stack_learned(other_valves, pkt_meta):
+        """
+        Obtain DP that has learnt the host that sent the packet
+
+        Args:
+            other_valves (list): Other valves
+            pkt_meta (PacketMeta): Packet meta sent by the host
+        Returns:
+            DP: DP that has learnt the host
+        """
+        # TODO: Not here???
+        other_local_dp_entries = []
+        other_external_dp_entries = []
+        vlan_vid = pkt_meta.vlan.vid
+        for other_valve in other_valves:
+            other_dp_vlan = other_valve.dp.vlans.get(vlan_vid, None)
+            if other_dp_vlan is not None:
+                entry = other_dp_vlan.cached_host(pkt_meta.eth_src)
+                if not entry:
+                    continue
+                if not entry.port.non_stack_forwarding():
+                    continue
+                if entry.port.loop_protect_external:
+                    other_external_dp_entries.append(other_valve.dp)
+                else:
+                    other_local_dp_entries.append(other_valve.dp)
+        # Another DP has learned locally, has priority.
+        if other_local_dp_entries:
+            return other_local_dp_entries[0]
+        # No other DP has learned locally, but at least one has learned externally.
+        if other_external_dp_entries:
+            entry = pkt_meta.vlan.cached_host(pkt_meta.eth_src)
+            # This DP has not learned the host either, use other's external.
+            if entry is None:
+                return other_external_dp_entries[0]
+        return None
 
     def _external_forwarding_requested(self, port):
         external_forwarding_requested = None
@@ -138,8 +175,21 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                        away_flood_actions, toward_flood_actions, local_flood_actions):
         raise NotImplementedError
 
+
+
+
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,
                                   exclude_all_external=False, exclude_restricted_bcast_arpnd=False):
+        """
+        Args:
+            vlan (VLAN):
+            exclude_unicast (bool):
+            in_port (Port):
+            exclude_all_external (bool):
+            exclude_restricted_bcast_arpnd (bool):
+        Returns:
+            list: flood actions
+        """
         exclude_ports = self._inactive_away_stack_ports()
         external_ports = vlan.loop_protect_external_ports()
 
@@ -165,6 +215,19 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
                                 exclude_unicast, exclude_restricted_bcast_arpnd,
                                 command, cold_start):
+        """
+        Args:
+            vlan (VLAN):
+            eth_type:
+            eth_dst:
+            eth_dst_mask:
+            exclude_unicast:
+            exclude_restricted_bcast_arpnd:
+            command:
+            cold_start:
+        Returns:
+            list: ofmsgs
+        """
         # TODO: REFACTOR...
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
         ofmsgs = super(ValveSwitchStackManagerBase, self)._build_mask_flood_rules(
@@ -260,6 +323,9 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
         return ofmsgs
 
+
+
+
     def edge_learn_port(self, other_valves, pkt_meta):
         """
         Find a port towards the edge DP where the packet originated from
@@ -276,7 +342,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             # self.stack_manager.edge_learn_port(???)
             edge_dp = self._edge_dp_for_host(other_valves, pkt_meta)
             if edge_dp:
-                return self._edge_learn_port_towards(pkt_meta, edge_dp)
+                return self.stack_manager.edge_learn_port_towards(pkt_meta, edge_dp)
             # Assuming no DP has learned this host.
             return None
 
@@ -286,7 +352,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         if pkt_meta.port.loop_protect_external:
             edge_dp = self._non_stack_learned(other_valves, pkt_meta)
             if edge_dp:
-                return self._edge_learn_port_towards(pkt_meta, edge_dp)
+                return self.stack_manager.edge_learn_port_towards(pkt_meta, edge_dp)
         # Locally learn.
         return super(ValveSwitchStackManagerBase, self).edge_learn_port(
             other_valves, pkt_meta)

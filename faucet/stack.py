@@ -22,10 +22,42 @@ import networkx
 
 from faucet.conf import Conf, test_config_condition
 
+
+# This node is the root of the stack
+NODE_ROOT = 0
+# This node is at the edge of the stack
+NODE_EDGE = 1
+# This node is neither at the edge or the root, transit from edge to root
+NODE_TRANSIT = 2
+# Node currently hasn't had it's position calculated yet
+NODE_PENDING_CALC = 3
+PLACEMENT_DISPLAY_DICT = {
+    NODE_ROOT: 'ROOT',
+    NODE_EDGE: 'EDGE',
+    NODE_TRANSIT: 'TRANSIT',
+    NODE_PENDING_CALC: 'PENDING_CALCULATION',
+}
+
+
+# Current acting root for the whole stack, lowest configured priority
+ROOT_CHOSEN = 0
+# Configured priority value, this stack is a root candidate
+ROOT_CANDIDATE = 1
+# No configured priority value, so cannot be root
+ROOT_NOTCONF = 2
+ROOT_DISPLAY_DICT = {
+    ROOT_CHOSEN: 'CHOSEN_ROOT',
+    ROOT_CANDIDATE: 'CANDIDATE_ROOT',
+    ROOT_NOTCONF: 'NOT_CONFIGURED',
+}
+
+
 class Stack(Conf):
     """Stores state related to DP stack information, this includes the current elected root as that
-is technically a fixed allocation for this DP Stack instance. This class also provides some
-elementary graph calculation methods."""
+is technically a fixed allocation for this DP Stack instance.
+
+Stack provides calculations for the 
+"""
 
     defaults = {
         'priority': None,
@@ -39,6 +71,7 @@ elementary graph calculation methods."""
     defaults_types = {
         'priority': int,
         'route_learning': bool,
+        'root_down_time_multiple': int,
     }
 
     def __init__(self, _id, dp_id, name, canonical_port_order, conf):
@@ -67,6 +100,15 @@ elementary graph calculation methods."""
 
         # Stack graph containing all the DPs & ports in the stacking topology
         self.graph = None
+
+        # All ports that are paths of shortest length
+        self.dyn_towards_root_ports = None
+        # Redundant/inactive towards ports
+        self.dyn_chosen_towards_port = None
+        # Away options are all other non-towards options
+        self.dyn_away_ports = None
+        # Redundant/inactive away ports
+        self.dyn_pruned_away_ports = None
 
         # Additional stacking information
         self.root_name = None
@@ -133,6 +175,57 @@ elementary graph calculation methods."""
                     path_to_root_len == 0, '%s not connected to stack' % dp)
             if self.longest_path_to_root_len() > 2:
                 self.root_flood_reflection = True
+        self.recalculate_ports()
+
+    def recalculate_ports(self):
+        """Recalculates the towards and away ports for this node"""
+        self.dyn_towards_root_ports = set()
+        self.dyn_chosen_towards_ports = set()
+        self.dyn_away_ports = set()
+        self.dyn_pruned_away_ports = set()
+
+        all_peer_ports = set(self.stack.canonical_up_ports())
+        if self.is_stack_root():
+            self.dyn_away_ports = all_peer_ports
+        else:
+            port_peer_distances = {
+                port: len(port.stack['dp'].stack.shortest_path_to_root()) for port in all_peer_ports}
+            shortest_peer_distance = None
+            for port, port_peer_distance in port_peer_distances.items():
+                if shortest_peer_distance is None:
+                    shortest_peer_distance = port_peer_distance
+                    continue
+                shortest_peer_distance = min(shortest_peer_distance, port_peer_distance)
+            self.all_towards_root_stack_ports = {
+                port for port, port_peer_distance in port_peer_distances.items()
+                if port_peer_distance == shortest_peer_distance}
+            self.dyn_away_ports = all_peer_ports - self.dyn_towards_root_ports
+
+            if self.dyn_towards_root_ports:
+                # Generate a shortest path to calculate the chosen connection to root
+                shortest_path = self.shortest_path_to_root()
+                # Choose the port that is connected to peer DP
+                if shortest_path and len(shortest_path) > 1:
+                    first_peer_dp = shortest_path[1]
+                else:
+                    first_peer_port = self.canonical_port_order(
+                        self.dyn_towards_root_ports)[0]
+                    first_peer_dp = first_peer_port.stack['dp'].name
+                # The chosen towards ports are the ports through the chosen peer DP
+                self.dyn_chosen_towards_ports = {
+                    port for port in self.dyn_towards_root_ports
+                    if port.stack['dp'].name == first_peer_dp}
+
+            # Away ports are all the remaining (non-towards) ports
+            self.dyn_away_ports = all_peer_ports - self.dyn_towards_root_ports
+
+            if self.dyn_away_ports:
+                # Get pruned away ports, ports whose peers have a better path to root
+                self.dyn_pruned_away_ports = {
+                    for port in self.dyn_away_ports
+                    if not self.is_in_path(self.root_name, port.stack['dp'].name)}
+
+        return self.dyn_chosen_towards_ports
 
     @staticmethod
     def modify_topology(graph, dp, port, add=True):  # pylint: disable=invalid-name
@@ -178,9 +271,9 @@ elementary graph calculation methods."""
 
         return edge_name
 
-    def modify_link(dp, port, event):
+    def modify_link(dp, port, add):
         """Update the stack topology according to the event"""
-        return cls.modify_topology(self.graph, dp, port, event)
+        return cls.modify_topology(self.graph, dp, port, add)
 
     def hash(self):
         """Return hash of a topology graph"""
@@ -201,9 +294,11 @@ elementary graph calculation methods."""
                 return True
         return False
 
-    def canonical_up_ports(self):
+    def canonical_up_ports(self, ports=None):
         """Obtains list of UP stack ports in canonical order"""
-        return self.canonical_port_order([port for port in self.ports if port.is_stack_up()])
+        if ports is None:
+            ports = self.ports
+        return self.canonical_port_order([port for port in ports if port.is_stack_up()])
 
     def shortest_path(self, dest_dp, src_dp=None):
         """Return shortest path to a DP, as a list of DPs."""
@@ -227,6 +322,11 @@ elementary graph calculation methods."""
     def is_root_candidate(self):
         """Return True if this DP could be a root of the stack."""
         return self.name in self.roots_names
+
+    def is_edge(self):
+        """Return True if this DP is a stack edge."""
+        return (not self.is_root() and
+                self.longest_path_to_root_len() == len(self.shortest_path_to_root()))
 
     def shortest_path_port(self, dest_dp):
         """Return first port on our DP, that is the shortest path towards dest DP."""
@@ -254,11 +354,6 @@ elementary graph calculation methods."""
         if len_paths_to_root:
             return max(len_paths_to_root)
         return None
-
-    def is_edge(self):
-        """Return True if this DP is a stack edge."""
-        return (not self.is_root() and
-                self.longest_path_to_root_len() == len(self.shortest_path_to_root()))
 
     def is_in_path(self, src_dp, dst_dp):
         """Return True if the current DP is in the path from src_dp to dst_dp

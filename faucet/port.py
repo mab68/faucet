@@ -20,11 +20,17 @@ from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet import valve_of
 import netaddr
 
+# Forced port DOWN
 STACK_STATE_ADMIN_DOWN = 0
+# New instance, initializing stack port
 STACK_STATE_INIT = 1
+# Incorrect stack configuration
 STACK_STATE_BAD = 2
+# Stack port up and running, no timeouts, no incorrect cabling
 STACK_STATE_UP = 3
+# Stack timed out, too many packets lost
 STACK_STATE_GONE = 4
+# Not stack port configured
 STACK_STATE_NONE = -1
 STACK_DISPLAY_DICT = {
     STACK_STATE_ADMIN_DOWN: 'ADMIN_DOWN',
@@ -651,11 +657,17 @@ class Port(Conf):
         return LACP_PORT_DISPLAY_DICT[state]
 
     # STACK PORT ROLES:
+    def stack_port_update(self, now):
+        """
+        Progesses through the stack link state machine
 
-    def stack_link_update(self, now):
+        Args:
+            now (float): Current time
+        Returns:
+            int: Current (new) stack port state
+            string: reason for the state change and additional information
         """
-        
-        """
+        reason = ''
         if self.is_stack_admin_down():
             # Stack port ADMIN_DOWN, so no next state
             return self.stack_state()
@@ -663,9 +675,11 @@ class Port(Conf):
         last_seen_lldp_time = self.dyn_stack_probe_info.get('last_seen_lldp_time', None)
         if last_seen_lldp_time is None:
             if self.is_stack_none():
-            # New stack, changing to state INIT
-            next_state = self.stack_init()
+                # New stack, changing to state INIT
+                self.stack_init()
+                reason = 'new'
         else:
+            # Not a new stack port, so progess through state machine
             peer_dp = self.stack['dp']
             stack_correct = self.dyn_stack_probe_info.get(
                 'stack_correct', None)
@@ -674,80 +688,26 @@ class Port(Conf):
             time_since_lldp_seen = None
             num_lost_lldp = None
             stack_timed_out = True
-            
+
             time_since_lldp_seen = now - last_seen_lldp_time
             num_lost_lldp = time_since_lldp_seen / send_interval
             if num_lost_lldp < self.max_lldp_lost:
                 stack_timed_out = False
 
             if stack_timed_out:
-                if not self.is_stack_gone():
-                    # Stack timed out, too many packets lost
-                    self.stack_gone()
-
+                # Stack timed out, too many packets lost
+                self.stack_gone()
+                reason = 'too many (%u) packets lost, last received %us ago' % (
+                    num_lost_lldp, time_since, lldp_seen)
             elif not stack_correct:
-                if not self.is_stack_bad():
-                    # Stack bad due to incorrect cabling
-                    self.stack_bad()
-
+                # Stack bad due to incorrect cabling
+                self.stack_bad()
+                reason = 'incorrect cabling'
             elif not self.is_stack_up():
-                # Stack UP
+                # Nothing gone wrong, so Stack UP
                 self.stack_up()
-
-        return self.stack_state()
-
-    # def next_stack_link_state(self, now):
-    #     """
-    #     Return the next/current state for a stack link port
-
-    #     Args:
-    #         now (float): Current time
-    #     Returns:
-    #         int: Next state of the stack port
-    #     """
-    #     next_state = None
-
-    #     if self.is_stack_admin_down():
-    #         return next_state
-
-    #     last_seen_lldp_time = self.dyn_stack_probe_info.get('last_seen_lldp_time', None)
-    #     if last_seen_lldp_time is None:
-    #         if self.is_stack_none():
-    #             next_state = self.stack_init
-    #             self.logger.info('Stack %s new, state INIT' % self)
-    #         return next_state
-
-    #     remote_dp = self.stack['dp']
-    #     stack_correct = self.dyn_stack_probe_info.get(
-    #         'stack_correct', None)
-    #     send_interval = remote_dp.lldp_beacon.get(
-    #         'send_interval', remote_dp.DEFAULT_LLDP_SEND_INTERVAL)
-
-    #     time_since_lldp_seen = None
-    #     num_lost_lldp = None
-    #     stack_timed_out = True
-
-    #     if last_seen_lldp_time is not None:
-    #         time_since_lldp_seen = now - last_seen_lldp_time
-    #         num_lost_lldp = time_since_lldp_seen / send_interval
-    #         if num_lost_lldp < self.max_lldp_lost:
-    #             stack_timed_out = False
-
-    #     if stack_timed_out:
-    #         if not self.is_stack_gone():
-    #             next_state = self.stack_gone
-    #             self.logger.error(
-    #                 'Stack %s GONE, too many (%u) packets lost, last received %us ago' % (
-    #                     self, num_lost_lldp, time_since_lldp_seen))
-    #     elif not stack_correct:
-    #         if not self.is_stack_bad():
-    #             next_state = self.stack_bad
-    #             self.logger.error('Stack %s BAD, incorrect cabling' % self)
-    #     elif not self.is_stack_up():
-    #         next_state = self.stack_up
-    #         self.logger.info('Stack %s UP' % self)
-
-    #     return next_state
+                reason = ''
+        return self.stack_state(), reason
 
     def is_stack_admin_down(self):
         """Return True if port is in ADMIN_DOWN state."""

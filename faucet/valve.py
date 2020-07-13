@@ -205,7 +205,7 @@ class Valve:
                 self._port_highwater[vlan_vid][port_number] = 0
 
         if self.dp.stack:
-            self.stack_manager = ValveStackManager(self.logger, self.stack)
+            self.stack_manager = ValveStackManager(self.logger, self.dp, self.stack)
 
         self._lldp_manager = ValveLLDPManager(
             self.dp.tables['vlan'], self.dp.highest_priority)
@@ -224,7 +224,7 @@ class Valve:
                 self.dp.tables.get('egress_acl'), self.pipeline,
                 self.dp.meters, self.dp.dp_acls)
         self.switch_manager = valve_switch.valve_switch_factory(
-            self.logger, self.dp, self.pipeline, self.acl_manager)
+            self.logger, self.dp, self.pipeline, self.acl_manager, self.stack_manager)
         self._coprocessor_manager = None
         copro_table = self.dp.tables.get('copro', None)
         if copro_table:
@@ -599,7 +599,7 @@ class Valve:
                     if age > self.dp.lldp_beacon['send_interval'] * port.max_lldp_lost:
                         self.logger.info('LLDP for %s inactive after %us' % (port, age))
                         port.dyn_lldp_beacon_recv_state = None
-        return self._update_stack_link_state(self.dp.stack_ports(), now, other_valves)
+        return self.stack_manager._update_stack_link_state(self.dp.stack_ports(), now, other_valves)
 
     def _reset_dp_status(self):
         self._set_var('dp_status', int(self.dp.dyn_running))
@@ -833,7 +833,7 @@ class Valve:
         if remote_dp_id and remote_port_id:
             self.logger.debug('FAUCET LLDP on %s from %s (remote %s, port %u)' % (
                 port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id))
-            ofmsgs_by_valve.update(self._verify_stack_lldp(
+            ofmsgs_by_valve.update(self.stack_manager._verify_lldp(
                 port, now, other_valves,
                 remote_dp_id, remote_dp_name,
                 remote_port_id, remote_port_state))
@@ -1148,10 +1148,6 @@ class Valve:
                 route_manager.resolve_expire_hosts(
                     pkt_meta.vlan, now, resolve_all=False))
         return ofmsgs
-
-    @staticmethod
-    def _stacked_valves(valves):
-        return {valve for valve in valves if valve.dp.stack and valve.dp.stack.root_name}
 
     def _vlan_rcv_packet(self, now, other_valves, pkt_meta):
         """Handle packet with VLAN tag across all Valves.
