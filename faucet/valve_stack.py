@@ -51,8 +51,6 @@ position in the stack.
     def canonical_towards_port(self):
         return self.stack.canonical_up_ports(self.chosen_towards_ports)[0]
 
-
-
     def reset_peer_distances(self):
         """Recalculates the towards and away ports for this node"""
         self.towards_root_ports = set()
@@ -64,7 +62,7 @@ position in the stack.
         self.pruned_away_ports = set()
 
         all_peer_ports = set(self.stack.canonical_up_ports())
-        if self.is_stack_root():
+        if self.stack.is_root():
             self.away_ports = all_peer_ports
         else:
             port_peer_distances = {

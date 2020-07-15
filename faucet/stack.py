@@ -54,10 +54,7 @@ ROOT_DISPLAY_DICT = {
 
 class Stack(Conf):
     """Stores state related to DP stack information, this includes the current elected root as that
-is technically a fixed allocation for this DP Stack instance.
-
-Stack provides calculations for the 
-"""
+is technically a fixed allocation for this DP Stack instance."""
 
     defaults = {
         'priority': None,
@@ -100,17 +97,6 @@ Stack provides calculations for the
 
         # Stack graph containing all the DPs & ports in the stacking topology
         self.graph = None
-
-        # All ports that are paths of shortest length
-        self.dyn_towards_root_ports = None
-        # 
-        self.dyn_chosen_towards_ports = None
-        # 
-        self.dyn_pruned_towards_ports = None
-        # Away options are all other non-towards options
-        self.dyn_away_ports = None
-        # Away ports that are required by adjacent DPs
-        self.dyn_active_away_ports = None
 
         # Additional stacking information
         self.root_name = None

@@ -803,7 +803,6 @@ class Valve:
         Args:
             pkt_meta (PacketMeta): packet for control plane.
         """
-        # TODO: Move to switch_manager
         if pkt_meta.eth_type != valve_of.ether.ETH_TYPE_LLDP:
             return {}
         pkt_meta.reparse_all()

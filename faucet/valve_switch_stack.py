@@ -107,11 +107,9 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 src_dp = source['dp']
                 updated = self.stack_manager.tunnel_outport(
                     acl, src_dp, dst_dp, dst_port).number
-                # TODO: stack_manager stack_name
                 updated = acl.update_source_tunnel_rules(
                     self.stack_manager.stack.name, i, _id, out_port)
                 if updated:
-                    # TODO: stack_manager stack_name
                     if self.stack_manager.stack.name == src_dp:
                         source_vids[i].append(_id)
                     else:
@@ -174,18 +172,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,
                                   exclude_all_external=False, exclude_restricted_bcast_arpnd=False):
-        """
-        Compiles all the possible flood rule actions for a port on a stack node
-
-        Args:
-            vlan (VLAN):
-            exclude_unicast (bool):
-            in_port (Port):
-            exclude_all_external (bool):
-            exclude_restricted_bcast_arpnd (bool):
-        Returns:
-            list: flood actions
-        """
+        """Compiles all the possible flood rule actions for a port on a stack node"""
         exclude_ports = self.stack_manager.inactive_away_ports
         external_ports = vlan.loop_protect_external_ports()
         if in_port and in_port in self.stack_ports:
@@ -207,22 +194,9 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
                                 exclude_unicast, exclude_restricted_bcast_arpnd,
                                 command, cold_start):
-        """
-        Builds that flood rules for each mask for each port in the stack.
+        """Builds that flood rules for each mask for each port in the stack.
         This takes into account the pruned and non-pruned ports and returns
             the appropriate flood rule actions
-
-        Args:
-            vlan (VLAN):
-            eth_type:
-            eth_dst:
-            eth_dst_mask:
-            exclude_unicast:
-            exclude_restricted_bcast_arpnd:
-            command:
-            cold_start:
-        Returns:
-            list: ofmsgs
         """
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
         ofmsgs = super(ValveSwitchStackManagerBase, self)._build_mask_flood_rules(
@@ -237,8 +211,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         pruned_away_ports = self.stack_manager.pruned_away_ports
         towards_up_port = self.stack_manager.chosen_towards_port
 
-        # TODO: obtain stack ports from stack_manager
-        for port in self.stack_ports:
+        for port in self.stack_manager.stack.ports:
             flood_acts = []
             match = {'in_port': port.number, 'vlan': vlan}
             if eth_dst is not None:
@@ -262,15 +235,15 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             else:
                 ofmsgs.extend(self.pipeline.remove_filter(
                     match, priority_offset=priority_offset))
-                # TODO: REWRITE THIS PART....
                 # Control learning from multicast/broadcast on non-root DPs.
-                if not self.is_stack_root() and eth_dst is not None and self._USES_REFLECTION:
+                if (not self.stack_manager.stack.is_root() and
+                        eth_dst is not None and self._USES_REFLECTION):
                     # If ths is an edge DP, we don't have to learn from
                     # hosts that only broadcast.  If we're an intermediate
                     # DP, only learn from broadcasts further away from
                     # the root (and ignore the reflected broadcast for
                     # learning purposes).
-                    if self.is_stack_edge() or towards_port:
+                    if self.stack_manager.stack.is_edge() or towards_port:
                         ofmsgs.extend(self.pipeline.select_packets(
                             self.flood_table, match,
                             priority_offset=self.classification_offset))
@@ -376,7 +349,6 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         Returns:
             nominated_dpid, reason
         """
-        # TODO: LACP manager or stack manager
         if not other_valves:
             return None, ''
         stacked_other_valves = self.stack_manager.stacked_valves(other_valves)
@@ -416,8 +388,7 @@ class ValveSwitchStackManagerNoReflection(ValveSwitchStackManagerBase):
 
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
-        # TODO: stack_manager for stack_ports
-        if not in_port or in_port in self.stack_ports:
+        if not in_port or in_port in self.stack_manager.stack.ports:
             flood_prefix = ()
         else:
             if external_ports:
@@ -531,15 +502,14 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
 
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
-        # TODO: stack_manager for stack root & ports etc...
-        if self.is_stack_root():
+        if self.stack_manager.stack.is_root():
             if external_ports:
                 flood_prefix = self._set_nonext_port_flag
             else:
                 flood_prefix = self._set_ext_port_flag
             flood_actions = (away_flood_actions + local_flood_actions)
 
-            if in_port and in_port in self.away_from_root_stack_ports:
+            if in_port and in_port in self.stack_manager.away_ports:
                 # Packet from a non-root switch, flood locally and to all non-root switches
                 # (reflect it).
                 flood_actions = (
@@ -555,10 +525,10 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
 
             if in_port:
                 # Packet from switch further away, flood it to the root.
-                if in_port in self.away_from_root_stack_ports:
+                if in_port in self.stack_manager.away_ports:
                     flood_actions = toward_flood_actions
                 # Packet from the root.
-                elif in_port in self.all_towards_root_stack_ports:
+                elif in_port in self.stack_manager.towards_root_ports:
                     # If we have external ports, and packet hasn't already been flooded
                     # externally, flood it externally before passing it to further away switches,
                     # and mark it flooded.
@@ -579,8 +549,6 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
 
     def _edge_dp_for_host(self, other_valves, pkt_meta):
         """For stacks size > 2."""
-        # TODO: stack_manager for is_edge or is_root
-
         # TODO: currently requires controller to manage all switches
         # in the stack to keep each DP's graph consistent.
         # TODO: simplest possible unicast learning.
