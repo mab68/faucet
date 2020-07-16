@@ -151,7 +151,7 @@ is technically a fixed allocation for this DP Stack instance."""
         for dp in stack_port_dps:  # pylint: disable=invalid-name
             graph.add_node(dp.name)
             for port in dp.stack_ports():
-                edge_name = self.add_link(graph, dp, port)
+                edge_name = Stack.modify_topology(graph, dp, port)
                 edge_count[edge_name] += 1
         for edge_name, count in edge_count.items():
             test_config_condition(count != 2, '%s defined only in one direction' % edge_name)
@@ -163,7 +163,6 @@ is technically a fixed allocation for this DP Stack instance."""
                     path_to_root_len == 0, '%s not connected to stack' % dp)
             if self.longest_path_to_root_len() > 2:
                 self.root_flood_reflection = True
-        self.recalculate_ports()
 
     @staticmethod
     def modify_topology(graph, dp, port, add=True):  # pylint: disable=invalid-name
@@ -209,9 +208,9 @@ is technically a fixed allocation for this DP Stack instance."""
 
         return edge_name
 
-    def modify_link(dp, port, add):
+    def modify_link(self, dp, port, add=True):
         """Update the stack topology according to the event"""
-        return cls.modify_topology(self.graph, dp, port, add)
+        return Stack.modify_topology(self.graph, dp, port, add)
 
     def hash(self):
         """Return hash of a topology graph"""

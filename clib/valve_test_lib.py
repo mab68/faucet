@@ -1161,7 +1161,7 @@ class ValveTestBases:
                 valve = self.valves_manager.valves[self.DP_ID]
             port = valve.dp.ports[port_no]
             port.dyn_stack_current_state = status
-            valve.switch_manager.update_stack_topo(True, valve.dp, port)
+            valve.stack_manager.update_stack_topo(True, valve.dp, port)
             for valve_vlan in valve.dp.vlans.values():
                 ofmsgs = valve.switch_manager.add_vlan(valve_vlan, cold_start=False)
                 if valve is self.valves_manager.valves[self.DP_ID]:

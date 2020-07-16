@@ -29,7 +29,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     # By default, no reflection used for flooding algorithms.
     _USES_REFLECTION = False
 
-    def __init__(self, stack, tunnel_acls, acl_manager, **kwargs):
+    def __init__(self, tunnel_acls, acl_manager, stack_manager, **kwargs):
         super(ValveSwitchStackManagerBase, self).__init__(**kwargs)
 
         self.tunnel_acls = tunnel_acls
@@ -43,7 +43,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             self.logger.info('external ports present, using loop protection')
             self._set_ext_port_flag = (self.flood_table.set_external_forwarding_requested(),)
             self._set_nonext_port_flag = (self.flood_table.set_no_external_forwarding_requested(),)
-            if not self.is_stack_root() and self.is_stack_root_candidate():
+            if not self.stack_manager.stack.is_root() and self.stack_manager.stack.is_root_candidate():
                 self.logger.info('external flooding on root only')
                 self.external_root_only = True
 
@@ -105,8 +105,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             for i, source in enumerate(acl.tunnel_sources):
 
                 src_dp = source['dp']
-                updated = self.stack_manager.tunnel_outport(
-                    acl, src_dp, dst_dp, dst_port).number
+                out_port = self.stack_manager.tunnel_outport(
+                    src_dp, dst_dp, dst_port)
                 updated = acl.update_source_tunnel_rules(
                     self.stack_manager.stack.name, i, _id, out_port)
                 if updated:
@@ -173,12 +173,12 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,
                                   exclude_all_external=False, exclude_restricted_bcast_arpnd=False):
         """Compiles all the possible flood rule actions for a port on a stack node"""
-        exclude_ports = self.stack_manager.inactive_away_ports
+        exclude_ports = list(self.stack_manager.inactive_away_ports)
         external_ports = vlan.loop_protect_external_ports()
-        if in_port and in_port in self.stack_ports:
+        if in_port and in_port in self.stack_manager.stack.ports:
             in_port_peer_dp = in_port.stack['dp']
             exclude_ports = exclude_ports + [
-                port for port in self.stack_ports
+                port for port in self.stack_manager.stack.ports
                 if port.stack['dp'] == in_port_peer_dp]
         local_flood_actions = tuple(self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port, exclude_all_external, exclude_restricted_bcast_arpnd))
@@ -214,6 +214,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         for port in self.stack_manager.stack.ports:
             flood_acts = []
             match = {'in_port': port.number, 'vlan': vlan}
+            towards_port = port in self.stack_manager.towards_root_ports
             if eth_dst is not None:
                 match.update({'eth_dst': eth_dst, 'eth_dst_mask': eth_dst_mask})
                 # Prune broadcast flooding where multiply connected to same DP

@@ -698,7 +698,7 @@ class Port(Conf):
                 # Stack timed out, too many packets lost
                 self.stack_gone()
                 reason = 'too many (%u) packets lost, last received %us ago' % (
-                    num_lost_lldp, time_since, lldp_seen)
+                    num_lost_lldp, time_since_lldp_seen)
             elif not stack_correct:
                 # Stack bad due to incorrect cabling
                 self.stack_bad()

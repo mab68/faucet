@@ -17,6 +17,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+from collections import defaultdict
+
+from faucet import valve_util
 from faucet import valve_of
 from faucet import valve_packet
 from faucet.valve_manager_base import ValveManagerBase
@@ -25,10 +29,16 @@ from faucet.valve_manager_base import ValveManagerBase
 class ValveLLDPManager(ValveManagerBase):
     """Manage LLDP."""
 
-    def __init__(self, vlan_table, highest_priority, logger):
+    def __init__(self, vlan_table, highest_priority, logger,
+                 notify, inc_var, set_var, set_port_var, stack_manager):
         self.vlan_table = vlan_table
         self.highest_priority = highest_priority
         self.logger = logger
+        self.notify = notify
+        self._set_var = set_var
+        self._inc_var = inc_var
+        self._set_port_var = set_port_var
+        self.stack_manager = stack_manager
 
     def add_port(self, port):
         ofmsgs = []
@@ -43,7 +53,7 @@ class ValveLLDPManager(ValveManagerBase):
                 max_len=128))
         return ofmsgs
 
-    def _verify_lldp(self, port, now, other_valves,
+    def _verify_lldp(self, port, now, valve, other_valves,
                            remote_dp_id, remote_dp_name,
                            remote_port_id, remote_port_state):
         """
@@ -88,22 +98,25 @@ class ValveLLDPManager(ValveManagerBase):
             'remote_port_id': remote_port_id,
             'remote_port_state': remote_port_state
         }
-        return self.update_stack_link_state([port], now, other_valves)
+        return self.update_stack_link_state([port], now, valve, other_valves)
 
-    def update_stack_link_state(self, ports, now, other_valves):
+    def update_stack_link_state(self, ports, now, valve, other_valves):
         """
         Update the stack link states of the set of provided stack ports
 
         Args:
             ports (list): List of stack ports to update the state of
             now (float): Current time
+            valve (Valve): Valve that owns this LLDPManager instance
             other_valves (list): List of other valves
         Returns:
             dict: ofmsgs by valve
         """
         stack_changes = 0
         ofmsgs_by_valve = defaultdict(list)
-        stacked_valves = {self}.union(self._stacked_valves(other_valves))
+        stacked_valves = set()
+        if self.stack_manager:
+            stacked_valves = {valve}.union(self.stack_manager.stacked_valves(other_valves))
         for port in ports:
             before_state = port.stack_state()
             after_state, reason = port.stack_port_update(now)
@@ -121,30 +134,34 @@ class ValveLLDPManager(ValveManagerBase):
                     port_up = True
                 elif port.is_stack_init() and port.stack['port'].is_stack_up():
                     port_up = True
-                for valve in stacked_valves:
-                    valve.stack_manager.update_stack_topo(port_up, self.dp, port)
+                for stack_valve in stacked_valves:
+                    stack_valve.stack_manager.update_stack_topo(port_up, valve.dp, port)
         if stack_changes:
             self.logger.info('%u stack ports changed state' % stack_changes)
             notify_dps = {}
-            for valve in stacked_valves:
-                if not valve.dp.dyn_running:
+            for stack_valve in stacked_valves:
+                if not stack_valve.dp.dyn_running:
                     continue
-                ofmsgs_by_valve[valve].extend(valve.add_vlans(valve.dp.vlans.values()))
-                for port in valve.dp.stack_ports():
-                    ofmsgs_by_valve[valve].extend(valve.switch_manager.del_port(port))
-                ofmsgs_by_valve[valve].extend(valve.switch_manager.add_tunnel_acls())
-                path_port = valve.dp.stack.shortest_path_port(valve.dp.stack.root_name)
+                ofmsgs_by_valve[stack_valve].extend(
+                    stack_valve.add_vlans(stack_valve.dp.vlans.values()))
+                for port in stack_valve.dp.stack_ports():
+                    ofmsgs_by_valve[stack_valve].extend(
+                        stack_valve.switch_manager.del_port(port))
+                ofmsgs_by_valve[stack_valve].extend(
+                    stack_valve.switch_manager.add_tunnel_acls())
+                path_port = stack_valve.dp.stack.shortest_path_port(
+                    stack_valve.dp.stack.root_name)
                 path_port_number = path_port.number if path_port else 0.0
                 self._set_var(
-                    'dp_root_hop_port', path_port_number, labels=valve.dp.base_prom_labels())
-                notify_dps.setdefault(valve.dp.name, {})['root_hop_port'] = path_port_number
+                    'dp_root_hop_port', path_port_number, labels=stack_valve.dp.base_prom_labels())
+                notify_dps.setdefault(stack_valve.dp.name, {})['root_hop_port'] = path_port_number
             # Find the first valve with a valid stack and trigger notification.
-            for valve in stacked_valves:
-                if valve.dp.stack.graph:
+            for stack_valve in stacked_valves:
+                if stack_valve.dp.stack.graph:
                     self.notify(
                         {'STACK_TOPO_CHANGE': {
-                            'stack_root': valve.dp.stack.root_name,
-                            'graph': valve.dp.stack.get_node_link_data(),
+                            'stack_root': stack_valve.dp.stack.root_name,
+                            'graph': stack_valve.dp.stack.get_node_link_data(),
                             'dps': notify_dps
                             }})
                     break

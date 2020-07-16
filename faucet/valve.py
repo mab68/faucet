@@ -36,6 +36,7 @@ from faucet.valve_coprocessor import CoprocessorManager
 from faucet.valve_lldp import ValveLLDPManager
 from faucet.valve_outonly import OutputOnlyManager
 from faucet.valve_switch_stack import ValveSwitchStackManagerBase
+from faucet.valve_stack import ValveStackManager
 
 
 # TODO: has to be here to avoid eventlet monkey patch in faucet_dot1x.
@@ -204,11 +205,13 @@ class Valve:
             for port_number in self.dp.ports.keys():
                 self._port_highwater[vlan_vid][port_number] = 0
 
+        self.stack_manager = None
         if self.dp.stack:
-            self.stack_manager = ValveStackManager(self.logger, self.dp, self.stack)
+            self.stack_manager = ValveStackManager(self.logger, self.dp, self.dp.stack)
 
         self._lldp_manager = ValveLLDPManager(
-            self.dp.tables['vlan'], self.dp.highest_priority)
+            self.dp.tables['vlan'], self.dp.highest_priority, self.logger,
+            self.notify, self._inc_var, self._set_var, self._set_port_var, self.stack_manager)
         self._output_only_manager = OutputOnlyManager(
             self.dp.tables['vlan'], self.dp.highest_priority)
         self._dot1x_manager = None
@@ -245,7 +248,7 @@ class Valve:
                 self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, proactive_learn,
                 self.DEC_TTL, self.dp.multi_out, fib_table,
-                self.dp.tables['vip'], self.pipeline, self.dp.routers, self.switch_manager)
+                self.dp.tables['vip'], self.pipeline, self.dp.routers, self.stack_manager)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
             for vlan in self.dp.vlans.values():
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
@@ -599,7 +602,8 @@ class Valve:
                     if age > self.dp.lldp_beacon['send_interval'] * port.max_lldp_lost:
                         self.logger.info('LLDP for %s inactive after %us' % (port, age))
                         port.dyn_lldp_beacon_recv_state = None
-        return self.stack_manager._update_stack_link_state(self.dp.stack_ports(), now, other_valves)
+        return self._lldp_manager.update_stack_link_state(
+            self.dp.stack_ports(), now, self, other_valves)
 
     def _reset_dp_status(self):
         self._set_var('dp_status', int(self.dp.dyn_running))
@@ -832,8 +836,8 @@ class Valve:
         if remote_dp_id and remote_port_id:
             self.logger.debug('FAUCET LLDP on %s from %s (remote %s, port %u)' % (
                 port, pkt_meta.eth_src, valve_util.dpid_log(remote_dp_id), remote_port_id))
-            ofmsgs_by_valve.update(self.stack_manager._verify_lldp(
-                port, now, other_valves,
+            ofmsgs_by_valve.update(self._lldp_manager._verify_lldp(
+                port, now, self, other_valves,
                 remote_dp_id, remote_dp_name,
                 remote_port_id, remote_port_state))
         else:
@@ -896,8 +900,11 @@ class Valve:
         Returns:
             list: OpenFlow messages, if any.
         """
+        stacked_other_valves = set()
+        if self.stack_manager:
+            stacked_other_valves = self.stack_manager.stacked_valves(other_valves)
         learn_port = self.switch_manager.edge_learn_port(
-            self._stacked_valves(other_valves), pkt_meta)
+            stacked_other_valves, pkt_meta)
         if learn_port is not None:
             learn_flows, previous_port, update_cache = self.switch_manager.learn_host_on_vlan_ports(
                 now, learn_port, pkt_meta.vlan, pkt_meta.eth_src,
@@ -1174,7 +1181,9 @@ class Valve:
             return ofmsgs
 
         ofmsgs_by_valve = {}
-        stacked_other_valves = self._stacked_valves(other_valves)
+        stacked_other_valves = set()
+        if self.stack_manager:
+            stacked_other_valves = self.stack_manager.stacked_valves(other_valves)
         all_stacked_valves = {self}.union(stacked_other_valves)
 
         # TODO: generalize multi DP routing
