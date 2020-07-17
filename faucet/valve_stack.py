@@ -1,6 +1,8 @@
 """Manage higher level stack functions"""
 
 
+from collections import defaultdict
+
 from faucet.valve_manager_base import ValveManagerBase
 
 
@@ -20,7 +22,6 @@ position in the stack.
         Args:
             stack (Stack): Stack object of the DP on the Valve being managed
         """
-        super(ValveSwitchStackManagerBase, self).__init__(**kwargs)
         # Logger for logging
         self.logger = logger
         # DP instance for stack healthyness
@@ -73,19 +74,19 @@ position in the stack.
                     shortest_peer_distance = port_peer_distance
                     continue
                 shortest_peer_distance = min(shortest_peer_distance, port_peer_distance)
-            self.all_towards_root_stack_ports = {
+            self.towards_root_ports = {
                 port for port, port_peer_distance in port_peer_distances.items()
                 if port_peer_distance == shortest_peer_distance}
             self.away_ports = all_peer_ports - self.towards_root_ports
 
             if self.towards_root_ports:
                 # Generate a shortest path to calculate the chosen connection to root
-                shortest_path = self.shortest_path_to_root()
+                shortest_path = self.stack.shortest_path_to_root()
                 # Choose the port that is connected to peer DP
                 if shortest_path and len(shortest_path) > 1:
                     first_peer_dp = shortest_path[1]
                 else:
-                    first_peer_port = self.canonical_port_order(
+                    first_peer_port = self.stack.canonical_port_order(
                         self.towards_root_ports)[0]
                     first_peer_dp = first_peer_port.stack['dp'].name
                 # The chosen towards ports are the ports through the chosen peer DP
@@ -102,8 +103,8 @@ position in the stack.
             if self.away_ports:
                 # Get inactive away ports, ports whose peers have a better path to root
                 self.inactive_away_ports = {
-                    for port in self.away_ports
-                    if not self.is_in_path(port.stack['dp'].name, self.root_name)}
+                    port for port in self.away_ports
+                    if not self.stack.is_in_path(port.stack['dp'].name, self.stack.root_name)}
                 # Get pruned away ports, redundant ports for each adjacent DP
                 ports_by_dp = defaultdict(list)
                 for port in self.away_ports:
@@ -111,7 +112,7 @@ position in the stack.
                 for dp, ports in ports_by_dp.items():
                     remote_away_ports = self.stack.canonical_up_ports(
                         [port.stack['port'] for port in ports])
-                    pruned_away_ports.update([
+                    self.pruned_away_ports.update([
                         port.stack['port'] for port in remote_away_ports
                         if port != remote_away_ports[0]])
 
@@ -129,7 +130,7 @@ position in the stack.
         self.stack.modify_link(dp, port, event)
         towards_ports = self.reset_peer_distances()
         if towards_ports:
-            self.logger.info('shortest path to root is via %s' % after_ports)
+            self.logger.info('shortest path to root is via %s' % towards_ports)
         else:
             self.logger.info('no path available to root')
 
@@ -142,7 +143,7 @@ position in the stack.
         Returns:
            Port: port from current node that is shortest directly towards destination
         """
-        return self.shortest_path_port(dp_name)
+        return self.stack.shortest_path_port(dp_name)
 
     def relative_port_towards(self, dp_name):
         """
@@ -161,17 +162,17 @@ position in the stack.
             # Current node is the destination node, use default
             return self.default_port_towards(dp_name)
         path_to_root = self.stack.shortest_path_to_root(dp_name)
-        if path_to_root:
+        if path_to_root and self.stack.name in path_to_root:
             # Current node is a transit node between root & destination, direct path to destination
             away_dp = path_to_root[path_to_root.index(self.stack.name) - 1]
             away_up_ports = [
-                port for port in self.stack.canonical_up_ports(self.stack.away_ports)
+                port for port in self.stack.canonical_up_ports(self.away_ports)
                 if port.stack['dp'].name == away_dp]
             return away_up_ports[0] if away_up_ports else None
         else:
             # Otherwise, head towards the root, path to destination via root
-            towards_up_ports = self.stack.canonical_up_ports(self.stack.chosen_towards_ports)
-            return towards_up_ports if towards_up_ports else None
+            towards_up_ports = self.stack.canonical_up_ports(self.chosen_towards_ports)
+            return towards_up_ports[0] if towards_up_ports else None
 
     def edge_learn_port_towards(self, pkt_meta, edge_dp):
         """
@@ -201,7 +202,7 @@ position in the stack.
         if not self.stack.is_in_path(src_dp, dst_dp):
             # No known path from the source to destination DP, so no port to output
             return None
-        out_port = self.shortest_path_port(dst_dp)
+        out_port = self.stack.shortest_path_port(dst_dp)
         if self.stack.name == dst_dp:
             # Current stack node is the destination, so output to the tunnel destination port
             out_port = dst_port

@@ -819,6 +819,8 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
     """Valve test for root selection."""
 
     CONFIG = STACK_CONFIG
+    STACK_ROOT_STATE_UPDATE_TIME = 10
+    STACK_ROOT_DOWN_TIME =  STACK_ROOT_STATE_UPDATE_TIME * 3
 
     def setUp(self):
         self.setup_valves(self.CONFIG)
@@ -853,46 +855,52 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
             self.assertEqual(root_hop_port, self.get_prom('dp_root_hop_port', dp_id=valve.dp.dp_id))
         # From a cold start - we pick the s1 as root.
         self.assertEqual(None, self.valves_manager.meta_dp_state.stack_root_name)
-        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        self.assertFalse(
+            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
         self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=2))
-        now += (valves_manager.STACK_ROOT_DOWN_TIME * 2)
+        now += (self.STACK_ROOT_DOWN_TIME * 2)
         # Time passes, still no change, s1 is still the root.
-        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        self.assertFalse(
+            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
         self.assertEqual('s1', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(1, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=2))
         # s2 has come up, but has all stack ports down and but s1 is still down.
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
-        now += (valves_manager.STACK_ROOT_STATE_UPDATE_TIME * 2)
+        now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
         # No change because s2 still isn't healthy.
-        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        self.assertFalse(
+            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
         # We expect s2 to be the new root because now it has stack links up.
         self.set_stack_all_ports_status('s2', STACK_STATE_UP)
-        now += (valves_manager.STACK_ROOT_STATE_UPDATE_TIME * 2)
+        now += (self.STACK_ROOT_STATE_UPDATE_TIME * 2)
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now
-        self.assertTrue(self.valves_manager.maintain_stack_root(now))
+        self.assertTrue(
+            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
         self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=2))
         # More time passes, s1 is still down, s2 is still the root.
-        now += (valves_manager.STACK_ROOT_DOWN_TIME * 2)
+        now += (self.STACK_ROOT_DOWN_TIME * 2)
         # s2 recently said something, s2 still the root.
         self.valves_manager.meta_dp_state.dp_last_live_time['s2'] = now - 1
         self.set_stack_all_ports_status('s2', STACK_STATE_UP)
-        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        self.assertFalse(
+            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
         self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=1))
         self.assertTrue(self.get_prom('is_dp_stack_root', dp_id=2))
         # now s1 came up too, but we stay on s2 because it's healthy.
         self.valves_manager.meta_dp_state.dp_last_live_time['s1'] = now + 1
-        now += valves_manager.STACK_ROOT_STATE_UPDATE_TIME
-        self.assertFalse(self.valves_manager.maintain_stack_root(now))
+        now += self.STACK_ROOT_STATE_UPDATE_TIME
+        self.assertFalse(
+            self.valves_manager.maintain_stack_root(now, self.STACK_ROOT_STATE_UPDATE_TIME))
         self.assertEqual('s2', self.valves_manager.meta_dp_state.stack_root_name)
         self.assertEqual(2, self.get_prom('faucet_stack_root_dpid', bare=True))
         self.assertFalse(self.get_prom('is_dp_stack_root', dp_id=1))
@@ -1405,13 +1413,15 @@ vlans:
 
     def stack_manager_flood_ports(self, stack_manager):
         """Return list of port numbers that will be flooded to"""
+        stack_manager.reset_peer_distances()
         ports = list()
+        import sys
         if stack_manager.stack.is_root():
-            ports = stack_manager.chosen_towards_port
+            ports = (stack_manager.away_ports - stack_manager.inactive_away_ports -
+                stack_manager.pruned_away_ports)
         else:
-            ports = stack_manager.away_ports - stack_manager.pruned_away_ports -
-                stack_manager.pruned_away_ports
-        return [port.number for port in ports]
+            ports = [stack_manager.chosen_towards_port]
+        return sorted([port.number for port in ports])
 
     def route_manager_ofmsgs(self, route_manager, vlan):
         """Return ofmsgs for route stack link flooding"""

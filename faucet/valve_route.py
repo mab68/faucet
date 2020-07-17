@@ -193,7 +193,6 @@ class ValveRouteManager(ValveManagerBase):
                     else:
                         ofmsgs.extend(
                             [valve_of.packetout(port_no, pkt.data) for port_no in running_port_nos])
-            ports = self.switch_manager._stack_flood_ports()
         return ofmsgs
 
     def _resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):

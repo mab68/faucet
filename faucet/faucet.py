@@ -215,7 +215,7 @@ class Faucet(RyuAppBase):
     @set_ev_cls(EventFaucetMaintainStackRoot, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _maintain_stack_root(self, _):
-        self.valves_manager.maintain_stack_root(time.time())
+        self.valves_manager.maintain_stack_root(time.time(), self.stack_root_state_update_time)
 
     @set_ev_cls(EventFaucetEventSockHeartbeat, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
