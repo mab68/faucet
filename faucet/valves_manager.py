@@ -131,7 +131,7 @@ class ValvesManager:
                 self.meta_dp_state.dp_last_live_time[valve.dp.name] = now
 
         stacked_dps = [
-            valve.dp for valve in self.valves.values() if valve.dp.stack.root_name]
+            valve.dp for valve in self.valves.values() if valve.dp.stack and valve.dp.stack.root_name]
         if not stacked_dps:
             return False
 

@@ -706,7 +706,7 @@ class Port(Conf):
             elif not self.is_stack_up():
                 # Nothing gone wrong, so Stack UP
                 self.stack_up()
-                reason = ''
+                reason = 'up'
         return self.stack_state(), reason
 
     def is_stack_admin_down(self):

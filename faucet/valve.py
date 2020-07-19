@@ -906,8 +906,6 @@ class Valve:
         learn_port = self.switch_manager.edge_learn_port(
             stacked_other_valves, pkt_meta)
         if learn_port is not None:
-            import sys
-            sys.stderr.write('%s\n' % learn_port)
             learn_flows, previous_port, update_cache = self.switch_manager.learn_host_on_vlan_ports(
                 now, learn_port, pkt_meta.vlan, pkt_meta.eth_src,
                 last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
