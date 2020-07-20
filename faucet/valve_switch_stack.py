@@ -130,8 +130,6 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 ofmsgs.extend(self.acl_update_tunnel(acl))
         return ofmsgs
 
-
-
     def _learn_host_intervlan_routing_flows(self, port, vlan, eth_src, eth_dst):
         """Returns flows for the eth_src_table that enable packets that have been
            routed to be accepted from an adjacent DP and then switched to the destination.
@@ -170,8 +168,6 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                        away_flood_actions, toward_flood_actions, local_flood_actions):
         raise NotImplementedError
 
-
-
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port,
                                   exclude_all_external=False, exclude_restricted_bcast_arpnd=False):
         """Compiles all the possible flood rule actions for a port on a stack node"""
@@ -193,14 +189,12 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             toward_flood_actions, local_flood_actions)
         return flood_acts
 
-
     def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
                                 exclude_unicast, exclude_restricted_bcast_arpnd,
                                 command, cold_start):
         """Builds that flood rules for each mask for each port in the stack.
         This takes into account the pruned and non-pruned ports and returns
-            the appropriate flood rule actions
-        """
+            the appropriate flood rule actions"""
         # Stack ports aren't in VLANs, so need special rules to cause flooding from them.
         ofmsgs = super(ValveSwitchStackManagerBase, self)._build_mask_flood_rules(
             vlan, eth_type, eth_dst, eth_dst_mask,
@@ -217,7 +211,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             flood_acts = []
 
             match = {'in_port': port.number, 'vlan': vlan}
-            towards_port = port in self.stack_manager.towards_root_ports
+            towards_port = port in self.stack_manager.chosen_towards_ports
             if eth_dst is not None:
                 match.update({'eth_dst': eth_dst, 'eth_dst_mask': eth_dst_mask})
                 # Prune broadcast flooding where multiply connected to same DP
@@ -277,7 +271,6 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 ofmsgs.append(port_flood_ofmsg)
 
         return ofmsgs
-
 
     def edge_learn_port(self, other_valves, pkt_meta):
         """
@@ -384,10 +377,6 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             return sorted(most_ports_dpids), 'lowest dpid'
         # Most_ports_dpid is the chosen DPID
         return most_ports_dpid, 'most LAG ports'
-
-    @staticmethod
-    def _stacked_valves(valves):
-        return {valve for valve in valves if valve.dp.stack_root_name}
 
     def _valve_learn_host_from_pkt(self, valve, now, pkt_meta, other_valves):
         """Add L3 forwarding rule if necessary for inter-VLAN routing."""

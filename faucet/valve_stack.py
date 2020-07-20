@@ -8,12 +8,7 @@ from faucet.valve_manager_base import ValveManagerBase
 
 class ValveStackManager(ValveManagerBase):
     """Implement stack manager, this handles the more higher-order stack functions.
-This includes port nominations and flood directionality. This class also handles the
-updating of stack port states.
-
-ValveStackManager also changes behaviour decisions based on the stack topology and the valves'
-position in the stack.
-"""
+This includes port nominations and flood directionality."""
 
     def __init__(self, logger, dp, stack, **kwargs):
         """
