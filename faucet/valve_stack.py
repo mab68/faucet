@@ -54,6 +54,8 @@ position in the stack.
 
     def reset_peer_distances(self):
         """Recalculates the towards and away ports for this node"""
+        import sys
+
         self.towards_root_ports = set()
         self.chosen_towards_ports = set()
         self.chosen_towards_port = None
@@ -77,7 +79,12 @@ position in the stack.
             self.towards_root_ports = {
                 port for port, port_peer_distance in port_peer_distances.items()
                 if port_peer_distance == shortest_peer_distance}
+
+            sys.stderr.write('%s TOWARDS: %s\n' % (self.stack.name, self.towards_root_ports))
+
             self.away_ports = all_peer_ports - self.towards_root_ports
+
+            sys.stderr.write('%s AWAY: %s\n' % (self.stack.name, self.away_ports))
 
             if self.towards_root_ports:
                 # Generate a shortest path to calculate the chosen connection to root

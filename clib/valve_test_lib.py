@@ -1377,6 +1377,15 @@ class ValveTestBases:
             self.assertEqual(
                 before_table_state, after_table_state, msg='\n'.join(diff))
 
+        def verify_pruned(self):
+            """ """
+            import sys
+            for valve in self.valves_manager.valves.values():
+                stack_manager = valve.stack_manager
+                sys.stderr.write('%s\n' % valve.dp.dp_id)
+                sys.stderr.write('TOWARDS %s\n' % stack_manager.chosen_towards_ports)
+                sys.stderr.write('AWAY %s\n' % stack_manager.away_ports)
+
 
     class ValveTestBig(ValveTestNetwork):
         """Test basic switching/L2/L3 functions."""
@@ -2448,13 +2457,7 @@ meters:
             """Create a stacking config file."""
             self.create_config()
             self.setup_valves(self.CONFIG)
-            for valve in self.valves_manager.valves.values():
-                valve.dp.dyn_running = True
-                for port in valve.dp.ports.values():
-                    port.dyn_finalized = False
-                    port.enabled = True
-                    port.dyn_phys_up = True
-                    port.dyn_finalized = True
+            self.trigger_stack_ports()
 
         @staticmethod
         def create_mac(vindex, host):

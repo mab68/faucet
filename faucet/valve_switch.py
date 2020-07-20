@@ -76,7 +76,6 @@ def valve_switch_factory(logger, dp, pipeline, acl_manager, stack_manager):  # p
         switch_args.update({
             'stack_manager': stack_manager,
             'tunnel_acls': dp.tunnel_acls,
-            'stack_route_learning': dp.stack_route_learning,
             'acl_manager': acl_manager,
         })
         return switch_class(**switch_args)

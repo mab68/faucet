@@ -30,11 +30,10 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     # By default, no reflection used for flooding algorithms.
     _USES_REFLECTION = False
 
-    def __init__(self, tunnel_acls, stack_route_learning, acl_manager, stack_manager, **kwargs):
+    def __init__(self, tunnel_acls, acl_manager, stack_manager, **kwargs):
         super(ValveSwitchStackManagerBase, self).__init__(**kwargs)
 
         self.tunnel_acls = tunnel_acls
-        self.stack_route_learning = stack_route_learning
         self.acl_manager = acl_manager
         self.stack_manager = stack_manager
 
@@ -321,8 +320,6 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         """
         raise NotImplementedError
 
-
-
     def add_port(self, port):
         ofmsgs = super(ValveSwitchStackManagerBase, self).add_port(port)
         # If this is a stacking port, accept all VLANs (came from another FAUCET)
@@ -396,7 +393,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         """Add L3 forwarding rule if necessary for inter-VLAN routing."""
         ofmsgs_by_valve = super(ValveSwitchStackManagerBase, self).learn_host_from_pkt(
             valve, now, pkt_meta, other_valves)
-        if self.stack_route_learning and not self.is_stack_root():
+        if self.stack_manager.stack.route_learning and not self.stack_manager.stack.is_root():
             if pkt_meta.eth_src == pkt_meta.vlan.faucet_mac:
                 ofmsgs_by_valve[valve].extend(self._learn_host_intervlan_routing_flows(
                     pkt_meta.port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.eth_dst))
@@ -408,11 +405,11 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     def learn_host_from_pkt(self, valve, now, pkt_meta, other_valves):
         ofmsgs_by_valve = {}
 
-        if self.stack_route_learning:
-            stacked_other_valves = self._stacked_valves(other_valves)
+        if self.stack_manager.stack.route_learning:
+            stacked_other_valves = self.stack_manager.stacked_valves(other_valves)
             all_stacked_valves = {valve}.union(stacked_other_valves)
 
-            # TODO: multi DP routing requires learning from directly attached switch first.
+            # NOTE: multi DP routing requires learning from directly attached switch first.
             if pkt_meta.port.stack:
                 peer_dp = pkt_meta.port.stack['dp']
                 if peer_dp.dyn_running:
@@ -425,7 +422,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
             for other_valve in stacked_other_valves:
                 # TODO: does not handle pruning.
-                stack_port = other_valve.dp.shortest_path_port(self.dp_name)
+                # TODO: redo this...
+                stack_port = other_valve.dp.stack.shortest_path_port(self.stack_manager.stack.name)
                 valve_vlan = other_valve.dp.vlans.get(pkt_meta.vlan.vid, None)
                 if stack_port and valve_vlan:
                     valve_pkt_meta = copy.copy(pkt_meta)

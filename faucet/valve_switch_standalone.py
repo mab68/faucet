@@ -718,8 +718,6 @@ class ValveSwitchManager(ValveManagerBase):  # pylint: disable=too-many-public-m
         for learn_func in (
                 self._perm_learn_check, self._learn_cache_check,
                 self._loop_protect_check, self._learn_check):
-            import sys
-            sys.stderr.write('%s\n' % port)
             (learn_exit, ofmsgs, cache_port, update_cache,
              delete_existing, refresh_rules) = learn_func(
                  entry, vlan, now, eth_src, port, ofmsgs, cache_port, cache_age,
