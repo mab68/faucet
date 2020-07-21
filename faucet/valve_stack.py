@@ -49,8 +49,6 @@ This includes port nominations and flood directionality."""
 
     def reset_peer_distances(self):
         """Recalculates the towards and away ports for this node"""
-        import sys
-
         self.towards_root_ports = set()
         self.chosen_towards_ports = set()
         self.chosen_towards_port = None
@@ -75,11 +73,7 @@ This includes port nominations and flood directionality."""
                 port for port, port_peer_distance in port_peer_distances.items()
                 if port_peer_distance == shortest_peer_distance}
 
-            sys.stderr.write('%s TOWARDS: %s\n' % (self.stack.name, self.towards_root_ports))
-
             self.away_ports = all_peer_ports - self.towards_root_ports
-
-            sys.stderr.write('%s AWAY: %s\n' % (self.stack.name, self.away_ports))
 
             if self.towards_root_ports:
                 # Generate a shortest path to calculate the chosen connection to root
@@ -199,7 +193,7 @@ This includes port nominations and flood directionality."""
             dst_dp (str): Destination DP name of the tunnel
             dst_port (int): Destination port of the tunnel
         Returns:
-            Port: Output port for the current node of the tunnel
+            int: Output port number for the current node of the tunnel
         """
         if not self.stack.is_in_path(src_dp, dst_dp):
             # No known path from the source to destination DP, so no port to output
@@ -208,4 +202,40 @@ This includes port nominations and flood directionality."""
         if self.stack.name == dst_dp:
             # Current stack node is the destination, so output to the tunnel destination port
             out_port = dst_port
+        elif out_port:
+            out_port = out_port.number
         return out_port
+
+    def is_healthy(self, now, dp_last_live_time, update_time):
+        """ 
+        Returns whether the current stack node is healthy, a healthy stack node
+            is one that attempted connected recently, or was known to be running
+            recently, has all LAGs UP and any stack port UP
+
+        Args:
+            now (float): Current time
+            dp_last_live_time (dict): Last live time value for each DP
+            update_time (int): Stack root update interval time
+        Returns:
+            bool: True if current stack node is healthy
+        """
+        down_time = self.stack.root_down_time_multiple * update_time
+        health_timeout = now - down_time
+        last_live_time = dp_last_live_time.get(self.stack.name, 0)
+        if last_live_time < health_timeout:
+            # Too long since DP last running
+            self.logger.info('Stack node %s UNHEALTHY: last running %us ago (timeout %us)' % (
+                self.stack.name, last_live_time, health_timeout))
+            return False
+        if not self.dp.all_lags_up():
+            # Not all LAG ports are up
+            self.logger.info('Stack node %s UNHEALTHY: %s/%s LAGs UP' % (
+                self.stack.name, len(self.dp.lags_up()), len(self.dp.lags)))
+            return False
+        if not self.stack.any_port_up():
+            # Not all stack ports are up
+            self.logger.info('Stack node %s UNHEALTHY: no stack port UP' % (
+                self.stack.name))
+            return False
+        self.logger.info('Stack node %s HEALTHY' % self.stack.name)
+        return True

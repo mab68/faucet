@@ -106,13 +106,14 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 src_dp = source['dp']
                 out_port = self.stack_manager.tunnel_outport(
                     src_dp, dst_dp, dst_port)
-                updated = acl.update_source_tunnel_rules(
-                    self.stack_manager.stack.name, i, _id, out_port)
-                if updated:
-                    if self.stack_manager.stack.name == src_dp:
-                        source_vids[i].append(_id)
-                    else:
-                        updated_sources.append(i)
+                if out_port:
+                    updated = acl.update_source_tunnel_rules(
+                        self.stack_manager.stack.name, i, _id, out_port)
+                    if updated:
+                        if self.stack_manager.stack.name == src_dp:
+                            source_vids[i].append(_id)
+                        else:
+                            updated_sources.append(i)
             for source_id in updated_sources:
                 ofmsgs.extend(self.acl_manager.build_tunnel_rules_ofmsgs(
                     source_id, _id, acl))
@@ -204,21 +205,25 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             self.classification_offset - (
                 self.pipeline.filter_priority - self.pipeline.select_priority))
 
-        pruned_away_ports = self.stack_manager.pruned_away_ports
         towards_up_port = self.stack_manager.chosen_towards_port
 
         for port in self.stack_manager.stack.ports:
+
+            away_up_ports = self.stack_manager.away_ports - (
+                self.stack_manager.pruned_away_ports - self.stack_manager.inactive_away_ports)
+
+            away_port = port in self.stack_manager.away_ports
+            towards_port = not away_port
             flood_acts = []
 
             match = {'in_port': port.number, 'vlan': vlan}
-            towards_port = port in self.stack_manager.chosen_towards_ports
             if eth_dst is not None:
                 match.update({'eth_dst': eth_dst, 'eth_dst_mask': eth_dst_mask})
                 # Prune broadcast flooding where multiply connected to same DP
                 if towards_port:
                     prune = port != towards_up_port
                 else:
-                    prune = port in pruned_away_ports
+                    prune = port not in away_up_ports
             else:
                 # Do not prune unicast, may be reply from directly connected DP.
                 prune = False
@@ -235,8 +240,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 ofmsgs.extend(self.pipeline.remove_filter(
                     match, priority_offset=priority_offset))
                 # Control learning from multicast/broadcast on non-root DPs.
-                if (not self.stack_manager.stack.is_root() and
-                        eth_dst is not None and self._USES_REFLECTION):
+                if not self.stack_manager.stack.is_root() and eth_dst is not None and self._USES_REFLECTION:
                     # If ths is an edge DP, we don't have to learn from
                     # hosts that only broadcast.  If we're an intermediate
                     # DP, only learn from broadcasts further away from
