@@ -219,12 +219,15 @@ This includes port nominations and flood directionality."""
         Returns:
             bool: True if current stack node is healthy
         """
-        curr_health = self.stack.dyn_healthy
+        prev_health = self.stack.dyn_healthy
         new_health, reason = self.stack.update_health(
             now, dp_last_live_time, update_time, self.dp.lacp_down_ports(),
             self.stack.down_ports())
-        if curr_health != new_health:
-            health = 'HEALTHY' if curr_health else 'UNHEALTHY'
-            reason = ': %s' % reason
-            self.logger.info('Stack node %s %s%s' % (self.stack.name, health, reason))
+        if prev_health != new_health:
+            health = 'HEALTHY' if new_health else 'UNHEALTHY'
+            self.logger.info('Stack node %s %s (%s)' % (self.stack.name, new_health, reason))
         return new_health
+
+    def consistent_root(self, expected_root_name):
+        """Returns true if the stack node has the root configured as the expected stack root"""
+        return expected_root_name == self.stack.root_name

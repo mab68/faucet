@@ -111,10 +111,10 @@ class ValvesManager:
             now (float): Current time
         """
         for valve in self.valves.values():
-            if self.dp.dyn_running:
+            if valve.dp.dyn_running:
                 self.meta_dp_state.dp_last_live_time[valve.dp.name] = now
 
-    def verify_consistent_stack_roots(self):
+    def inconsistent_stack_roots(self):
         """Return DP names that do not agree with the current root state"""
         inconsistent_dps = []
         for valve in self.valves.values():
@@ -131,99 +131,72 @@ class ValvesManager:
             now (float): Current time
             update_time (int): Stack root update time interval
         """
+        import sys
         self.update_dp_live_time(now)
         last_live_times = self.meta_dp_state.dp_last_live_time
 
         # Get candidate healthy stack valves
-        unhealthy_root_valves = {}
-        healthy_root_valves = {}
+        unhealthy_root_valves = []
+        healthy_root_valves = []
         for valve in self.valves.values():
-            if valve.stack_manager and valve.stack_manager.stack.is_root():
+            if valve.stack_manager and valve.dp.stack.is_root_candidate():
+                sys.stderr.write('Root candidate: %s\n' % valve.dp.name)
                 healthy = valve.stack_manager.update_health(now, last_live_times, update_time)
                 if healthy:
-                    healthy_root_valves[valve.dp.name] = valve
+                    sys.stderr.write('Healthy: %s\n' % valve.dp.name)
+                    healthy_root_valves.append(valve)
                 else:
-                    unhealthy_root_valves[valve.dp.name] = valve
+                    sys.stderr.write('Unhealthy: %s\n' % valve.dp.name)
+                    unhealthy_root_valves.append(valve)
+
+        if not healthy_root_valves and not unhealthy_root_valves:
+            sys.stderr.write('No stack root candidates\n')
+            return False
 
         # Choose a candidate valve to be the root
+        prev_root_name = self.meta_dp_state.stack_root_name
+        prev_root_valve = [valve for valve in self.valves.values() if valve.dp.name == prev_root_name][0]
         if healthy_root_valves:
             if self.meta_dp_state.stack_root_name not in healthy_root_valves:
                 # Need to pick a new healthy root if current root not healthy
                 new_root_name = healthy_root_valves[0].dp.name
+                new_root_valve = healthy_root_valves[0]
         else:
             # No healthy stack roots, so choose a (random) valve
             new_root_name = unhealthy_root_valves[0].dp.name
+            new_root_valve = unhealthy_root_valves[0]
+
+        sys.stderr.write('New root name %s\n' % new_root_name)
 
         stack_change = False
-        if self.meta_dp_state.stack_root_name != new_stack_root_name:
-            # Current stack root is not the new stack root
-            self.logger.info('Stack root changed from %s to %s' % (
-                self.meta_dp_state.stack_root_name, new_stack_root_name))
-            if self.meta_dp_state.stack_root_name:
-                stack_change = True
-
-    def maintain_stack_root(self, now, update_time):
-        """
-        Args:
-            now (float): Current time
-            update_time (int): Stack root update time interval
-        """
-        self.update_dp_live_time(now)
-        last_live_times = self.meta_dp_state.dp_last_live_time
-
-        # Get valves that are root candidates
-        root_valves = [
-            valve for valve in self.valves.values()
-            if valve.stack_manager and valve.stack_manager.stack.is_root_candidate()]
-
-        # Get candidate healthy stack valves
-        healthy_root_valves = [
-            valve for valve in root_valves
-            if valve.stack_manager and
-                valve.stack_manager.is_healthy(now, last_live_times, update_time)]
-
-        # Choose a candidate valve to be the root
-        if healthy_root_valves:
-            if self.meta_dp_state.stack_root_name not in healthy_root_valves:
-                new_root_name = healthy_root_valves[0].dp.name
-        else:
-            new_root_name = healthy_root_valves[0]
-
-        stack_change = False
-        if self.meta_dp_state.stack_root_name != new_stack_root_name:
+        if self.meta_dp_state.stack_root_name != new_root_name:
             # Current stack root is not the new stack root, 
             self.logger.info('stack root changed from %s to %s' % (
-                self.meta_dp_state.stack_root_name, new_stack_root_name))
+                self.meta_dp_state.stack_root_name, new_root_name))
             if self.meta_dp_state.stack_root_name:
                 stack_change = True
-                prev_root = [
-                    dp for dp in stacked_dps if dp.name == self.meta_dp_state.stack_root_name]
-                labels = prev_root[0].base_prom_labels()
+                labels = prev_root_valve.dp.base_prom_labels()
                 self.metrics.is_dp_stack_root.labels(**labels).set(0)
-            self.meta_dp_state.stack_root_name = new_stack_root_name
-            dpids = [dp.dp_id for dp in stacked_dps if dp.name == new_stack_root_name]
-            self.metrics.faucet_stack_root_dpid.set(dpids[0])
+            self.meta_dp_state.stack_root_name = new_root_name
+            self.metrics.faucet_stack_root_dpid.set(new_root_valve.dp.dp_id)
         else:
             # Current stack root does not change, however ensure that the current stack root
             #   is known for all DPs
-            inconsistent_dps = self.verify_consistent_stack_roots()
+            inconsistent_dps = self.inconsistent_stack_roots()
             if inconsistent_dps:
+                sys.stderr.write('Inconsistent Dps\n')
                 self.logger.info('stack root on %s inconsistent' % inconsistent_dps)
                 stack_change = True
 
         if stack_change:
+            sys.stderr.write('Root changed\n')
             # Stack root changed, force restart on all DPs
-            self.logger.info(
-                'root now %s (all candidates %s, healthy %s)' % (
-                    self.meta_dp_state.stack_root_name,
-                    candidate_stack_roots_names,
-                    healthy_stack_roots_names))
+            self.logger.info('Stack root changed to %s (previous %s)' % (
+                new_root_name, prev_root_name))
             dps = dp_preparsed_parser(self.meta_dp_state.top_conf, self.meta_dp_state)
             self._apply_configs(dps, now, None)
 
-        root_dps = [dp for dp in stacked_dps if dp.name == new_stack_root_name]
-
-        labels = root_dps[0].base_prom_labels()
+        labels = new_root_valve.dp.base_prom_labels()
         self.metrics.is_dp_stack_root.labels(**labels).set(1)
         return stack_change
 

@@ -124,22 +124,22 @@ is technically a fixed allocation for this DP Stack instance."""
         """
         down_time = self.root_down_time_multiple * update_time
         health_timeout = now - down_time
-        last_live_time = dp_last_live_time(self.name, 0)
+        last_live_time = dp_last_live_time.get(self.name, 0)
         if last_live_time < health_timeout:
             # Too long since DP last running
             reason = 'last running %us ago (timeout %us)' % (last_live_time, health_timeout)
             self.dyn_healthy = False
-        elif self.down_lacp_ports:
+        elif down_lacp_ports:
             # Not all LAG ports are UP
-            reason = 'LACP ports %s not up' % down_lacp_ports
+            reason = 'LACP ports %s not up' % list(down_lacp_ports)
             self.dyn_healthy = False
         elif down_stack_ports:
             # Not all stack ports are UP
-            reason = 'stack ports %s not up' % down_stack_ports
+            reason = 'stack ports %s not up' % list(down_stack_ports)
             self.dyn_healthy = False
         else:
             # Nothing wrong with stack node
-            reason = ''
+            reason = 'running, all stack and lacp ports UP'
             self.dyn_healthy = True
         return self.dyn_healthy, reason
 
