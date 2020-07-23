@@ -99,8 +99,7 @@ class Valve:
 
     Vendor specific implementations may require sending configuration flows.
     This can be achieved by inheriting from this class and overwriting the
-    function switch_features.
-    """
+    function switch_features."""
 
     __slots__ = [
         '_coprocessor_manager',
@@ -596,8 +595,6 @@ class Valve:
             return {self: ofmsgs}
         return {}
 
-
-
     def fast_state_expire(self, now, other_valves):
         """Called periodically to verify the state of stack ports."""
         if self.dp.lldp_beacon:
@@ -805,8 +802,6 @@ class Valve:
                     ofmsgs.extend(self.add_vlans(port.vlans()))
         return ofmsgs
 
-
-
     def lldp_handler(self, now, pkt_meta, other_valves):
         """Handle an LLDP packet.
 
@@ -878,8 +873,6 @@ class Valve:
                 self._inc_var('of_ignored_packet_ins')
                 return True
         return False
-
-
 
     def learn_host(self, now, pkt_meta, other_valves):
         """Possibly learn a host on a port.
@@ -1145,8 +1138,6 @@ class Valve:
                 route_manager.resolve_expire_hosts(
                     pkt_meta.vlan, now, resolve_all=False))
         return ofmsgs
-
-
 
     def _vlan_rcv_packet(self, now, other_valves, pkt_meta):
         """Handle packet with VLAN tag across all Valves.

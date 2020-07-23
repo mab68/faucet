@@ -103,47 +103,91 @@ class ValvesManager:
         self.config_watcher = ConfigWatcher()
         self.meta_dp_state = MetaDPState()
 
-    def maintain_stack_root(self, now, update_time):
-        """ """
+    def update_dp_live_time(self, now):
+        """
+        Update DP running time
+
+        Args:
+            now (float): Current time
+        """
         for valve in self.valves.values():
-            if valve.dp.dyn_running:
+            if self.dp.dyn_running:
                 self.meta_dp_state.dp_last_live_time[valve.dp.name] = now
+
+    def verify_consistent_stack_roots(self):
+        """Return DP names that do not agree with the current root state"""
+        inconsistent_dps = []
+        for valve in self.valves.values():
+            if valve.stack_manager:
+                if valve.stack_manager.stack.root_name != self.meta_dp_state.stack_root_name:
+                    inconsistent_dps.append(valve.dp.name)
+        return inconsistent_dps
+
+    def maintain_stack_root(self, now, update_time):
+        """
+        Maintain current stack root
+
+        Args:
+            now (float): Current time
+            update_time (int): Stack root update time interval
+        """
+        self.update_dp_live_time(now)
         last_live_times = self.meta_dp_state.dp_last_live_time
 
-        # Get the current stack root
-        curr_stack_root = self.meta_dp_state.stack_root_name
+        # Get candidate healthy stack valves
+        unhealthy_root_valves = {}
+        healthy_root_valves = {}
+        for valve in self.valves.values():
+            if valve.stack_manager and valve.stack_manager.stack.is_root():
+                healthy = valve.stack_manager.update_health(now, last_live_times, update_time)
+                if healthy:
+                    healthy_root_valves[valve.dp.name] = valve
+                else:
+                    unhealthy_root_valves[valve.dp.name] = valve
 
-        # Determine if the current stack root is healthy
-        healthy_root = False
-        if curr_stack_root:
-            for valve in self.valves.values():
-                if valve.stack_manager and valve.dp.name == curr_stack_root:
-                    if valve.stack_manager.node_healthy(now, last_live_times, update_time):
-                        healthy_root = True
-                        break
-
-        if not curr_stack_root or not healthy_root:
-            # Get current healthy valves
-            healthy_valves = [
-                valve for valve in self.valves.values()
-                if valve.stack_manager and valve.dp.stack.is_root_candidate() and
-                    valve.stack_manager.node_healthy(now, last_live_times, update_time)]
-
-            if not healthy_valves:
-                return False
-
-
-
-
-        if healthy_stack_roots_names:
-            new_stack_root_name = self.meta_dp_state.stack_root_name
-            # Only pick a new root if the current one is unhealthy.
-            if self.meta_dp_state.stack_root_name not in healthy_stack_roots_names:
-                new_stack_root_name = healthy_stack_roots_names[0]
+        # Choose a candidate valve to be the root
+        if healthy_root_valves:
+            if self.meta_dp_state.stack_root_name not in healthy_root_valves:
+                # Need to pick a new healthy root if current root not healthy
+                new_root_name = healthy_root_valves[0].dp.name
         else:
-            # Pick the first candidate if no roots are healthy
-            # TODO: This might cause a reload even when there are no healthy stack roots...
-            new_stack_root_name = candidate_stack_roots_names[0]
+            # No healthy stack roots, so choose a (random) valve
+            new_root_name = unhealthy_root_valves[0].dp.name
+
+        stack_change = False
+        if self.meta_dp_state.stack_root_name != new_stack_root_name:
+            # Current stack root is not the new stack root
+            self.logger.info('Stack root changed from %s to %s' % (
+                self.meta_dp_state.stack_root_name, new_stack_root_name))
+            if self.meta_dp_state.stack_root_name:
+                stack_change = True
+
+    def maintain_stack_root(self, now, update_time):
+        """
+        Args:
+            now (float): Current time
+            update_time (int): Stack root update time interval
+        """
+        self.update_dp_live_time(now)
+        last_live_times = self.meta_dp_state.dp_last_live_time
+
+        # Get valves that are root candidates
+        root_valves = [
+            valve for valve in self.valves.values()
+            if valve.stack_manager and valve.stack_manager.stack.is_root_candidate()]
+
+        # Get candidate healthy stack valves
+        healthy_root_valves = [
+            valve for valve in root_valves
+            if valve.stack_manager and
+                valve.stack_manager.is_healthy(now, last_live_times, update_time)]
+
+        # Choose a candidate valve to be the root
+        if healthy_root_valves:
+            if self.meta_dp_state.stack_root_name not in healthy_root_valves:
+                new_root_name = healthy_root_valves[0].dp.name
+        else:
+            new_root_name = healthy_root_valves[0]
 
         stack_change = False
         if self.meta_dp_state.stack_root_name != new_stack_root_name:
@@ -162,9 +206,7 @@ class ValvesManager:
         else:
             # Current stack root does not change, however ensure that the current stack root
             #   is known for all DPs
-            inconsistent_dps = [
-                dp.name for dp in stacked_dps
-                if dp.stack.root_name != self.meta_dp_state.stack_root_name]
+            inconsistent_dps = self.verify_consistent_stack_roots()
             if inconsistent_dps:
                 self.logger.info('stack root on %s inconsistent' % inconsistent_dps)
                 stack_change = True
@@ -184,7 +226,6 @@ class ValvesManager:
         labels = root_dps[0].base_prom_labels()
         self.metrics.is_dp_stack_root.labels(**labels).set(1)
         return stack_change
-
 
     def event_socket_heartbeat(self, now):
         """raises event for event sock heartbeat"""

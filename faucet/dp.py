@@ -676,6 +676,10 @@ configuration.
         """Return ports that have LACP up."""
         return tuple([port for port in self.lacp_ports() if port.is_actor_up()])
 
+    def lacp_down_ports(self):
+        """Return ports that have LACP not UP"""
+        return tuple([port for port in self.lacp_ports() if not port.is_actor_up()])
+
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
         lags = defaultdict(list)

@@ -206,7 +206,7 @@ This includes port nominations and flood directionality."""
             out_port = out_port.number
         return out_port
 
-    def is_healthy(self, now, dp_last_live_time, update_time):
+    def update_health(self, now, dp_last_live_time, update_time):
         """ 
         Returns whether the current stack node is healthy, a healthy stack node
             is one that attempted connected recently, or was known to be running
@@ -219,23 +219,12 @@ This includes port nominations and flood directionality."""
         Returns:
             bool: True if current stack node is healthy
         """
-        down_time = self.stack.root_down_time_multiple * update_time
-        health_timeout = now - down_time
-        last_live_time = dp_last_live_time.get(self.stack.name, 0)
-        if last_live_time < health_timeout:
-            # Too long since DP last running
-            self.logger.info('Stack node %s UNHEALTHY: last running %us ago (timeout %us)' % (
-                self.stack.name, last_live_time, health_timeout))
-            return False
-        if not self.dp.all_lags_up():
-            # Not all LAG ports are up
-            self.logger.info('Stack node %s UNHEALTHY: %s/%s LAGs UP' % (
-                self.stack.name, len(self.dp.lags_up()), len(self.dp.lags)))
-            return False
-        if not self.stack.any_port_up():
-            # Not all stack ports are up
-            self.logger.info('Stack node %s UNHEALTHY: no stack port UP' % (
-                self.stack.name))
-            return False
-        self.logger.info('Stack node %s HEALTHY' % self.stack.name)
-        return True
+        curr_health = self.stack.dyn_healthy
+        new_health, reason = self.stack.update_health(
+            now, dp_last_live_time, update_time, self.dp.lacp_down_ports(),
+            self.stack.down_ports())
+        if curr_health != new_health:
+            health = 'HEALTHY' if curr_health else 'UNHEALTHY'
+            reason = ': %s' % reason
+            self.logger.info('Stack node %s %s%s' % (self.stack.name, health, reason))
+        return new_health

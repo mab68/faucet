@@ -103,7 +103,45 @@ is technically a fixed allocation for this DP Stack instance."""
         self.roots_names = None
         self.root_flood_reflection = None
 
+        # Whether the stack node is currently healthy
+        self.dyn_healthy = False
+
         super(Stack, self).__init__(_id, dp_id, conf)
+
+    def update_health(self, now, dp_last_live_time, update_time, down_lacp_ports, down_stack_ports):
+        """
+        Determines whether the current stack node is healthy
+
+        Args:
+            now (float):
+            dp_last_live_time (dict): Last live time value for each DP
+            update_time (int): Stack root update interval time
+            down_lacp_ports (tuple): Tuple of LACP ports that are not UP
+            down_stack_ports (tuple): Tuple of stack ports that are not UP
+        Return:
+            bool: Current stack node health state
+            str: Reason for the current state
+        """
+        down_time = self.root_down_time_multiple * update_time
+        health_timeout = now - down_time
+        last_live_time = dp_last_live_time(self.name, 0)
+        if last_live_time < health_timeout:
+            # Too long since DP last running
+            reason = 'last running %us ago (timeout %us)' % (last_live_time, health_timeout)
+            self.dyn_healthy = False
+        elif self.down_lacp_ports:
+            # Not all LAG ports are UP
+            reason = 'LACP ports %s not up' % down_lacp_ports
+            self.dyn_healthy = False
+        elif down_stack_ports:
+            # Not all stack ports are UP
+            reason = 'stack ports %s not up' % down_stack_ports
+            self.dyn_healthy = False
+        else:
+            # Nothing wrong with stack node
+            reason = ''
+            self.dyn_healthy = True
+        return self.dyn_healthy, reason
 
     def resolve_topology(self, dps, meta_dp_state):
         """
@@ -230,6 +268,10 @@ is technically a fixed allocation for this DP Stack instance."""
             if port.is_stack_up():
                 return True
         return False
+
+    def down_ports(self):
+        """Return tuple of not running stack ports"""
+        return tuple([port for port in self.ports if not port.is_stack_up()])
 
     def canonical_up_ports(self, ports=None):
         """Obtains list of UP stack ports in canonical order"""
