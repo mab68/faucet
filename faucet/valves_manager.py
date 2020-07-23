@@ -155,7 +155,9 @@ class ValvesManager:
 
         # Choose a candidate valve to be the root
         prev_root_name = self.meta_dp_state.stack_root_name
-        prev_root_valve = [valve for valve in self.valves.values() if valve.dp.name == prev_root_name][0]
+        prev_root_valves = [
+            valve for valve in self.valves.values() if valve.dp.name == prev_root_name]
+        prev_root_valve = prev_root_valves[0] if prev_root_valves else None
         if healthy_root_valves:
             if self.meta_dp_state.stack_root_name not in healthy_root_valves:
                 # Need to pick a new healthy root if current root not healthy
