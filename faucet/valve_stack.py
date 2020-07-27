@@ -205,7 +205,7 @@ This includes port nominations and flood directionality."""
             out_port = out_port.number
         return out_port
 
-    def update_health(self, now, dp_last_live_time, update_time):
+    def update_health(self, now, last_live_times, update_time):
         """
         Returns whether the current stack node is healthy, a healthy stack node
             is one that attempted connected recently, or was known to be running
@@ -213,14 +213,14 @@ This includes port nominations and flood directionality."""
 
         Args:
             now (float): Current time
-            dp_last_live_time (dict): Last live time value for each DP
+            last_live_times (dict): Last live time value for each DP
             update_time (int): Stack root update interval time
         Returns:
             bool: True if current stack node is healthy
         """
         prev_health = self.stack.dyn_healthy
         new_health, reason = self.stack.update_health(
-            now, dp_last_live_time, update_time, self.dp.lacp_down_ports(),
+            now, last_live_times, update_time, self.dp.lacp_down_ports(),
             self.stack.down_ports())
         if prev_health != new_health:
             health = 'HEALTHY' if new_health else 'UNHEALTHY'
@@ -234,3 +234,58 @@ This includes port nominations and flood directionality."""
             if stack_valve.dp.stack.root_name != expected_root_name:
                 return False
         return True
+
+    def nominate_new_stack_root(self, root_valve, other_valves, now, last_live_times, update_time):
+        """
+        Nominate a new stack root
+
+        Args:
+            root_valve (Valve): Previous/current root Valve object
+            other_valves (list): List of other valves (not including previous root)
+            now (float): Current time
+            last_live_times (dict): Last live time value for each DP
+            update_time (int): Stack root update interval time
+        Returns:
+            str: Name of the new elected stack root
+        """
+        import sys
+
+        stack_valves = self.stacked_valves(other_valves)
+        if root_valve:
+            {root_valve}.union(stack_valves)
+
+        sys.stderr.write('root %s\n' % root_valve.dp.name)
+        sys.stderr.write('valves %s\n' % [valve.dp.name for valve in stack_valves])
+
+        # Create lists of healthy and unhealthy root candidates
+        healthy_valves = []
+        unhealthy_valves = []
+        for valve in stack_valves:
+            if valve.dp.stack.is_root_candidate():
+                healthy = valve.stack_manager.update_health(now, last_live_times, update_time)
+                if healthy:
+                    healthy_valves.append(valve)
+                else:
+                    unhealthy_valves.append(valve)
+
+        if not healthy_valves and not unhealthy_valves:
+            # No root candidates/stack valves, so no nomination
+            return None
+
+        sys.stderr.write('healthy: %s\n' % [valve.dp.name for valve in healthy_valves])
+        sys.stderr.write('unhealthy: %s\n' % [valve.dp.name for valve in unhealthy_valves])
+
+        # Choose a candidate valve to be the root
+        if healthy_valves:
+            # Healthy valves exist, so pick a healthy valve as root
+            new_root_name = root_valve.dp.name
+            if root_valve not in healthy_valves:
+                # Need to pick a new healthy root if current root not healthy
+                stacks = [valve.dp.stack for valve in healthy_valves]
+                _, new_root_name = stacks[0].nominate_stack_root(stacks)
+        else:
+            # No healthy stack roots, so forced to choose a bad root
+            stacks = [valve.dp.stack for valve in unhealthy_valves]
+            _, new_root_name = stacks[0].nominate_stack_root(stacks)
+
+        return new_root_name

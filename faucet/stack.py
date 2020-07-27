@@ -90,7 +90,7 @@ is technically a fixed allocation for this DP Stack instance."""
             down_lacp_ports (tuple): Tuple of LACP ports that are not UP
             down_stack_ports (tuple): Tuple of stack ports that are not UP
         Return:
-            bool: Current stack node health state
+            bool: Current stack node health state,
             str: Reason for the current state
         """
         down_time = self.root_down_time_multiple * update_time
@@ -115,7 +115,7 @@ is technically a fixed allocation for this DP Stack instance."""
         return self.dyn_healthy, reason
 
     def nominate_stack_root(self, stacks):
-        """Return stack names in priority order and the first item"""
+        """Return stack names in priority order and the chosen root"""
         stack_priorities = sorted(stacks, key=lambda x: x.priority)
         priority_names = tuple(stack.name for stack in stack_priorities)
         nominated_name = priority_names[0]
