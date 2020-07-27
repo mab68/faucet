@@ -44,7 +44,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             self.logger.info('external ports present, using loop protection')
             self._set_ext_port_flag = (self.flood_table.set_external_forwarding_requested(),)
             self._set_nonext_port_flag = (self.flood_table.set_no_external_forwarding_requested(),)
-            if not self.stack_manager.stack.is_root() and self.stack_manager.stack.is_root_candidate():
+            if (not self.stack_manager.stack.is_root() and
+                    self.stack_manager.stack.is_root_candidate()):
                 self.logger.info('external flooding on root only')
                 self.external_root_only = True
 
@@ -240,8 +241,9 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 ofmsgs.extend(self.pipeline.remove_filter(
                     match, priority_offset=priority_offset))
                 # Control learning from multicast/broadcast on non-root DPs.
-                if not self.stack_manager.stack.is_root() and eth_dst is not None and self._USES_REFLECTION:
-                    # If ths is an edge DP, we don't have to learn from
+                if (not self.stack_manager.stack.is_root() and
+                        eth_dst is not None and self._USES_REFLECTION):
+                    # If this is an edge DP, we don't have to learn from
                     # hosts that only broadcast.  If we're an intermediate
                     # DP, only learn from broadcasts further away from
                     # the root (and ignore the reflected broadcast for
@@ -360,12 +362,12 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         all_stacked_valves = {valve}.union(stacked_other_valves)
         ports = {}
         root_dpid = None
-        for valve in all_stacked_valves:
-            all_lags = valve.dp.lags_up()
+        for stack_valve in all_stacked_valves:
+            all_lags = stack_valve.dp.lags_up()
             if lacp_id in all_lags:
-                ports[valve.dp.dp_id] = len(all_lags[lacp_id])
-            if valve.dp.stack.is_root():
-                root_dpid = valve.dp.dp_id
+                ports[stack_valve.dp.dp_id] = len(all_lags[lacp_id])
+            if stack_valve.dp.stack.is_root():
+                root_dpid = stack_valve.dp.dp_id
         # Order by number of ports
         port_order = sorted(ports, key=ports.get, reverse=True)
         if not port_order:
@@ -415,8 +417,8 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
             for other_valve in stacked_other_valves:
                 # TODO: does not handle pruning.
-                # TODO: redo this...
-                stack_port = other_valve.dp.stack.shortest_path_port(self.stack_manager.stack.name)
+                stack_port = other_valve.stack_manager.default_port_towards(
+                    self.stack_manager.stack.name)
                 valve_vlan = other_valve.dp.vlans.get(pkt_meta.vlan.vid, None)
                 if stack_port and valve_vlan:
                     valve_pkt_meta = copy.copy(pkt_meta)

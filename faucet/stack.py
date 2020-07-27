@@ -17,39 +17,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict, Counter
+from collections import Counter
 import networkx
 
 from faucet.conf import Conf, test_config_condition
-
-
-# This node is the root of the stack
-NODE_ROOT = 0
-# This node is at the edge of the stack
-NODE_EDGE = 1
-# This node is neither at the edge or the root, transit from edge to root
-NODE_TRANSIT = 2
-# Node currently hasn't had it's position calculated yet
-NODE_PENDING_CALC = 3
-PLACEMENT_DISPLAY_DICT = {
-    NODE_ROOT: 'ROOT',
-    NODE_EDGE: 'EDGE',
-    NODE_TRANSIT: 'TRANSIT',
-    NODE_PENDING_CALC: 'PENDING_CALCULATION',
-}
-
-
-# Current acting root for the whole stack, lowest configured priority
-ROOT_CHOSEN = 0
-# Configured priority value, this stack is a root candidate
-ROOT_CANDIDATE = 1
-# No configured priority value, so cannot be root
-ROOT_NOTCONF = 2
-ROOT_DISPLAY_DICT = {
-    ROOT_CHOSEN: 'CHOSEN_ROOT',
-    ROOT_CANDIDATE: 'CANDIDATE_ROOT',
-    ROOT_NOTCONF: 'NOT_CONFIGURED',
-}
 
 
 class Stack(Conf):
@@ -143,6 +114,13 @@ is technically a fixed allocation for this DP Stack instance."""
             self.dyn_healthy = True
         return self.dyn_healthy, reason
 
+    def nominate_stack_root(self, stacks):
+        """Return stack names in priority order and the first item"""
+        stack_priorities = sorted(stacks, key=lambda x: x.priority)
+        priority_names = tuple(stack.name for stack in stack_priorities)
+        nominated_name = priority_names[0]
+        return priority_names, nominated_name
+
     def resolve_topology(self, dps, meta_dp_state):
         """
         Resolve & verify correct inter-DP stacking config
@@ -168,10 +146,10 @@ is technically a fixed allocation for this DP Stack instance."""
                     int, type(dp.stack.priority))))
             test_config_condition(dp.stack.priority <= 0, (
                 'stack priority must be > 0'))
-        stack_priority_dps = sorted(stack_priority_dps, key=lambda x: x.stack.priority)
 
-        self.roots_names = tuple([dp.name for dp in stack_priority_dps])
-        self.root_name = self.roots_names[0]
+        self.roots_names, self.root_name = self.nominate_stack_root(
+            [dp.stack for dp in stack_priority_dps])
+
         if meta_dp_state:
             # If meta_dp_state exists, then we are reloading a new instance of the stack
             #   for a new 'dynamically' chosen root
@@ -256,7 +234,7 @@ is technically a fixed allocation for this DP Stack instance."""
 
     def get_node_link_data(self):
         """Return network stacking graph as a node link representation"""
-        return networkx.json_graph.node_link_data(self.graph)
+        return networkx.readwrite.json_graph.node_link_data(self.graph)
 
     def add_port(self, port):
         """Add a port to this stack"""

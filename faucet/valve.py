@@ -41,6 +41,8 @@ from faucet.valve_stack import ValveStackManager
 
 # TODO: has to be here to avoid eventlet monkey patch in faucet_dot1x.
 class Dot1xManager(ValveManagerBase):
+    """Dot1x protocol manager.
+    Has to be here to avoid eventlet monkey patch in faucet_dot1x"""
 
     def __init__(self, dot1x, dp_id, dot1x_ports, nfv_sw_port):
         self.dot1x = dot1x
@@ -108,13 +110,15 @@ class Valve:
         '_last_fast_advertise_sec',
         '_last_packet_in_sec',
         '_last_pipeline_flows',
-        '_lldp_manager',
-        '_managers',
-        '_output_only_manager',
         '_packet_in_count_sec',
         '_port_highwater',
         '_route_manager_by_eth_type',
         '_route_manager_by_ipv',
+        '_lldp_manager',
+        '_managers',
+        '_output_only_manager',
+        'switch_manager',
+        'stack_manager',
         'acl_manager',
         'dot1x',
         'dp',
@@ -125,7 +129,6 @@ class Valve:
         'ofchannel_logger',
         'pipeline',
         'recent_ofmsgs',
-        'switch_manager',
     ]
 
     DEC_TTL = True
@@ -216,7 +219,8 @@ class Valve:
         self._dot1x_manager = None
         if self.dp.dot1x and self.dp.dot1x_ports():
             nfv_sw_port = self.dp.ports[self.dp.dot1x['nfv_sw_port']]
-            self._dot1x_manager = Dot1xManager(self.dot1x, self.dp.dp_id, self.dp.dot1x_ports, nfv_sw_port)
+            self._dot1x_manager = Dot1xManager(
+                self.dot1x, self.dp.dp_id, self.dp.dot1x_ports, nfv_sw_port)
 
         self.pipeline = valve_pipeline.ValvePipeline(self.dp)
         self.acl_manager = None
@@ -713,7 +717,8 @@ class Valve:
         """
         return self.ports_add([port_num])
 
-    def ports_delete(self, port_nums, log_msg='down', keep_cache=False, other_valves=None, now=None):
+    def ports_delete(self, port_nums, log_msg='down', keep_cache=False,
+                     other_valves=None, now=None):
         """Handle the deletion of ports.
 
         Args:
@@ -766,7 +771,8 @@ class Valve:
         self.notify(
             {'LAG_CHANGE': {'port_no': port.number, 'state': lacp_state, 'role': lacp_role}})
 
-    def lacp_update(self, port, lacp_up, now=None, lacp_pkt=None, other_valves=None, cold_start=False):
+    def lacp_update(self, port, lacp_up, now=None, lacp_pkt=None,
+                    other_valves=None, cold_start=False):
         """Update the port's LACP states and enables/disables pipeline processing.
 
         Args:

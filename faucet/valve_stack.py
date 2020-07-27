@@ -42,10 +42,8 @@ This includes port nominations and flood directionality."""
 
     @staticmethod
     def stacked_valves(valves):
+        """Return set of valves that have stacking enabled"""
         return {valve for valve in valves if valve.dp.stack and valve.dp.stack.root_name}
-
-    def canonical_towards_port(self):
-        return self.stack.canonical_up_ports(self.chosen_towards_ports)[0]
 
     def reset_peer_distances(self):
         """Recalculates the towards and away ports for this node"""
@@ -62,7 +60,8 @@ This includes port nominations and flood directionality."""
             self.away_ports = all_peer_ports
         else:
             port_peer_distances = {
-                port: len(port.stack['dp'].stack.shortest_path_to_root()) for port in all_peer_ports}
+                port: len(port.stack['dp'].stack.shortest_path_to_root())
+                for port in all_peer_ports}
             shortest_peer_distance = None
             for port, port_peer_distance in port_peer_distances.items():
                 if shortest_peer_distance is None:
@@ -91,7 +90,8 @@ This includes port nominations and flood directionality."""
                     if port.stack['dp'].name == first_peer_dp}
 
             if self.chosen_towards_ports:
-                self.chosen_towards_port = self.canonical_towards_port()
+                self.chosen_towards_port = self.stack.canonical_up_ports(
+                    self.chosen_towards_ports)[0]
 
             # Away ports are all the remaining (non-towards) ports
             self.away_ports = all_peer_ports - self.towards_root_ports
@@ -105,7 +105,7 @@ This includes port nominations and flood directionality."""
                 ports_by_dp = defaultdict(list)
                 for port in self.away_ports:
                     ports_by_dp[port.stack['dp']].append(port)
-                for dp, ports in ports_by_dp.items():
+                for ports in ports_by_dp.values():
                     remote_away_ports = self.stack.canonical_up_ports(
                         [port.stack['port'] for port in ports])
                     self.pruned_away_ports.update([
@@ -165,10 +165,9 @@ This includes port nominations and flood directionality."""
                 port for port in self.stack.canonical_up_ports(self.away_ports)
                 if port.stack['dp'].name == away_dp]
             return away_up_ports[0] if away_up_ports else None
-        else:
-            # Otherwise, head towards the root, path to destination via root
-            towards_up_ports = self.stack.canonical_up_ports(self.chosen_towards_ports)
-            return towards_up_ports[0] if towards_up_ports else None
+        # Otherwise, head towards the root, path to destination via root
+        towards_up_ports = self.stack.canonical_up_ports(self.chosen_towards_ports)
+        return towards_up_ports[0] if towards_up_ports else None
 
     def edge_learn_port_towards(self, pkt_meta, edge_dp):
         """
@@ -207,7 +206,7 @@ This includes port nominations and flood directionality."""
         return out_port
 
     def update_health(self, now, dp_last_live_time, update_time):
-        """ 
+        """
         Returns whether the current stack node is healthy, a healthy stack node
             is one that attempted connected recently, or was known to be running
             recently, has all LAGs UP and any stack port UP
@@ -225,9 +224,13 @@ This includes port nominations and flood directionality."""
             self.stack.down_ports())
         if prev_health != new_health:
             health = 'HEALTHY' if new_health else 'UNHEALTHY'
-            self.logger.info('Stack node %s %s (%s)' % (self.stack.name, new_health, reason))
+            self.logger.info('Stack node %s %s (%s)' % (self.stack.name, health, reason))
         return new_health
 
-    def consistent_root(self, expected_root_name):
-        """Returns true if the stack node has the root configured as the expected stack root"""
-        return expected_root_name == self.stack.root_name
+    def consistent_roots(self, expected_root_name, valve, other_valves):
+        """Returns true if all the stack nodes have the root configured correctly"""
+        stacked_valves = {valve}.union(self.stacked_valves(other_valves))
+        for stack_valve in stacked_valves:
+            if stack_valve.dp.stack.root_name != expected_root_name:
+                return False
+        return True

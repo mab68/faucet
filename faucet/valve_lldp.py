@@ -54,8 +54,8 @@ class ValveLLDPManager(ValveManagerBase):
         return ofmsgs
 
     def _verify_lldp(self, port, now, valve, other_valves,
-                           remote_dp_id, remote_dp_name,
-                           remote_port_id, remote_port_state):
+                     remote_dp_id, remote_dp_name,
+                     remote_port_id, remote_port_state):
         """
         Verify correct LLDP cabling, then update port to next state
 
