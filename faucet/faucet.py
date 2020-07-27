@@ -41,6 +41,8 @@ from faucet import faucet_metrics
 from faucet import valve_of
 
 
+
+
 class EventFaucetMaintainStackRoot(event.EventBase):  # pylint: disable=too-few-public-methods
     """Event used to maintain stack root."""
 
@@ -118,6 +120,8 @@ class Faucet(RyuAppBase):
     def _check_thread_exception(self):
         super(Faucet, self)._check_thread_exception()
 
+
+
     @kill_on_exception(exc_logname)
     def start(self):
         super(Faucet, self).start()
@@ -126,6 +130,7 @@ class Faucet(RyuAppBase):
         prom_port = int(self.get_setting('PROMETHEUS_PORT'))
         prom_addr = self.get_setting('PROMETHEUS_ADDR')
         self.prom_client.start(prom_port, prom_addr)
+
 
         # Start event notifier
         notifier_thread = self.notifier.start()
@@ -138,6 +143,7 @@ class Faucet(RyuAppBase):
                 partial(self._thread_reschedule, service_event(), interval))
             thread.name = name
             self.threads.append(thread)
+
 
     def _delete_deconfigured_dp(self, deleted_dpid):
         self.logger.info(
@@ -328,3 +334,5 @@ class Faucet(RyuAppBase):
             return
         if msg.reason == ryu_dp.ofproto.OFPRR_IDLE_TIMEOUT:
             self._send_flow_msgs(valve, valve.flow_timeout(time.time(), msg.table_id, msg.match))
+
+
