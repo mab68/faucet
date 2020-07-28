@@ -235,7 +235,7 @@ This includes port nominations and flood directionality."""
                 return False
         return True
 
-    def nominate_new_stack_root(self, root_valve, other_valves, now, last_live_times, update_time):
+    def nominate_stack_root(self, root_valve, other_valves, now, last_live_times, update_time):
         """
         Nominate a new stack root
 
@@ -248,14 +248,9 @@ This includes port nominations and flood directionality."""
         Returns:
             str: Name of the new elected stack root
         """
-        import sys
-
-        stack_valves = self.stacked_valves(other_valves)
+        stack_valves = {valve for valve in other_valves if valve.dp.stack}
         if root_valve:
-            {root_valve}.union(stack_valves)
-
-        sys.stderr.write('root %s\n' % root_valve.dp.name)
-        sys.stderr.write('valves %s\n' % [valve.dp.name for valve in stack_valves])
+            stack_valves = {root_valve}.union(stack_valves)
 
         # Create lists of healthy and unhealthy root candidates
         healthy_valves = []
@@ -271,9 +266,6 @@ This includes port nominations and flood directionality."""
         if not healthy_valves and not unhealthy_valves:
             # No root candidates/stack valves, so no nomination
             return None
-
-        sys.stderr.write('healthy: %s\n' % [valve.dp.name for valve in healthy_valves])
-        sys.stderr.write('unhealthy: %s\n' % [valve.dp.name for valve in unhealthy_valves])
 
         # Choose a candidate valve to be the root
         if healthy_valves:

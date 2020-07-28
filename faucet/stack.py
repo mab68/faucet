@@ -32,14 +32,14 @@ is technically a fixed allocation for this DP Stack instance."""
         # Sets the root priority value of the current DP with stacking
         'route_learning': False,
         # Use the stack route algorithms, will be forced true if routing is enabled
-        'root_down_time_multiple': 3,
-        # Multiple of STACK_ROOT_STATE_UPDATE_TIME to be considered a healthy stack root
+        'down_time_multiple': 3,
+        # Multiple of STACK_ROOT_STATE_UPDATE_TIME to be considered a healthy stack node
     }
 
     defaults_types = {
         'priority': int,
         'route_learning': bool,
-        'root_down_time_multiple': int,
+        'down_time_multiple': int,
     }
 
     def __init__(self, _id, dp_id, name, canonical_port_order, conf):
@@ -61,7 +61,7 @@ is technically a fixed allocation for this DP Stack instance."""
         # Stack configuration options
         self.priority = None
         self.route_learning = None
-        self.root_down_time_multiple = None
+        self.down_time_multiple = None
 
         # Ports that have stacking configured
         self.ports = []
@@ -79,6 +79,12 @@ is technically a fixed allocation for this DP Stack instance."""
 
         super(Stack, self).__init__(_id, dp_id, conf)
 
+    def health_timeout(self, now, update_time):
+        """Return stack node's health_timeout, the time before a timeout is recognized"""
+        down_time = self.down_time_multiple * update_time
+        health_timeout = now - down_time
+        return health_timeout
+
     def update_health(self, now, dp_last_live_time, update_time, down_lacp_ports, down_stack_ports):
         """
         Determines whether the current stack node is healthy
@@ -93,9 +99,8 @@ is technically a fixed allocation for this DP Stack instance."""
             bool: Current stack node health state,
             str: Reason for the current state
         """
-        down_time = self.root_down_time_multiple * update_time
-        health_timeout = now - down_time
         last_live_time = dp_last_live_time.get(self.name, 0)
+        health_timeout = self.health_timeout(now, update_time)
         if last_live_time < health_timeout:
             # Too long since DP last running
             reason = 'last running %us ago (timeout %us)' % (last_live_time, health_timeout)
@@ -156,7 +161,6 @@ is technically a fixed allocation for this DP Stack instance."""
             if meta_dp_state.stack_root_name in self.roots_names:
                 self.root_name = meta_dp_state.stack_root_name
 
-        self.route_learning = False
         for dp in stack_port_dps:  # pylint: disable=invalid-name
             for vlan in dp.vlans.values():
                 if vlan.faucet_vips:

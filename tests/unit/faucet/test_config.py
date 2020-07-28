@@ -207,6 +207,246 @@ dps:
                     port_b.number,  # pytype: disable=attribute-error
                     'remote stack dp configured incorrectly')
 
+    def test_config_route_learning_override(self):
+        """Test DP stack class, route_learning configuration overwrite when routing"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+        faucet_vips: ['10.0.1.254/24']
+        faucet_mac: '11:11:11:11:11:11'
+    vlan200:
+        vid: 200
+        faucet_vips: ['10.0.2.254/24']
+        faucet_mac: '22:22:22:22:22:22'
+dps:
+    sw1:
+        dp_id: 1
+        hardware: "Open vSwitch"
+        stack: {priority: 1, route_learning: False}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+            3:
+                native_vlan: vlan200
+    sw2:
+        dp_id: 2
+        hardware: "Open vSwitch"
+        stack: {priority: 2, route_learning: False}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+            3:
+                native_vlan: vlan200
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dps = self._get_dps_as_dict(config)
+        self.assertEqual(dps[1].stack.priority, 1)
+        self.assertEqual(dps[1].stack.route_learning, True)
+        self.assertEqual(dps[1].stack.down_time_multiple, 3)
+        self.assertEqual(dps[2].stack.priority, 2)
+        self.assertEqual(dps[2].stack.route_learning, True)
+        self.assertEqual(dps[2].stack.down_time_multiple, 3)
+
+    def test_config_stack_class_priority(self):
+        """Test DP stack class, priority configuration option success"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 1
+        stack: {priority: 1}
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+    sw2:
+        dp_id: 2
+        hardware: "Open vSwitch"
+        stack: {priority: 2}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dps = self._get_dps_as_dict(config)
+        self.assertEqual(dps[1].stack.priority, 1)
+        self.assertEqual(dps[1].stack.route_learning, False)
+        self.assertEqual(dps[1].stack.down_time_multiple, 3)
+        self.assertEqual(dps[2].stack.priority, 2)
+        self.assertEqual(dps[2].stack.route_learning, False)
+        self.assertEqual(dps[2].stack.down_time_multiple, 3)
+
+    def test_config_stack_class_down_time_multiple(self):
+        """Test DP stack class, root down time multiple configuration option success"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 1
+        stack: {priority: 1, down_time_multiple: 1}
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+    sw2:
+        dp_id: 2
+        hardware: "Open vSwitch"
+        stack: {priority: 2}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dps = self._get_dps_as_dict(config)
+        self.assertEqual(dps[1].stack.priority, 1)
+        self.assertEqual(dps[1].stack.route_learning, False)
+        self.assertEqual(dps[1].stack.down_time_multiple, 1)
+        self.assertEqual(dps[2].stack.priority, 2)
+        self.assertEqual(dps[2].stack.route_learning, False)
+        self.assertEqual(dps[2].stack.down_time_multiple, 3)
+
+    def test_config_stack_class_route_learning(self):
+        """Test DP stack class, route learning configuration option success"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 1
+        stack: {priority: 1, route_learning: True}
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+    sw2:
+        dp_id: 2
+        stack: {priority: 2}
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dps = self._get_dps_as_dict(config)
+        self.assertEqual(dps[1].stack.priority, 1)
+        self.assertEqual(dps[1].stack.route_learning, True)
+        self.assertEqual(dps[1].stack.down_time_multiple, 3)
+        self.assertEqual(dps[2].stack.priority, 2)
+        self.assertEqual(dps[2].stack.route_learning, False)
+        self.assertEqual(dps[2].stack.down_time_multiple, 3)
+
+    def test_config_stack_class_route_learning_invalid(self):
+        """Test DP stack class, route learning configuration invalid option failure"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 1
+        stack: {priority: 1, route_learning: asdfadsf}
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+    sw2:
+        dp_id: 2
+        stack: {priority: 2}
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_config_stack_class_invalid_parameter(self):
+        """Test DP stack class, invalid parameter"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 1
+        stack: {priority: 1, sadfsafds: asdfadsf}
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+    sw2:
+        dp_id: 2
+        stack: {priority: 2}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_config_class_multiple_parameters(self):
+        """Test DP stack class, multiple configuration options success"""
+        config = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 1
+        stack: {priority: 1, route_learning: False, down_time_multiple: 4}
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+    sw2:
+        dp_id: 2
+        stack: {priority: 2, route_learning: True, down_time_multiple: 1}
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+"""
+        self.check_config_success(config, cp.dp_parser)
+        dps = self._get_dps_as_dict(config)
+        self.assertEqual(dps[1].stack.priority, 1)
+        self.assertEqual(dps[1].stack.route_learning, False)
+        self.assertEqual(dps[1].stack.down_time_multiple, 4)
+        self.assertEqual(dps[2].stack.priority, 2)
+        self.assertEqual(dps[2].stack.route_learning, True)
+        self.assertEqual(dps[2].stack.down_time_multiple, 1)
+
     def test_config_stack_and_non_stack(self):
         """Test stack and non-stacking config."""
         config = """

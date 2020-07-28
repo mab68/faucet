@@ -202,16 +202,17 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             vlan, eth_type, eth_dst, eth_dst_mask,
             exclude_unicast, exclude_restricted_bcast_arpnd,
             command, cold_start)
+
         replace_priority_offset = (
             self.classification_offset - (
                 self.pipeline.filter_priority - self.pipeline.select_priority))
 
         towards_up_port = self.stack_manager.chosen_towards_port
 
-        for port in self.stack_manager.stack.ports:
+        away_up_ports = self.stack_manager.away_ports - (
+            self.stack_manager.pruned_away_ports - self.stack_manager.inactive_away_ports)
 
-            away_up_ports = self.stack_manager.away_ports - (
-                self.stack_manager.pruned_away_ports - self.stack_manager.inactive_away_ports)
+        for port in self.stack_manager.stack.ports:
 
             away_port = port in self.stack_manager.away_ports
             towards_port = not away_port

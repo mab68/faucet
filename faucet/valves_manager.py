@@ -138,6 +138,9 @@ class ValvesManager:
             valve.dp.name: valve for valve in self.valves.values()
             if valve.stack_manager}
 
+        if not valves_by_name:
+            return False
+
         prev_root_name = self.meta_dp_state.stack_root_name
         prev_root_valve = valves_by_name.get(prev_root_name, None)
 
@@ -145,16 +148,13 @@ class ValvesManager:
             valve for valve in self.valves.values()
             if valve != prev_root_valve]
 
-        new_root_name = list(valves_by_name.values())[0].stack_manager.nominate_new_stack_root(
+        new_root_name = list(valves_by_name.values())[0].stack_manager.nominate_stack_root(
             prev_root_valve, prev_other_valves, now, last_live_times, update_time)
         new_root_valve = valves_by_name.get(new_root_name, None)
-
-        import sys
 
         stack_change = False
         if new_root_valve:
             if prev_root_name != new_root_name:
-                sys.stderr.write('New root name %s\n' % new_root_name)
                 # Current stack root is not the new stack root
                 self.logger.info('Stack root %s (previous %s)' % (
                     new_root_name, prev_root_name))
@@ -173,12 +173,11 @@ class ValvesManager:
                 inconsistent_dps = not new_root_valve.stack_manager.consistent_roots(
                     prev_root_name, new_root_valve, new_other_valves)
                 if inconsistent_dps:
-                    sys.stderr.write('inconsistent\n')
-                    self.logger.info('Stack roots inconsistent')
+                    self.logger.info('Reloading stack DPs (stack root inconsistent)')
                     self.reload_stack_root_config(now)
                     stack_change = True
-        labels = new_root_valve.dp.base_prom_labels()
-        self.metrics.is_dp_stack_root.labels(**labels).set(1)
+            labels = new_root_valve.dp.base_prom_labels()
+            self.metrics.is_dp_stack_root.labels(**labels).set(1)
         return stack_change
 
     def event_socket_heartbeat(self, now):
