@@ -2639,12 +2639,6 @@ dps:
                     'Stack port detected as changed on non-topology change')
 
 
-# class ValveStackManagerPortManagementTest(ValveTestBases.ValveTestNetwork):
-#     """Test ValveStackManager reset_peer_distances calculations"""
-#     CONFIG = """
-# """
-
-
 class ValveStackHealthTest(ValveTestBases.ValveTestNetwork):
     """Test stack root health metrics"""
 
@@ -2699,7 +2693,7 @@ dps:
             7:
                 native_vlan: vlan100
                 lacp: 2
-    s3:
+    sw3:
         hardware: 'GenericTFM'
         dp_id: 3
         interfaces:
@@ -2717,34 +2711,310 @@ dps:
 
     def test_timeout(self):
         """Test stack health on health timeouts"""
-        dps = [
-            valve.dp.stack for valve in self.valves_manager.valves.values()]
-        last_live_times = {'sw1': 0, 'sw2': 0, 'sw3': 0}
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
         for dp in dps:
-            self.assertTrue(dp.stack.update_health(
-                            0, last_live_times, self.UPDATE_TIME,
-                            dp.lacp_down_ports(), dp.stack.down_ports()))
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        self.assertTrue(dps[0].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[0].lacp_down_ports(), dp.stack.down_ports())[0])
+        self.assertFalse(dps[0].stack.update_health(
+            120, last_live_times, self.UPDATE_TIME,
+            dps[0].lacp_down_ports(), dp.stack.down_ports())[0])
+        self.assertTrue(dps[1].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[1].lacp_down_ports(), dp.stack.down_ports())[0])
+        self.assertFalse(dps[1].stack.update_health(
+            130, last_live_times, self.UPDATE_TIME,
+            dps[1].lacp_down_ports(), dp.stack.down_ports())[0])
+        self.assertTrue(dps[2].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[2].lacp_down_ports(), dp.stack.down_ports())[0])
+        self.assertFalse(dps[2].stack.update_health(
+            140, last_live_times, self.UPDATE_TIME,
+            dps[2].lacp_down_ports(), dp.stack.down_ports())[0])
 
-    # def test_lacp_down(self):
-    #     """Test stack health on LACP ports being DOWN"""
+    def test_lacp_down(self):
+        """Test stack health on LACP ports being DOWN"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        self.assertTrue(dps[0].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[0].lacp_down_ports(), dps[0].stack.down_ports())[0])
+        for port in dps[0].ports.values():
+            if port.lacp:
+                port.actor_notconfigured()
+        self.assertFalse(dps[0].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[0].lacp_down_ports(), dps[0].stack.down_ports())[0])
+        self.assertTrue(dps[1].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[1].lacp_down_ports(), dps[1].stack.down_ports())[0])
+        for port in dps[1].ports.values():
+            if port.lacp:
+                port.actor_nosync()
+        self.assertFalse(dps[1].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[1].lacp_down_ports(), dps[1].stack.down_ports())[0])
+        self.assertTrue(dps[2].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[2].lacp_down_ports(), dps[2].stack.down_ports())[0])
 
-    # def test_stack_port_down(self):
-    #     """Test stack health on stack ports being DOWN"""
+    def test_stack_port_down(self):
+        """Test stack health on stack ports being DOWN"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        self.assertTrue(dps[0].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[0].lacp_down_ports(), dps[0].stack.down_ports())[0])
+        for port in dps[0].ports.values():
+            if port.stack:
+                port.stack_bad()
+        self.assertFalse(dps[0].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[0].lacp_down_ports(), dps[0].stack.down_ports())[0])
+        self.assertTrue(dps[1].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[1].lacp_down_ports(), dps[1].stack.down_ports())[0])
+        for port in dps[1].ports.values():
+            if port.stack:
+                port.stack_gone()
+        self.assertFalse(dps[1].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[1].lacp_down_ports(), dps[1].stack.down_ports())[0])
+        self.assertTrue(dps[2].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[2].lacp_down_ports(), dps[2].stack.down_ports())[0])
+        for port in dps[2].ports.values():
+            if port.stack:
+                port.stack_admin_down()
+        self.assertFalse(dps[2].stack.update_health(
+            110, last_live_times, self.UPDATE_TIME,
+            dps[2].lacp_down_ports(), dps[2].stack.down_ports())[0])
 
 
-# class ValveRootNominationTest(ValveStackHealthTest):
-#     """Test ValveStackManager root nomination calculations"""
-#     CONFIG = """
-# """
-# Initial, no root
-# SW1 root
-# timeout SW1
-# SW2 root
-# timeout SW2
-# default to SW1 root
-# SW1 back up
-# SW1 root
+class ValveRootNominationTest(ValveStackHealthTest):
+    """Test ValveStackManager root nomination calculations"""
 
+    UPDATE_TIME = 10
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        hardware: 'GenericTFM'
+        dp_id: 1
+        stack: {priority: 1, down_time_multiple: 1}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+            3:
+                stack: {dp: sw3, port: 2}
+            4:
+                native_vlan: vlan100
+                lacp: 1
+            5:
+                native_vlan: vlan100
+                lacp: 1
+            6:
+                stack: {dp: sw2, port: 3}
+            7:
+                stack: {dp: sw3, port: 3}
+    sw2:
+        hardware: 'GenericTFM'
+        dp_id: 2
+        stack: {priority: 2, down_time_multiple: 2}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+            3:
+                stack: {dp: sw1, port: 6}
+            4:
+                native_vlan: vlan100
+                lacp: 1
+            5:
+                native_vlan: vlan100
+                lacp: 1
+            6:
+                native_vlan: vlan100
+                lacp: 2
+            7:
+                native_vlan: vlan100
+                lacp: 2
+    sw3:
+        hardware: 'GenericTFM'
+        dp_id: 3
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 3}
+            3:
+                stack: {dp: sw1, port: 7}
+"""
+
+    def setUp(self):
+        """Start network for test"""
+        self.setup_valves(self.CONFIG)
+
+    def other_valves(self, root_valve):
+        return [valve for valve in self.valves_manager.valves.values() if valve != root_valve]
+
+    def test_root_nomination(self):
+        """Test root selection health"""
+        dps = [valve.dp for valve in self.valves_manager.valves.values()]
+        for dp in dps:
+            for port in dp.ports.values():
+                if port.lacp:
+                    port.actor_up()
+                    port.select_port()
+                if port.stack:
+                    port.stack_up()
+        valves = self.valves_manager.valves
+        last_live_times = {'sw1': 100, 'sw2': 100, 'sw3': 100}
+        # Start not root currently selected, all valves should select root sw1
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                None, valves.values(), 100, last_live_times, self.UPDATE_TIME), 'sw1')
+        # timeout SW1, all valves should select sw2
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                valves[1], self.other_valves(valves[1]), 111,
+                last_live_times, self.UPDATE_TIME), 'sw2')
+        # timeout sw2, default select sw1
+        for valve in valves.values():
+            self.assertEqual(valve.stack_manager.nominate_stack_root(
+                valves[2], self.other_valves(valves[2]),
+                121, last_live_times, self.UPDATE_TIME), 'sw1')
+
+    def test_consistent_roots(self):
+        """Test inconsistent root detection"""
+        valves = self.valves_manager.valves
+        for valve in valves.values():
+            valve.dp.stack.root_name = 'sw1'
+        for valve in valves.values():
+            self.assertTrue(valve.stack_manager.consistent_roots(
+                'sw1', valve, self.other_valves(valves.values())))
+        valves[1].dp.stack.root_name = 'sw2'
+        for valve in valves.values():
+            self.assertFalse(valve.stack_manager.consistent_roots(
+                'sw1', valve, self.other_valves(valves.values())))
+
+
+class ValveStackConfigTest(ValveTestBases.ValveTestNetwork):
+    """Test recompiling Stack into YAML config object"""
+
+    CONFIG = """
+vlans:
+    vlan100:
+        vid: 100
+dps:
+    sw1:
+        hardware: 'GenericTFM'
+        dp_id: 1
+        stack: {priority: 1, down_time_multiple: 1}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw2, port: 2}
+            3:
+                stack: {dp: sw3, port: 2}
+            4:
+                native_vlan: vlan100
+                lacp: 1
+            5:
+                native_vlan: vlan100
+                lacp: 1
+            6:
+                stack: {dp: sw2, port: 3}
+            7:
+                stack: {dp: sw3, port: 3}
+    sw2:
+        hardware: 'GenericTFM'
+        dp_id: 2
+        stack: {priority: 2, down_time_multiple: 2}
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 2}
+            3:
+                stack: {dp: sw1, port: 6}
+            4:
+                native_vlan: vlan100
+                lacp: 1
+            5:
+                native_vlan: vlan100
+                lacp: 1
+            6:
+                native_vlan: vlan100
+                lacp: 2
+            7:
+                native_vlan: vlan100
+                lacp: 2
+    sw3:
+        hardware: 'GenericTFM'
+        dp_id: 3
+        interfaces:
+            1:
+                native_vlan: vlan100
+            2:
+                stack: {dp: sw1, port: 3}
+            3:
+                stack: {dp: sw1, port: 7}
+"""
+
+    def setUp(self):
+        """Start network for test"""
+        self.setup_valves(self.CONFIG)
+
+    def test_stack(self):
+        """Test getting config for stack with correct config"""
+        dp = self.valves_manager.valves[1].dp
+        stack_conf = yaml.load(dp.stack.to_conf())
+        self.assertIsInstance(stack_conf, dict)
+        self.assertIn('priority', stack_conf)
+        self.assertIn('down_time_multiple', stack_conf)
+        self.assertIn('route_learning', stack_conf)
+        self.assertNotIn('dyn_healthy', stack_conf)
+        self.assertNotIn('canonical_port_order', stack_conf)
+        self.assertNotIn('graph', stack_conf)
+        self.assertNotIn('name', stack_conf)
+
+    def test_dp_stack(self):
+        """Test getting config for DP with correct subconfig stack"""
+        dp = self.valves_manager.valves[1].dp
+        dp_conf = yaml.load(dp.to_conf())
+        stack_conf = yaml.load(dp.stack.to_conf())
+        self.assertIn('stack', dp_conf)
+        self.assertIsInstance(dp_conf['stack'], dict)
+        self.assertEqual(dp_conf['stack'], stack_conf)
 
 
 if __name__ == "__main__":

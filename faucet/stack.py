@@ -33,7 +33,7 @@ is technically a fixed allocation for this DP Stack instance."""
         'route_learning': False,
         # Use the stack route algorithms, will be forced true if routing is enabled
         'down_time_multiple': 3,
-        # Multiple of STACK_ROOT_STATE_UPDATE_TIME to be considered a healthy stack node
+        # Number of update time intervals for a down stack node to still be considered healthy
     }
 
     defaults_types = {

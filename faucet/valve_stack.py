@@ -270,7 +270,9 @@ This includes port nominations and flood directionality."""
         # Choose a candidate valve to be the root
         if healthy_valves:
             # Healthy valves exist, so pick a healthy valve as root
-            new_root_name = root_valve.dp.name
+            new_root_name = None
+            if root_valve:
+                new_root_name = root_valve.dp.name
             if root_valve not in healthy_valves:
                 # Need to pick a new healthy root if current root not healthy
                 stacks = [valve.dp.stack for valve in healthy_valves]
