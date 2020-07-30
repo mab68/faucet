@@ -180,7 +180,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         exclude_ports = list(self.stack_manager.inactive_away_ports)
         external_ports = vlan.loop_protect_external_ports()
 
-        if self.stack_manager.is_stack_port(in_port):
+        if in_port and self.stack_manager.is_stack_port(in_port):
             in_port_peer_dp = in_port.stack['dp']
             exclude_ports = exclude_ports + self.stack_manager.adjacent_stack_ports(in_port_peer_dp)
 
@@ -200,20 +200,9 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
         return flood_acts
 
-    def _build_mask_flood_rules_filters(self, port, vlan, eth_dst, eth_dst_mask, prune, towards_port):
+    def _build_mask_flood_rules_filters(self, match, priority_offset, eth_dst, prune, towards_port):
         """Builds filter for the eth_src table to drop packets arriving on ports that are being pruned"""
         filter_ofmsgs = []
-
-        replace_priority_offset = (
-            self.classification_offset - (
-                self.pipeline.filter_priority - self.pipeline.select_priority))
-        priority_offset = replace_priority_offset
-        if eth_dst is None:
-            priority_offset -= 1
-
-        match = {'in_port': port.number, 'vlan': vlan}
-        if eth_dst is not None:
-            match.update({'eth_dst': eth_dst, 'eth_dst_mask': eth_dst_mask})
 
         if prune:
             # Allow the prune rule to be replaced with OF strict matching if
@@ -284,6 +273,10 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         away_up_ports = self.stack_manager.away_ports - (
             self.stack_manager.pruned_away_ports - self.stack_manager.inactive_away_ports)
 
+        replace_priority_offset = (
+            self.classification_offset - (
+                self.pipeline.filter_priority - self.pipeline.select_priority))
+
         for port in self.stack_manager.stack.ports:
 
             away_port = self.stack_manager.is_away_port(port)
@@ -299,9 +292,17 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
                 # Do not prune unicast, may be reply from directly connected DP.
                 prune = False
 
+            priority_offset = replace_priority_offset
+            if eth_dst is None:
+                priority_offset -= 1
+
+            match = {'in_port': port.number, 'vlan': vlan}
+            if eth_dst is not None:
+                match.update({'eth_dst': eth_dst, 'eth_dst_mask': eth_dst_mask})
+
             # Generate input packet flood filter rules
             ofmsgs.extend(self._build_mask_flood_rules_filters(
-                port, vlan, eth_dst, eth_dst_mask, prune, towards_port))
+                match, priority_offset, eth_dst, prune, towards_port))
 
             # Generate output packet flood rules
             ofmsgs.extend(self._build_mask_flood_rules_acts(
