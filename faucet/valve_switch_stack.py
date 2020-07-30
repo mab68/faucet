@@ -18,7 +18,10 @@
 # limitations under the License.
 
 import copy
+
+from functools import partial
 from collections import defaultdict
+
 from faucet import valve_of
 from faucet.valve_switch_standalone import ValveSwitchManager
 from faucet.vlan import NullVLAN
@@ -159,6 +162,7 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
     def _build_flood_acts_for_port(self, vlan, exclude_unicast, port,  # pylint: disable=too-many-arguments
                                    exclude_all_external=False,
                                    exclude_restricted_bcast_arpnd=False):
+        # TODO: This calls _build_flood_rule_actions
         if self.external_root_only:
             exclude_all_external = True
         return super(ValveSwitchStackManagerBase, self)._build_flood_acts_for_port(
@@ -175,21 +179,93 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
         """Compiles all the possible flood rule actions for a port on a stack node"""
         exclude_ports = list(self.stack_manager.inactive_away_ports)
         external_ports = vlan.loop_protect_external_ports()
-        if in_port and in_port in self.stack_manager.stack.ports:
+
+        if self.stack_manager.is_stack_port(in_port):
             in_port_peer_dp = in_port.stack['dp']
-            exclude_ports = exclude_ports + [
-                port for port in self.stack_manager.stack.ports
-                if port.stack['dp'] == in_port_peer_dp]
+            exclude_ports = exclude_ports + self.stack_manager.adjacent_stack_ports(in_port_peer_dp)
+
+        # TODO: compile differently
         local_flood_actions = tuple(self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port, exclude_all_external, exclude_restricted_bcast_arpnd))
+
         away_flood_actions = tuple(valve_of.flood_tagged_port_outputs(
             self.stack_manager.away_ports, in_port, exclude_ports=exclude_ports))
+
         toward_flood_actions = tuple(valve_of.flood_tagged_port_outputs(
             self.stack_manager.towards_root_ports, in_port))
+
         flood_acts = self._flood_actions(
             in_port, external_ports, away_flood_actions,
             toward_flood_actions, local_flood_actions)
+
         return flood_acts
+
+    def _build_mask_flood_rules_filters(self, port, vlan, eth_dst, eth_dst_mask, prune, towards_port):
+        """Builds filter for the eth_src table to drop packets arriving on ports that are being pruned"""
+        filter_ofmsgs = []
+
+        replace_priority_offset = (
+            self.classification_offset - (
+                self.pipeline.filter_priority - self.pipeline.select_priority))
+        priority_offset = replace_priority_offset
+        if eth_dst is None:
+            priority_offset -= 1
+
+        match = {'in_port': port.number, 'vlan': vlan}
+        if eth_dst is not None:
+            match.update({'eth_dst': eth_dst, 'eth_dst_mask': eth_dst_mask})
+
+        if prune:
+            # Allow the prune rule to be replaced with OF strict matching if
+            # this port is unpruned later.
+            filter_ofmsgs.extend(self.pipeline.filter_packets(
+                match, priority_offset=priority_offset))
+        else:
+            filter_ofmsgs.extend(self.pipeline.remove_filter(
+                match, priority_offset=priority_offset))
+            # Control learning from multicast/broadcast on non-root DPs.
+            if (not self.stack_manager.stack.is_root() and
+                    eth_dst is not None and self._USES_REFLECTION):
+                # If this is an edge DP, we don't have to learn from
+                # hosts that only broadcast.  If we're an intermediate
+                # DP, only learn from broadcasts further away from
+                # the root (and ignore the reflected broadcast for
+                # learning purposes).
+                if self.stack_manager.stack.is_edge() or towards_port:
+                    filter_ofmsgs.extend(self.pipeline.select_packets(
+                        self.flood_table, match,
+                        priority_offset=self.classification_offset))
+        return filter_ofmsgs
+
+    def _build_mask_flood_rules_acts(self, vlan, eth_type, eth_dst, eth_dst_mask,
+                                     exclude_unicast, exclude_restricted_bcast_arpnd,
+                                     command, cold_start, port, prune):
+        """Builds the flood rules for the flood table to output/forward packets along the stack topology"""
+        acts_ofmsgs = []
+        flood_acts = []
+        if self.has_externals:
+            # If external flag is set, flood to external ports, otherwise exclude them.
+            for ext_port_flag, exclude_all_external in (
+                    (valve_of.PCP_NONEXT_PORT_FLAG, True),
+                    (valve_of.PCP_EXT_PORT_FLAG, False)):
+                if not prune:
+                    flood_acts, _, _ = self._build_flood_acts_for_port(
+                        vlan, exclude_unicast, port,
+                        exclude_all_external=exclude_all_external,
+                        exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
+                port_flood_ofmsg = self._build_flood_rule_for_port(
+                    vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts,
+                    add_match={valve_of.EXTERNAL_FORWARDING_FIELD: ext_port_flag})
+                acts_ofmsgs.append(port_flood_ofmsg)
+        else:
+            if not prune:
+                flood_acts, _, _ = self._build_flood_acts_for_port(
+                    vlan, exclude_unicast, port,
+                    exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
+            port_flood_ofmsg = self._build_flood_rule_for_port(
+                vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts)
+            acts_ofmsgs.append(port_flood_ofmsg)
+        return acts_ofmsgs
 
     def _build_mask_flood_rules(self, vlan, eth_type, eth_dst, eth_dst_mask,  # pylint: disable=too-many-arguments
                                 exclude_unicast, exclude_restricted_bcast_arpnd,
@@ -203,10 +279,6 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
             exclude_unicast, exclude_restricted_bcast_arpnd,
             command, cold_start)
 
-        replace_priority_offset = (
-            self.classification_offset - (
-                self.pipeline.filter_priority - self.pipeline.select_priority))
-
         towards_up_port = self.stack_manager.chosen_towards_port
 
         away_up_ports = self.stack_manager.away_ports - (
@@ -214,68 +286,28 @@ class ValveSwitchStackManagerBase(ValveSwitchManager):
 
         for port in self.stack_manager.stack.ports:
 
-            away_port = port in self.stack_manager.away_ports
+            away_port = self.stack_manager.is_away_port(port)
             towards_port = not away_port
-            flood_acts = []
 
-            match = {'in_port': port.number, 'vlan': vlan}
             if eth_dst is not None:
-                match.update({'eth_dst': eth_dst, 'eth_dst_mask': eth_dst_mask})
                 # Prune broadcast flooding where multiply connected to same DP
                 if towards_port:
-                    prune = port != towards_up_port
+                    prune = self.stack_manager.is_selected_towards_root_port(port)
                 else:
-                    prune = port not in away_up_ports
+                    prune = self.stack_manager.is_selected_away_port(port)
             else:
                 # Do not prune unicast, may be reply from directly connected DP.
                 prune = False
 
-            priority_offset = replace_priority_offset
-            if eth_dst is None:
-                priority_offset -= 1
-            if prune:
-                # Allow the prune rule to be replaced with OF strict matching if
-                # this port is unpruned later.
-                ofmsgs.extend(self.pipeline.filter_packets(
-                    match, priority_offset=priority_offset))
-            else:
-                ofmsgs.extend(self.pipeline.remove_filter(
-                    match, priority_offset=priority_offset))
-                # Control learning from multicast/broadcast on non-root DPs.
-                if (not self.stack_manager.stack.is_root() and
-                        eth_dst is not None and self._USES_REFLECTION):
-                    # If this is an edge DP, we don't have to learn from
-                    # hosts that only broadcast.  If we're an intermediate
-                    # DP, only learn from broadcasts further away from
-                    # the root (and ignore the reflected broadcast for
-                    # learning purposes).
-                    if self.stack_manager.stack.is_edge() or towards_port:
-                        ofmsgs.extend(self.pipeline.select_packets(
-                            self.flood_table, match,
-                            priority_offset=self.classification_offset))
+            # Generate input packet flood filter rules
+            ofmsgs.extend(self._build_mask_flood_rules_filters(
+                port, vlan, eth_dst, eth_dst_mask, prune, towards_port))
 
-            if self.has_externals:
-                # If external flag is set, flood to external ports, otherwise exclude them.
-                for ext_port_flag, exclude_all_external in (
-                        (valve_of.PCP_NONEXT_PORT_FLAG, True),
-                        (valve_of.PCP_EXT_PORT_FLAG, False)):
-                    if not prune:
-                        flood_acts, _, _ = self._build_flood_acts_for_port(
-                            vlan, exclude_unicast, port,
-                            exclude_all_external=exclude_all_external,
-                            exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
-                    port_flood_ofmsg = self._build_flood_rule_for_port(
-                        vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts,
-                        add_match={valve_of.EXTERNAL_FORWARDING_FIELD: ext_port_flag})
-                    ofmsgs.append(port_flood_ofmsg)
-            else:
-                if not prune:
-                    flood_acts, _, _ = self._build_flood_acts_for_port(
-                        vlan, exclude_unicast, port,
-                        exclude_restricted_bcast_arpnd=exclude_restricted_bcast_arpnd)
-                port_flood_ofmsg = self._build_flood_rule_for_port(
-                    vlan, eth_type, eth_dst, eth_dst_mask, command, port, flood_acts)
-                ofmsgs.append(port_flood_ofmsg)
+            # Generate output packet flood rules
+            ofmsgs.extend(self._build_mask_flood_rules_acts(
+                vlan, eth_type, eth_dst, eth_dst_mask,
+                exclude_unicast, exclude_restricted_bcast_arpnd,
+                command, cold_start, port, prune))
 
         return ofmsgs
 
@@ -444,7 +476,7 @@ class ValveSwitchStackManagerNoReflection(ValveSwitchStackManagerBase):
 
     def _flood_actions(self, in_port, external_ports,
                        away_flood_actions, toward_flood_actions, local_flood_actions):
-        if not in_port or in_port in self.stack_manager.stack.ports:
+        if not in_port or self.stack_manager.is_stack_port(in_port):
             flood_prefix = ()
         else:
             if external_ports:
@@ -556,51 +588,67 @@ class ValveSwitchStackManagerReflection(ValveSwitchStackManagerBase):
                     refresh_rules = True
         return (learn_exit, ofmsgs, cache_port, update_cache, delete_existing, refresh_rules)
 
-    def _flood_actions(self, in_port, external_ports,
-                       away_flood_actions, toward_flood_actions, local_flood_actions):
-        if self.stack_manager.stack.is_root():
-            if external_ports:
-                flood_prefix = self._set_nonext_port_flag
-            else:
-                flood_prefix = self._set_ext_port_flag
-            flood_actions = (away_flood_actions + local_flood_actions)
-
-            if in_port and in_port in self.stack_manager.away_ports:
-                # Packet from a non-root switch, flood locally and to all non-root switches
-                # (reflect it).
-                flood_actions = (
-                    away_flood_actions + (valve_of.output_in_port(),) + local_flood_actions)
-
-            flood_actions = flood_prefix + flood_actions
+    def _flood_actions_root(self, in_port, external_ports,
+                            away_flood_actions, toward_flood_actions, local_flood_actions):
+        """Compile flood actions for a root node"""
+        flood_actions = []
+        if external_ports:
+            flood_prefix = self._set_nonext_port_flag
         else:
-            # Default non-root strategy is flood towards root.
-            if external_ports:
+            flood_prefix = self._set_ext_port_flag
+        flood_actions = (away_flood_actions + local_flood_actions)
+
+        if self.stack_manager.is_away_port(in_port):
+            # Packet from a non-root switch, flood locally and to all non-root switches
+            # (reflect it).
+            flood_actions = (
+                away_flood_actions + (valve_of.output_in_port(),) + local_flood_actions)
+
+        flood_actions = flood_prefix + flood_actions
+        return flood_actions
+
+    def _flood_actions_transit_edge(self, in_port, external_ports,
+                                    away_flood_actions, toward_flood_actions, local_flood_actions):
+        """Compile flood actions for a edge or transit (non-root) node"""
+        flood_actions = []
+        # Default non-root strategy is flood towards root.
+        if external_ports:
+            flood_actions = self._set_nonext_port_flag + toward_flood_actions
+        else:
+            flood_actions = self._set_ext_port_flag + toward_flood_actions
+        if in_port:
+            # Packet from switch further away, flood it to the root.
+            if self.stack_manager.is_away_port(in_port):
+                flood_actions = toward_flood_actions
+            # Packet from the root.
+            elif self.stack_manager.is_towards_root_port(in_port):
+                # If we have external ports, and packet hasn't already been flooded
+                # externally, flood it externally before passing it to further away switches,
+                # and mark it flooded.
+                if external_ports:
+                    flood_actions = (
+                        self._set_nonext_port_flag + away_flood_actions + local_flood_actions)
+                else:
+                    flood_actions = (
+                        away_flood_actions + self._set_nonext_port_flag + local_flood_actions)
+            # Packet from external port, locally. Mark it already flooded externally and
+            # flood to root (it came from an external switch so keep it within the stack).
+            elif in_port.loop_protect_external:
                 flood_actions = self._set_nonext_port_flag + toward_flood_actions
             else:
                 flood_actions = self._set_ext_port_flag + toward_flood_actions
+        return flood_actions
 
-            if in_port:
-                # Packet from switch further away, flood it to the root.
-                if in_port in self.stack_manager.away_ports:
-                    flood_actions = toward_flood_actions
-                # Packet from the root.
-                elif in_port in self.stack_manager.towards_root_ports:
-                    # If we have external ports, and packet hasn't already been flooded
-                    # externally, flood it externally before passing it to further away switches,
-                    # and mark it flooded.
-                    if external_ports:
-                        flood_actions = (
-                            self._set_nonext_port_flag + away_flood_actions + local_flood_actions)
-                    else:
-                        flood_actions = (
-                            away_flood_actions + self._set_nonext_port_flag + local_flood_actions)
-                # Packet from external port, locally. Mark it already flooded externally and
-                # flood to root (it came from an external switch so keep it within the stack).
-                elif in_port.loop_protect_external:
-                    flood_actions = self._set_nonext_port_flag + toward_flood_actions
-                else:
-                    flood_actions = self._set_ext_port_flag + toward_flood_actions
-
+    def _flood_actions(self, in_port, external_ports,
+                       away_flood_actions, toward_flood_actions, local_flood_actions):
+        if self.stack_manager.stack.is_root():
+            flood_actions = self._flood_actions_root(
+                in_port, external_ports,
+                away_flood_actions, toward_flood_actions, local_flood_actions)
+        else:
+            flood_actions = self._flood_actions_transit_edge(
+                in_port, external_ports,
+                away_flood_actions, toward_flood_actions, local_flood_actions)
         return flood_actions
 
     def _edge_dp_for_host(self, other_valves, pkt_meta):

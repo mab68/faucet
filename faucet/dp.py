@@ -16,13 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict, Counter
+from collections import defaultdict
 import copy
 import random
 import math
 import netaddr
-
-import networkx
 
 from faucet import faucet_pipeline
 from faucet import valve_of
@@ -785,7 +783,7 @@ configuration.
             vlan.reset_ports(self.ports.values())
             if (vlan.get_ports() or vlan.reserved_internal_vlan or
                     vlan.dot1x_assigned or vlan._id in router_vlans or
-                    self.stack_ports() or self.is_stack_root()):
+                    self.stack_ports() or self.stack.is_root()):
                 self.vlans[vlan.vid] = vlan
 
     def resolve_port(self, port_name):
@@ -942,7 +940,9 @@ configuration.
                     else:
                         # Create a VLAN using the first unused VLAN ID
                         # Get highest non-reserved VLAN
-                        vlan_offset = max([vlan.vid for vlan in self.vlans.values() if not vlan.reserved_internal_vlan])
+                        vlan_offset = max([
+                            vlan.vid for vlan in self.vlans.values()
+                            if not vlan.reserved_internal_vlan])
                         # Also need to account for the potential number of tunnels
                         ordered_acls = sorted(self.acls)
                         index = ordered_acls.index(acl_in) + 1
