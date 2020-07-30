@@ -127,14 +127,14 @@ dps:
         self.update_config(self.CONFIG2, reload_type=None)
         self.activate_stack()
         s1 = self.valves_manager.valves[1].dp
-        self.assertTrue(s1.is_stack_root())
-        self.assertFalse(s1.is_stack_edge())
+        self.assertTrue(s1.stack.is_root())
+        self.assertFalse(s1.stack.is_edge())
         s2 = self.valves_manager.valves[2].dp
-        self.assertFalse(s2.is_stack_root())
-        self.assertFalse(s2.is_stack_edge())
+        self.assertFalse(s2.stack.is_root())
+        self.assertFalse(s2.stack.is_edge())
         s3 = self.valves_manager.valves[3].dp
-        self.assertFalse(s3.is_stack_root())
-        self.assertTrue(s3.is_stack_edge())
+        self.assertFalse(s3.stack.is_root())
+        self.assertTrue(s3.stack.is_edge())
         match = {'in_port': 2, 'vlan_vid': 0, 'eth_src': self.P2_V100_MAC}
         self.network.tables[3].is_output(match, port=3)
         match = {'in_port': 3, 'vlan_vid': 0, 'eth_src': self.P2_V100_MAC}
@@ -1052,11 +1052,11 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestNetwork):
         """
         self.update_config(SIMPLE_DP_CONFIG, reload_expected=True)
         dp = self.valves_manager.valves[self.DP_ID].dp
-        self.assertFalse(dp.is_stack_root())
+        self.assertFalse(dp.stack)
         self.update_config(CONFIG, reload_expected=True)
         self.set_stack_port_up(5)
         dp = self.valves_manager.valves[self.DP_ID].dp
-        self.assertTrue(dp.is_stack_root())
+        self.assertTrue(dp.stack.is_root())
 
     def test_topo(self):
         """Test DP is assigned appropriate edge/root states"""
