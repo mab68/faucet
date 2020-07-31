@@ -54,7 +54,6 @@ This includes port nominations and flood directionality."""
         self.away_ports = set()
         self.inactive_away_ports = set()
         self.pruned_away_ports = set()
-        self.selected_away_ports = set()
 
         all_peer_ports = set(self.stack.canonical_up_ports())
         if self.stack.is_root():
@@ -102,6 +101,7 @@ This includes port nominations and flood directionality."""
                 self.inactive_away_ports = {
                     port for port in self.away_ports
                     if not self.stack.is_in_path(port.stack['dp'].name, self.stack.root_name)}
+
                 # Get pruned away ports, redundant ports for each adjacent DP
                 ports_by_dp = defaultdict(list)
                 for port in self.away_ports:
@@ -112,8 +112,14 @@ This includes port nominations and flood directionality."""
                     self.pruned_away_ports.update([
                         port.stack['port'] for port in remote_away_ports
                         if port != remote_away_ports[0]])
-                self.selected_away_ports = (
-                    self.away_ports - self.pruned_away_ports - self.inactive_away_ports)
+
+                import sys
+                sys.stderr.write('CURRENT NODE %s\n' % self.stack.name)
+                sys.stderr.write('ROOT %s\n' % self.stack.root_name)
+                sys.stderr.write('TOWARDS %s\n' % self.chosen_towards_port)
+                sys.stderr.write('AWAY %s\n' % self.away_ports)
+                sys.stderr.write('INACTIVE %s\n' % self.inactive_away_ports)
+                sys.stderr.write('PRUNED %s\n\n' % self.pruned_away_ports)
 
         return self.chosen_towards_ports
 
@@ -289,23 +295,24 @@ This includes port nominations and flood directionality."""
 
     def is_stack_port(self, port):
         """Return whether the port is a stack port"""
-        return port in self.stack.ports
+        return bool(port.stack)
 
-    def is_away_port(self, port):
+    def is_away(self, port):
         """Return whether the port is an away port for the node"""
         return port in self.away_ports
 
-    def is_towards_root_port(self, port):
+    def is_towards_root(self, port):
         """Return whether the port is a port towards the root for the node"""
         return port in self.towards_root_ports
 
     def is_selected_towards_root_port(self, port):
-        """Return true if port is the chosen port towards the stack root"""
         return port == self.chosen_towards_port
 
-    def is_selected_away_port(self, port):
-        """Return true if the port is a chosen port away from the root"""
-        return port in self.selected_away_ports
+    def is_pruned_port(self, port):
+        """Return true if there are more prefered ports for the node"""
+        if self.is_towards_root(port):
+            return not self.is_selected_towards_root_port(port)
+        return port in self.pruned_away_ports
 
     def adjacent_stack_ports(self, peer_dp):
         """Return list of ports that connect to an adjacent DP"""

@@ -573,182 +573,180 @@ import networkx
 #             msg='mcast packet multiply flooded externally on root')
 
 
-# class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
-#     """Test base class for loop stack config"""
-
-#     CONFIG = STACK_CONFIG
-#     DP = 's2'
-#     DP_ID = 2
-
-#     def setUp(self):
-#         """Setup basic loop config"""
-#         self.setup_valves(self.CONFIG)
-
-#     def learn_stack_hosts(self):
-#         """Learn some hosts."""
-#         for _ in range(2):
-#             self.rcv_packet(3, 0, self.pkt_match(1, 2), dp_id=1)
-#             self.rcv_packet(1, 0, self.pkt_match(1, 2), dp_id=2)
-#             self.rcv_packet(4, 0, self.pkt_match(2, 1), dp_id=2)
-#             self.rcv_packet(1, 0, self.pkt_match(2, 1), dp_id=1)
-#             self.rcv_packet(1, 0, self.pkt_match(3, 2), dp_id=3)
-#             self.rcv_packet(3, 0, self.pkt_match(3, 2), dp_id=2)
-
-#     def _unicast_to(self, out_port, trace=False):
-#         ucast_match = {
-#             'in_port': 4,
-#             'eth_src': self.P2_V100_MAC,
-#             'eth_dst': self.P1_V100_MAC,
-#             'vlan_vid': 0,
-#             'eth_type': 0x800,
-#         }
-#         table = self.network.tables[self.DP_ID]
-#         return table.is_output(ucast_match, port=out_port, trace=False)
-
-#     def _learning_from_bcast(self, in_port):
-#         ucast_match = {
-#             'in_port': in_port,
-#             'eth_src': self.P1_V100_MAC,
-#             'eth_dst': self.BROADCAST_MAC,
-#             'vlan_vid': self.V100,
-#             'eth_type': 0x800,
-#         }
-#         table = self.network.tables[self.DP_ID]
-#         return table.is_output(ucast_match, port=CONTROLLER_PORT, trace=False)
-
-#     def validate_edge_learn_ports(self):
-#         """Validate the switch behavior before learning, and then learn hosts"""
-
-#         # Before learning, unicast should flood to stack root and packet-in.
-#         self.assertFalse(self._unicast_to(1), 'unlearned unicast to stack root')
-#         self.assertFalse(self._unicast_to(2), 'unlearned unicast to stack root')
-#         self.assertTrue(self._unicast_to(3), 'unlearned unicast away from stack root')
-#         self.assertTrue(self._unicast_to(CONTROLLER_PORT), 'unlearned unicast learn')
-#         self.assertFalse(self._learning_from_bcast(1), 'learn from stack root broadcast')
-#         self.assertFalse(self._learning_from_bcast(4), 'learn from access port broadcast')
-
-#         self.learn_stack_hosts()
-
-#         self.assertFalse(self._unicast_to(1), 'learned unicast to stack root')
-#         self.assertFalse(self._unicast_to(2), 'learned unicast to stack root')
-#         self.assertTrue(self._unicast_to(3), 'learned unicast away from stack root')
-#         self.assertFalse(self._unicast_to(CONTROLLER_PORT), 'no learn from unicast')
-#         self.assertFalse(self._learning_from_bcast(1), 'learn from stack root broadcast')
-#         self.assertFalse(self._learning_from_bcast(4), 'learn from access port broadcast')
-
-#     def test_stack_learn_edge(self):
-#         """Test stack learned edge"""
-#         self.activate_all_ports()
-#         self.validate_edge_learn_ports()
-
-#     def test_stack_learn_not_root(self):
-#         """Test stack learned when not root"""
-#         self.update_config(self._config_edge_learn_stack_root(False), reload_type='warm')
-#         self.trigger_stack_ports()
-#         self.activate_all_ports()
-#         self.validate_edge_learn_ports()
-
-
-class ValveStackLoopTest(ValveTestBases.ValveTestNetwork):
+class ValveStackChainTest(ValveTestBases.ValveTestNetwork):
     """Test base class for loop stack config"""
 
-    CONFIG = STACK_LOOP_CONFIG
+    CONFIG = STACK_CONFIG
+    DP = 's2'
+    DP_ID = 2
 
     def setUp(self):
         """Setup basic loop config"""
         self.setup_valves(self.CONFIG)
 
-    def validate_flooding(self, rerouted=False, portup=True):
-        """Validate the flooding state of the stack"""
-        vid = self.V100
-        self.validate_flood(1, vid, 1, False, 'flooded out input stack port')
-        self.validate_flood(1, vid, 2, portup, 'not flooded to stack root')
-        self.validate_flood(1, vid, 3, portup, 'not flooded to external host')
-        self.validate_flood(2, vid, 1, rerouted, 'flooded out other stack port')
-        self.validate_flood(2, vid, 2, False, 'flooded out input stack port')
-        self.validate_flood(2, vid, 3, True, 'not flooded to external host')
-        vid = 0
-        self.validate_flood(3, vid, 1, rerouted, 'flooded out inactive port')
-        self.validate_flood(3, vid, 2, True, 'not flooded to stack root')
-        self.validate_flood(3, vid, 3, False, 'flooded out hairpin')
-
     def learn_stack_hosts(self):
         """Learn some hosts."""
         for _ in range(2):
             self.rcv_packet(3, 0, self.pkt_match(1, 2), dp_id=1)
-            self.rcv_packet(2, 0, self.pkt_match(1, 2), dp_id=2)
-            self.rcv_packet(3, 0, self.pkt_match(2, 1), dp_id=2)
-            self.rcv_packet(2, 0, self.pkt_match(2, 1), dp_id=1)
+            self.rcv_packet(1, 0, self.pkt_match(1, 2), dp_id=2)
+            self.rcv_packet(4, 0, self.pkt_match(2, 1), dp_id=2)
+            self.rcv_packet(1, 0, self.pkt_match(2, 1), dp_id=1)
+            self.rcv_packet(1, 0, self.pkt_match(3, 2), dp_id=3)
+            self.rcv_packet(3, 0, self.pkt_match(3, 2), dp_id=2)
 
-
-class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
-    """Edge learning test cases"""
-
-    def _unicast_to(self, out_port):
+    def _unicast_to(self, out_port, trace=False):
         ucast_match = {
-            'in_port': 3,
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.P2_V100_MAC,
+            'in_port': 4,
+            'eth_src': self.P2_V100_MAC,
+            'eth_dst': self.P1_V100_MAC,
             'vlan_vid': 0,
             'eth_type': 0x800,
         }
         table = self.network.tables[self.DP_ID]
-        return table.is_output(ucast_match, port=out_port)
+        return table.is_output(ucast_match, port=out_port, trace=trace)
 
-    def _learning_from_bcast(self, in_port):
-        bcast_match = {
+    def _learning_from_bcast(self, in_port, trace=False):
+        ucast_match = {
             'in_port': in_port,
-            'eth_src': self.P2_V100_MAC,
+            'eth_src': self.P1_V100_MAC,
             'eth_dst': self.BROADCAST_MAC,
             'vlan_vid': self.V100,
             'eth_type': 0x800,
         }
         table = self.network.tables[self.DP_ID]
-        return table.is_output(bcast_match, port=CONTROLLER_PORT, trace=True)
+        return table.is_output(ucast_match, port=CONTROLLER_PORT, trace=trace)
 
     def validate_edge_learn_ports(self):
         """Validate the switch behavior before learning, and then learn hosts"""
 
         # Before learning, unicast should flood to stack root and packet-in.
-        self.assertFalse(self._unicast_to(1), 'unicast direct to edge')
-        self.assertTrue(self._unicast_to(2), 'unicast to stack root')
-        self.assertTrue(self._unicast_to(CONTROLLER_PORT), 'learn from unicast')
-
-        self.assertTrue(self._learning_from_bcast(2), 'learn from stack root broadcast')
+        # self.assertFalse(self._unicast_to(1), 'unlearned unicast to stack root')
+        # self.assertFalse(self._unicast_to(2), 'unlearned unicast to stack root')
+        # self.assertTrue(self._unicast_to(3), 'unlearned unicast away from stack root')
+        # self.assertTrue(self._unicast_to(CONTROLLER_PORT), 'unlearned unicast learn')
+        self.assertFalse(self._learning_from_bcast(1, trace=True), 'learn from stack root broadcast')
+        self.assertFalse(self._learning_from_bcast(4), 'learn from access port broadcast')
 
         self.learn_stack_hosts()
 
-        self.assertFalse(self._unicast_to(CONTROLLER_PORT), 'learn from unicast')
+        self.assertFalse(self._unicast_to(1), 'learned unicast to stack root')
+        self.assertFalse(self._unicast_to(2), 'learned unicast to stack root')
+        self.assertTrue(self._unicast_to(3), 'learned unicast away from stack root')
+        self.assertFalse(self._unicast_to(CONTROLLER_PORT), 'no learn from unicast')
+        self.assertFalse(self._learning_from_bcast(1), 'learn from stack root broadcast')
+        self.assertFalse(self._learning_from_bcast(4), 'learn from access port broadcast')
 
-    def test_edge_learn_edge_port(self):
-        """Check the behavior of the basic edge_learn_port algorithm"""
-
-        self.update_config(self._config_edge_learn_stack_root(False), reload_type='warm')
-
+    def test_stack_learn_edge(self):
+        """Test stack learned edge"""
         self.activate_all_ports()
-
-        self.network.print_table(1)
-
         self.validate_edge_learn_ports()
 
-        # After learning, unicast should go direct to edge switch.
-        self.assertTrue(self._unicast_to(1), 'unicast direct to edge')
-        self.assertFalse(self._unicast_to(2), 'unicast to stack root')
-
-        # TODO: This should be False to prevent unnecessary packet-ins.
-        self.assertTrue(self._learning_from_bcast(2), 'learn from stack root broadcast')
-
-    # def test_edge_learn_stack_root(self):
-    #     """Check the behavior of learning always towards stack root"""
-
+    # def test_stack_learn_not_root(self):
+    #     """Test stack learned when not root"""
+    #     self.update_config(self._config_edge_learn_stack_root(False), reload_type='warm')
+    #     self.trigger_stack_ports()
     #     self.activate_all_ports()
-
     #     self.validate_edge_learn_ports()
 
-    #     # After learning, unicast should go to stack root, and no more learning from root.
-    #     self.assertFalse(self._unicast_to(1), 'unicast direct to edge')
-    #     self.assertTrue(self._unicast_to(2), 'unicast to stack root')
-    #     self.assertFalse(self._learning_from_bcast(2), 'learn from stack root broadcast')
+
+# class ValveStackLoopTest(ValveTestBases.ValveTestNetwork):
+#     """Test base class for loop stack config"""
+
+#     CONFIG = STACK_LOOP_CONFIG
+
+#     def setUp(self):
+#         """Setup basic loop config"""
+#         self.setup_valves(self.CONFIG)
+
+#     def validate_flooding(self, rerouted=False, portup=True):
+#         """Validate the flooding state of the stack"""
+#         vid = self.V100
+#         self.validate_flood(1, vid, 1, False, 'flooded out input stack port')
+#         self.validate_flood(1, vid, 2, portup, 'not flooded to stack root')
+#         self.validate_flood(1, vid, 3, portup, 'not flooded to external host')
+#         self.validate_flood(2, vid, 1, rerouted, 'flooded out other stack port')
+#         self.validate_flood(2, vid, 2, False, 'flooded out input stack port')
+#         self.validate_flood(2, vid, 3, True, 'not flooded to external host')
+#         vid = 0
+#         self.validate_flood(3, vid, 1, rerouted, 'flooded out inactive port')
+#         self.validate_flood(3, vid, 2, True, 'not flooded to stack root')
+#         self.validate_flood(3, vid, 3, False, 'flooded out hairpin')
+
+#     def learn_stack_hosts(self):
+#         """Learn some hosts."""
+#         for _ in range(2):
+#             self.rcv_packet(3, 0, self.pkt_match(1, 2), dp_id=1)
+#             self.rcv_packet(2, 0, self.pkt_match(1, 2), dp_id=2)
+#             self.rcv_packet(3, 0, self.pkt_match(2, 1), dp_id=2)
+#             self.rcv_packet(2, 0, self.pkt_match(2, 1), dp_id=1)
+
+
+# class ValveStackEdgeLearnTestCase(ValveStackLoopTest):
+#     """Edge learning test cases"""
+
+#     def _unicast_to(self, out_port):
+#         ucast_match = {
+#             'in_port': 3,
+#             'eth_src': self.P1_V100_MAC,
+#             'eth_dst': self.P2_V100_MAC,
+#             'vlan_vid': 0,
+#             'eth_type': 0x800,
+#         }
+#         table = self.network.tables[self.DP_ID]
+#         return table.is_output(ucast_match, port=out_port)
+
+#     def _learning_from_bcast(self, in_port):
+#         bcast_match = {
+#             'in_port': in_port,
+#             'eth_src': self.P2_V100_MAC,
+#             'eth_dst': self.BROADCAST_MAC,
+#             'vlan_vid': self.V100,
+#             'eth_type': 0x800,
+#         }
+#         table = self.network.tables[self.DP_ID]
+#         return table.is_output(bcast_match, port=CONTROLLER_PORT)
+
+#     def validate_edge_learn_ports(self):
+#         """Validate the switch behavior before learning, and then learn hosts"""
+
+#         # Before learning, unicast should flood to stack root and packet-in.
+#         self.assertFalse(self._unicast_to(1), 'unicast direct to edge')
+#         self.assertTrue(self._unicast_to(2), 'unicast to stack root')
+#         self.assertTrue(self._unicast_to(CONTROLLER_PORT), 'learn from unicast')
+
+#         self.assertTrue(self._learning_from_bcast(2), 'learn from stack root broadcast')
+
+#         self.learn_stack_hosts()
+
+#         self.assertFalse(self._unicast_to(CONTROLLER_PORT), 'learn from unicast')
+
+#     def test_edge_learn_edge_port(self):
+#         """Check the behavior of the basic edge_learn_port algorithm"""
+
+#         self.update_config(self._config_edge_learn_stack_root(False), reload_type='warm')
+
+#         self.activate_all_ports()
+
+#         self.validate_edge_learn_ports()
+
+#         # After learning, unicast should go direct to edge switch.
+#         self.assertTrue(self._unicast_to(1), 'unicast direct to edge')
+#         self.assertFalse(self._unicast_to(2), 'unicast to stack root')
+
+#         # TODO: This should be False to prevent unnecessary packet-ins.
+#         self.assertTrue(self._learning_from_bcast(2), 'learn from stack root broadcast')
+
+#     def test_edge_learn_stack_root(self):
+#         """Check the behavior of learning always towards stack root"""
+
+#         self.activate_all_ports()
+
+#         self.validate_edge_learn_ports()
+
+#         # After learning, unicast should go to stack root, and no more learning from root.
+#         self.assertFalse(self._unicast_to(1), 'unicast direct to edge')
+#         self.assertTrue(self._unicast_to(2), 'unicast to stack root')
+#         self.assertFalse(self._learning_from_bcast(2), 'learn from stack root broadcast')
 
 
 # class ValveStackRedundantLink(ValveStackLoopTest):
