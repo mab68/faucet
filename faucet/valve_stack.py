@@ -96,30 +96,22 @@ This includes port nominations and flood directionality."""
             # Away ports are all the remaining (non-towards) ports
             self.away_ports = all_peer_ports - self.towards_root_ports
 
-            if self.away_ports:
-                # Get inactive away ports, ports whose peers have a better path to root
-                self.inactive_away_ports = {
-                    port for port in self.away_ports
-                    if not self.stack.is_in_path(port.stack['dp'].name, self.stack.root_name)}
+        if self.away_ports:
+            # Get inactive away ports, ports whose peers have a better path to root
+            self.inactive_away_ports = {
+                port for port in self.away_ports
+                if not self.stack.is_in_path(port.stack['dp'].name, self.stack.root_name)}
 
-                # Get pruned away ports, redundant ports for each adjacent DP
-                ports_by_dp = defaultdict(list)
-                for port in self.away_ports:
-                    ports_by_dp[port.stack['dp']].append(port)
-                for ports in ports_by_dp.values():
-                    remote_away_ports = self.stack.canonical_up_ports(
-                        [port.stack['port'] for port in ports])
-                    self.pruned_away_ports.update([
-                        port.stack['port'] for port in remote_away_ports
-                        if port != remote_away_ports[0]])
-
-                import sys
-                sys.stderr.write('CURRENT NODE %s\n' % self.stack.name)
-                sys.stderr.write('ROOT %s\n' % self.stack.root_name)
-                sys.stderr.write('TOWARDS %s\n' % self.chosen_towards_port)
-                sys.stderr.write('AWAY %s\n' % self.away_ports)
-                sys.stderr.write('INACTIVE %s\n' % self.inactive_away_ports)
-                sys.stderr.write('PRUNED %s\n\n' % self.pruned_away_ports)
+            # Get pruned away ports, redundant ports for each adjacent DP
+            ports_by_dp = defaultdict(list)
+            for port in self.away_ports:
+                ports_by_dp[port.stack['dp']].append(port)
+            for ports in ports_by_dp.values():
+                remote_away_ports = self.stack.canonical_up_ports(
+                    [port.stack['port'] for port in ports])
+                self.pruned_away_ports.update([
+                    port.stack['port'] for port in remote_away_ports
+                    if port != remote_away_ports[0]])
 
         return self.chosen_towards_ports
 
@@ -293,6 +285,11 @@ This includes port nominations and flood directionality."""
 
         return new_root_name
 
+    def stack_ports(self):
+        """Yield the stack ports of this stack node"""
+        for port in self.stack.ports:
+            yield port
+
     def is_stack_port(self, port):
         """Return whether the port is a stack port"""
         return bool(port.stack)
@@ -309,10 +306,14 @@ This includes port nominations and flood directionality."""
         return port == self.chosen_towards_port
 
     def is_pruned_port(self, port):
-        """Return true if there are more prefered ports for the node"""
+        """Return true if the port is to be pruned"""
         if self.is_towards_root(port):
             return not self.is_selected_towards_root_port(port)
-        return port in self.pruned_away_ports
+        if self.is_away(port):
+            if self.pruned_away_ports:
+                return port in self.pruned_away_ports
+            return False
+        return True
 
     def adjacent_stack_ports(self, peer_dp):
         """Return list of ports that connect to an adjacent DP"""
