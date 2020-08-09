@@ -920,6 +920,7 @@ class ValveStackRedundancyTestCase(ValveTestBases.ValveTestNetwork):
 
     CONFIG = STACK_CONFIG
 
+
     def setUp(self):
         self.setup_valves(self.CONFIG)
 
@@ -1203,6 +1204,8 @@ class ValveStackGraphUpdateTestCase(ValveTestBases.ValveTestNetwork):
 
 class ValveStackGraphBreakTestCase(ValveStackLoopTest):
     """Valve test for updating the stack graph."""
+
+
 
     def test_update_stack_graph(self):
         """Test stack graph port UP and DOWN updates"""
@@ -2746,6 +2749,9 @@ dps:
                 self.assertNotIn(
                     port.number, changed_ports,
                     'Stack port detected as changed on non-topology change')
+
+
+
 
 
 if __name__ == "__main__":
