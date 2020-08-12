@@ -1834,9 +1834,9 @@ dps:
         sw1_ids = {}
         sw2_ids = {}
         for acl in sw1.tunnel_acls:
-            sw1_ids[acl._id] = list(acl.tunnel_info.keys())[0]
+            sw1_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         for acl in sw2.tunnel_acls:
-            sw2_ids[acl._id] = list(acl.tunnel_info.keys())[0]
+            sw2_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         self.assertEqual(
             sw1_ids, sw2_ids,
             'Did not generate the same ID for same tunnels on different DPs')
@@ -1891,9 +1891,9 @@ dps:
         sw1_ids = {}
         sw2_ids = {}
         for acl in sw1.tunnel_acls:
-            sw1_ids[acl._id] = list(acl.tunnel_info.keys())[0]
+            sw1_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         for acl in sw2.tunnel_acls:
-            sw2_ids[acl._id] = list(acl.tunnel_info.keys())[0]
+            sw2_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         self.assertEqual(
             sw1_ids, sw2_ids,
             'Did not generate the same ID for same tunnels on different DPs')
@@ -1951,9 +1951,9 @@ dps:
         sw1_ids = {}
         sw2_ids = {}
         for acl in sw1.tunnel_acls:
-            sw1_ids[acl._id] = list(acl.tunnel_info.keys())[0]
+            sw1_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         for acl in sw2.tunnel_acls:
-            sw2_ids[acl._id] = list(acl.tunnel_info.keys())[0]
+            sw2_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         self.assertEqual(
             sw1_ids, sw2_ids,
             'Did not generate the same ID for same tunnels on different DPs')
@@ -2011,9 +2011,9 @@ dps:
         sw1_ids = {}
         sw2_ids = {}
         for acl in sw1.tunnel_acls:
-            sw1_ids[acl._id] = list(acl.tunnel_info.keys())[0]
+            sw1_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         for acl in sw2.tunnel_acls:
-            sw2_ids[acl._id] = list(acl.tunnel_info.keys())[0]
+            sw2_ids[acl._id] = list(acl.tunnel_dests.keys())[0]
         self.assertEqual(
             sw1_ids, sw2_ids,
             'Did not generate the same ID for same tunnels on different DPs')
