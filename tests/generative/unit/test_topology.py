@@ -128,27 +128,6 @@ class ValveGenerativeBase(ValveTestBases.ValveTestNetwork):
                     dst_port = ports[0]
                 match = self.create_bcast_match(src_port)
                 self.network.is_output(match, int(src_dpid), int(dst_dpid), port=dst_port)
-        # for dp_id, valve in self.valves_manager.valves.items():
-        #     matches = []
-        #     for port in valve.dp.ports.values():
-        #         if port.stack:
-        #             for vlan in valve.dp.vlans.values():
-        #                 matches.append({
-        #                     'in_port': port.number,
-        #                     'vlan_vid': vlan.vid | ofp.OFPVID_PRESENT,
-        #                     'eth_src': self.P1_V100_MAC})
-        #         elif port.native_vlan:
-        #             matches.append({
-        #                 'in_port': port.number,
-        #                 'vlan_vid': port.native_vlan.vid,
-        #                 'eth_src': self.P1_V100_MAC})
-        #         elif port.tagged_vlans:
-        #             for vlan in port.tagged_vlans:
-        #                 matches.append({
-        #                     'in_port': port.number,
-        #                     'vlan_vid': vlan.vid,
-        #                     'eth_src': self.P1_V100_MAC})
-        #     self.verify_flooding(matches, dp_id=dp_id)
 
     def verify_vlan_change(self):
         """Change host VLAN, check restart of rules consistent"""
