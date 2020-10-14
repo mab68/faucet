@@ -1187,8 +1187,6 @@ class FaucetTunnelAllowTest(FaucetTopoTestBase):
             ]
         }
 
-
-
     def setUp(self):  # pylint: disable=invalid-name
         """Start the network"""
         super().setUp()
@@ -1321,7 +1319,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTestBase):
         super(FaucetSingleTunnelOrderedTest, self).set_up(
             stack=True,
             n_dps=self.NUM_DPS,
-            n_untagged=self.NUM_HOSTS,
+            n_tagged=self.NUM_HOSTS,
             switch_to_switch_links=self.SWITCH_TO_SWITCH_LINKS)
 
     def test_tunnel_established(self):
@@ -1331,6 +1329,7 @@ class FaucetSingleTunnelOrderedTest(FaucetMultiDPTestBase):
         dst_host = self.net.get(self.topo.hosts_by_id[2])
         other_host = self.net.get(self.topo.hosts_by_id[1])
         self.verify_tunnel_established(src_host, dst_host, other_host)
+        self.assertFalse(True)
 
     def test_tunnel_path_rerouted(self):
         """Test a tunnel path is rerouted when a link is down."""
@@ -2641,3 +2640,197 @@ class FaucetStackDHCPSingleTaggedInterfaceTest(FaucetTopoTestBase):
         self.assertEqual(self.net.get(self.topo.hosts_by_id[3]).return_ip()[:-3], '10.2.0.11')
         self.check_host_connectivity_by_id(0, 2)
         self.check_host_connectivity_by_id(1, 3)
+
+
+class FaucetTunneltoCoprocessorTest(FaucetTopoTestBase):
+    """Test network topology with a tunnel exiting on a corprocessor port"""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 4
+    NUM_VLANS = 1
+    N_TAGGED = 0
+    N_UNTAGGED = 4
+
+    SOFTWARE_ONLY = True
+
+    def acls(self):
+        """Return ACL config"""
+        # Tunnel from host 3 (switch 1) to host 0 (switch 0)
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'ip_proto': 1,
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'type': 'vlan',
+                                'tunnel_id': 200,
+                                'dp': self.topo.switches_by_id[0],  # Switch 0
+                                'port': self.host_port_maps[0][0][0]}  # Switch 0 host 0
+                        }
+                    }
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    }
+                }},
+            ]
+        }
+
+    def setUp(self):  # pylint: disable=invalid-name
+        """Start the network"""
+        super().setUp()
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            if dp_i == 0:
+                dp_options[0]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1]}
+        host_vlans = {0: None, 1: 0, 2: 0, 3: 0}
+        host_options = {0: {'coprocessor': {'strategy': 'vlan_vid'}}, 1: {'acls_in': [1]}, 3: {'acls_in': [1]}}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            host_options=host_options,
+        )
+        self.start_net()
+
+    def test_tunnel_into_coprocessor_port(self):
+        """Test tunnel gets encapsulated into a coprocessor port"""
+        self.verify_stack_up()
+        src_host = self.net.get(self.topo.hosts_by_id[3])
+        other_host = self.net.get(self.topo.hosts_by_id[2])
+        dst_host = self.net.get(self.topo.hosts_by_id[0])
+        self.verify_tunnel_established(src_host, dst_host, other_host)
+        self.check_host_connectivity_by_id(3, 0)
+        self.assertFalse(True)
+        # # Should be able to ping from h_{0,100} -> h_{1,100} & h_{3,100}
+        # #   and also have the packets arrive at h_{2,200} (the other end of the tunnel)
+        # self.verify_stack_up()
+        # # Ensure connection to the host on the other end of the tunnel can exist
+        # src_host = self.net.get(self.topo.hosts_by_id[0])  # h_{0,100}
+        # other_host = self.net.get(self.topo.hosts_by_id[1])  # h_{1,100}
+        # dst_host = self.net.get(self.topo.hosts_by_id[2])  # h_{2,200}
+        # self.verify_tunnel_established(src_host, dst_host, other_host)
+        # # Ensure a connection to a host not in the tunnel can exist
+        # #   this implies that the packet is also sent through the pipeline
+        # self.check_host_connectivity_by_id(0, 1)
+        # self.check_host_connectivity_by_id(0, 3)
+
+
+class FaucetRemoteCoprocessorDHCPTest(FaucetTopoTestBase):
+
+    NUM_DPS = 2
+    NUM_HOSTS = 5
+    NUM_VLANS = 2
+
+    N_TAGGED = 1
+    N_UNTAGGED = 4
+
+    SOFTWARE_ONLY = True
+
+    def acls(self):
+        """Configuration ACLs"""
+        return {
+            1: [
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'nw_dst': '10.1.0.2',
+                    'actions': {
+                        'output': {
+                            'port': self.host_port_maps[1][0][0]  # Host 1
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'dl_dst': 'ff:ff:ff:ff:ff:ff',
+                    'actions': {
+                        'output': {
+                            'ports': [
+                                self.host_port_maps[1][0][0],  # Host 1
+                                self.link_port_maps[(0, 1)][0]]  # link (0, 1)
+                        }
+                    },
+                }},
+                {'rule': {
+                    'dl_type': IPV4_ETH,
+                    'actions': {
+                        'output': {
+                            'port': self.link_port_maps[(0, 1)][0]  # link (0, 1)
+                        }
+                    },
+                }},
+                {'rule': {
+                    'actions': {
+                        'allow': 1,
+                    },
+                }},
+            ]
+        }
+
+    # DP-to-acl_in port mapping.
+    def link_acls(self):
+        """Host/link map to acls_in"""
+        return {
+            0: [1],  # Host 0 dp 0 'acls_in': [1]
+            (1, 0): [2],
+            (2, 1): [3]
+        }
+
+    def host_ip_address(self, host_index, vlan_index):
+        """Create a string of the host IP address"""
+        return '0.0.0.0'
+
+    def setUp(self):
+        """Ignore to allow for setting up network in each test"""
+
+    def set_up(self):
+        """Set up network"""
+        super().setUp()
+        network_graph = networkx.path_graph(self.NUM_DPS)
+        dp_options = {}
+        for dp_i in network_graph.nodes():
+            dp_options.setdefault(dp_i, {
+                'group_table': self.GROUP_TABLE,
+                'ofchannel_log': self.debug_log_path + str(dp_i) if self.debug_log_path else None,
+                'hardware': self.hardware if dp_i == 0 and self.hw_dpid else 'Open vSwitch'
+            })
+            if dp_i == 0:
+                dp_options[dp_i]['stack'] = {'priority': 1}
+        switch_links = list(network_graph.edges())
+        link_vlans = {edge: None for edge in switch_links}
+        host_links = {0: [0], 1: [0], 2: [1], 3: [1], 4: [0]}
+        # two host on each native VLAN then DHCP host on tagged VLANs
+        host_vlans = {0: 0, 1: 1, 2: 0, 3: 1, 4: [0, 1]}
+        # Configure no-IP for non-dhcp hosts as they will obtain IP from DHCP
+        mininet_host_options = {h_i: {'ip': '0.0.0.0'} for h_i in range(self.NUM_HOSTS - 1)}
+        mininet_host_options[4] = {'vlan_intfs': {0: '10.1.0.20/24', 1: '10.2.0.20/24'}, 'ip': '0.0.0.0'}
+        vlan_options = {
+            v_i: {'faucet_vips': [self.faucet_vip(v_i)], 'faucet_mac': self.faucet_mac(v_i)}
+            for v_i in range(self.NUM_VLANS)}
+        self.build_net(
+            host_links=host_links,
+            host_vlans=host_vlans,
+            switch_links=switch_links,
+            link_vlans=link_vlans,
+            n_vlans=self.NUM_VLANS,
+            dp_options=dp_options,
+            vlan_options=vlan_options,
+            mininet_host_options=mininet_host_options
+        )
+        self.start_net()

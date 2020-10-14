@@ -395,6 +395,8 @@ class Valve:
         """Configure a VLAN."""
         self.logger.info('Configuring %s' % vlan)
         ofmsgs = []
+        if vlan.reserved_internal_vlan:
+            return ofmsgs
         for manager in self._managers:
             ofmsgs.extend(manager.add_vlan(vlan, cold_start))
         return ofmsgs
@@ -1103,12 +1105,12 @@ class Valve:
 
         if updated_port:
             for vlan in updated_port.vlans():
-                if _update_vlan(vlan, now, rate_limited):
+                if not vlan.reserved_internal_vlan and _update_vlan(vlan, now, rate_limited):
                     _update_port(vlan, updated_port)
                     vlan.dyn_last_updated_metrics_sec = now
         else:
             for vlan in self.dp.vlans.values():
-                if _update_vlan(vlan, now, rate_limited):
+                if not vlan.reserved_internal_vlan and _update_vlan(vlan, now, rate_limited):
                     for port in vlan.get_ports():
                         _update_port(vlan, port)
                     vlan.dyn_last_updated_metrics_sec = now

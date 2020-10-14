@@ -396,11 +396,10 @@ class FaucetTopoGenerator(Topo):
                     }
                 }
             elif vlans is None:
-                # output only link
+                # output only link or coprocessor, leave to more specific options to handle
                 interface_config = {
                     'name': 'b%u' % src_port,
                     'description': 'output only %s' % link_name,
-                    'output_only': True,
                 }
             else:
                 raise GenerationError('Unknown %s link type %s' % (type_, vlans))

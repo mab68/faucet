@@ -485,6 +485,8 @@ The output action contains a dictionary with the following elements:
             self.matches['in_port'] = False
         if 'vlan_vid' not in self.matches:
             self.matches['vlan_vid'] = False
+        if 'eth_type' not in self.matches:
+            self.matches['eth_type'] = False
         if 'vlan_vid' not in self.set_fields:
             self.set_fields.add('vlan_vid')
 
@@ -496,7 +498,17 @@ The output action contains a dictionary with the following elements:
         new_list = []
         if curr_dp == src_dp and curr_dp != dst_dp:
             # SRC DP: in_port, actions=[push_vlan, output, pop_vlans]
-            new_list = [{'vlan_vid': tunnel_id}, {'port': out_port}, {'pop_vlans': 1}]
+            # Ideally, we would be able to detect if the tunnel has an `allow` action clause.
+            #   However, this is difficult as a single ACL can have multiple rules using the same
+            #   tunnel, but with one instance requiring the `allow` clause and another, not.
+            # This means it is easier to always append the `pop_vlans` in assumption that the
+            #   `allow` action does exist, and then optimize/reduce the redundant rules before
+            #   outputting the flowrule.
+            # Make sure we encapsulate with QinQ eth_type
+            new_list = [
+                {'vlan_vids': [{'vid': tunnel_id, 'eth_type': 0x8100}]},
+                {'port': out_port},
+                {'pop_vlans': 1}]
         elif curr_dp == dst_dp and curr_dp != src_dp:
             # DST DP: in_port, vlan_vid, actions=[pop_vlan, output]
             new_list = [{'pop_vlans': 1}, {'port': out_port}]

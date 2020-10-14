@@ -22,6 +22,8 @@ from faucet import valve_packet
 from faucet.valve_manager_base import ValveManagerBase
 from faucet.conf import InvalidConfigError
 
+from ryu.ofproto import ether
+
 
 def push_vlan(acl_table, vlan_vid):
     """Push a VLAN tag with optional selection of eth type."""
@@ -220,6 +222,9 @@ def build_tunnel_ofmsgs(rule_conf, acl_table, priority,
         acl_match_dict['in_port'] = port_num
     if vlan_vid is not None:
         acl_match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
+    # Ideally, we should be matching the tunnel encapsulation TPID here i.e. 0x88a8
+    #acl_match_dict['vlan_tpid'] = ether.ETH_TYPE_8021AD
+    #acl_match_dict['dl_type'] = ether.ETH_TYPE_8021Q
     acl_match = valve_of.match_from_dict(acl_match_dict)
     flowmod = acl_table.flowmod(acl_match, priority=priority, inst=tuple(acl_inst))
     if flowdel:
